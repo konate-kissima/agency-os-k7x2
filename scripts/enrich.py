@@ -17,6 +17,18 @@ BAD_IG = {"p", "reel", "reels", "explore", "accounts", "stories", "tv", "about",
 BAD_FB = {"sharer", "sharer.php", "share", "share.php", "dialog", "tr", "plugins", "login", "policies", "privacy", "groups", "events", "watch", "hashtag", "ads", "business", "help", "pages", "photo", "photo.php", "permalink.php"}
 
 
+# Annuaires, réseaux et portails : leur site n'est pas celui de l'entreprise, leurs liens sociaux ne lui appartiennent pas
+BAD_SITES = ("qualit-enr.org", "qualibat.com", "qualifelec.fr", "qualigaz.com", "france-renov.gouv.fr", "faire.gouv.fr", "ademe.fr", "pagesjaunes.fr",
+             "societe.com", "pappers.fr", "facebook.com", "instagram.com", "linkedin.com", "google.com", "google.fr", "business.site", "mappy.com",
+             "houzz.fr", "habitatpresto.com", "travaux.com", "quotatis.fr", "123devis.com", "lesentreprises.fr", "verif.com", "infogreffe.fr", "annuaire-entreprises.data.gouv.fr")
+BAD_HANDLES = {"qualitenr", "ouiauxenergiesrenouvelables", "qualibat", "qualifelec", "qualigaz", "ademe", "faire", "wix", "wordpress", "elementor", "squarespace", "jimdo", "webador"}
+
+
+def bad_site(url):
+    host = urllib.parse.urlparse(url if re.match(r"https?://", url or "") else "https://" + (url or "")).netloc.lower()
+    return not host or any(host == b or host.endswith("." + b) for b in BAD_SITES)
+
+
 def norm(s):
     return re.sub(r"[^a-z0-9]", "", (s or "").lower())
 
@@ -65,7 +77,7 @@ def allowed(url):
 
 def crawl(site):
     out = {}
-    if not site:
+    if not site or bad_site(site):
         return out
     if not re.match(r"https?://", site):
         site = "https://" + site
@@ -82,10 +94,10 @@ def crawl(site):
         except Exception:
             continue
         for m in re.finditer(r"https?://(?:www\.)?instagram\.com/([A-Za-z0-9_.]{2,30})/?", html):
-            if m.group(1).lower() not in BAD_IG and "instagram" not in out:
+            if m.group(1).lower() not in BAD_IG and m.group(1).lower() not in BAD_HANDLES and "instagram" not in out:
                 out["instagram"] = "https://instagram.com/" + m.group(1)
         for m in re.finditer(r"https?://(?:www\.|fr-fr\.)?facebook\.com/([A-Za-z0-9_.\-]{3,80})/?(?:[\"'?<\s]|$)", html):
-            if m.group(1).lower() not in BAD_FB and "facebook" not in out:
+            if m.group(1).lower() not in BAD_FB and m.group(1).lower() not in BAD_HANDLES and "facebook" not in out:
                 out["facebook"] = "https://facebook.com/" + m.group(1)
         for m in re.finditer(r"https?://(?:[a-z]+\.)?linkedin\.com/(company/[A-Za-z0-9_\-%]+)", html):
             out.setdefault("linkedin", "https://linkedin.com/" + m.group(1))
@@ -113,9 +125,9 @@ def main():
             if g.get(k): patch[k] = g[k]
         if g.get("gphone") and not d.get("phone"):
             patch["phone"] = g["gphone"]
-        site = d.get("website") or g.get("gsite") or ""
-        if site and not d.get("website"):
-            patch["website"] = site
+        site = d.get("website") or ""
+        if (not site or bad_site(site)) and g.get("gsite") and not bad_site(g["gsite"]):
+            site = g["gsite"]; patch["website"] = site
         c = crawl(site)
         for k in ("instagram", "facebook", "linkedin", "email"):
             if c.get(k) and not d.get(k):
