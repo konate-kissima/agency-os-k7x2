@@ -79,7 +79,7 @@ const fs = require('fs');
   await pg.click('section:has(h3:has-text("Signé")) [data-act=open]');
   await pg.click('[data-act=mkclient]');
   ok(await pg.locator('h3:has-text("Dupont Plomberie")').count() === 1, 'client créé');
-  ok((await pg.textContent('main')).replace(/[\u202f\u00a0]/g,' ').includes('1 200 €'), 'prix pilote 1 200 €');
+  ok((await pg.textContent('main')).replace(/[\u202f\u00a0]/g,' ').includes('3 000 €'), 'prix pilote 3 000 €');
   await pg.check('[data-k=launch]');
   ok(await pg.locator('.banner:has-text("Revue J+14")').count() === 0, 'pas de revue due le jour du lancement');
   await pg.fill('#m-spend', '420'); await pg.fill('#m-leads', '21'); await pg.fill('#m-qual', '12'); await pg.fill('#m-jobs', '2');
