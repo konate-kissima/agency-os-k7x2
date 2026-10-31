@@ -4,7 +4,7 @@ on:
     inputs:
       limit:
         description: "Nombre de fiches à traiter"
-        default: "300"
+        default: "100"
   schedule:
     - cron: "17 3 * * *"
 jobs:
@@ -22,4 +22,4 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_KEY }}
-          LIMIT: ${{ github.event.inputs.limit || '300' }}
+          LIMIT: ${{ github.event.inputs.limit || '100' }}

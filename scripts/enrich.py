@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Enrichit les fiches Agency OS : avis/téléphone/site (Google Places) puis Instagram/Facebook/email (site de l'entreprise).
-Variables : SUPABASE_URL, SUPABASE_SERVICE_KEY, GOOGLE_PLACES_KEY (facultative), LIMIT (défaut 300).
+Variables : SUPABASE_URL, SUPABASE_SERVICE_KEY, GOOGLE_PLACES_KEY (facultative), LIMIT (défaut 100).
 Ne contourne aucune protection : respecte robots.txt, 1 requête à la fois, délai entre sites."""
 import os, re, sys, time, json, urllib.parse, urllib.robotparser
 import requests
@@ -9,7 +9,7 @@ SB = os.environ["SUPABASE_URL"].rstrip("/")
 SK = os.environ["SUPABASE_SERVICE_KEY"]
 GK = os.environ.get("GOOGLE_PLACES_KEY", "")
 PLACES = os.environ.get("PLACES_BASE", "https://places.googleapis.com").rstrip("/")
-LIMIT = int(os.environ.get("LIMIT", "300"))
+LIMIT = int(os.environ.get("LIMIT", "100"))
 PAUSE = float(os.environ.get("PAUSE", "1.0"))
 H = {"apikey": SK, "Authorization": "Bearer " + SK, "Content-Type": "application/json"}
 UA = "Mozilla/5.0 (compatible; AgencyOSBot/1.0; +enrichissement de fiches B2B)"
