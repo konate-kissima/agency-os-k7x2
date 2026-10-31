@@ -1,0 +1,25 @@
+name: Enrichissement des fiches
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Nombre de fiches à traiter"
+        default: "300"
+  schedule:
+    - cron: "17 3 * * *"
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - run: python scripts/enrich.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_KEY }}
+          LIMIT: ${{ github.event.inputs.limit || '300' }}
