@@ -45,6 +45,7 @@ const fs = require('fs');
   await pg.click('[data-act=callres][data-r=rdv]');
   try{await pg.waitForSelector('h2:has-text("Martin Chauffage")',{timeout:5000})}catch(e){console.log('DIAG toast=',await pg.textContent('#toast'),'| cr=',await pg.inputValue('#cr').catch(()=>'-'),'| h2=',await pg.$$eval('h2',h=>h.map(x=>x.textContent)).catch(()=>'-'));process.exitCode=1}
   ok(true, 'fiche suivante après RDV');
+  ok(/RDV pris : Dupont/.test(await pg.textContent('main')) && await pg.locator('a[href^="https://calendar.google.com"]').count()===1 && await pg.locator('a[href^="https://wa.me/33139700000"]').count()===1, 'carte confirmation RDV (Google Agenda + WhatsApp)');
 
   // appel 2 : Martin -> pas de réponse (reprogrammé) puis plus personne
   await pg.selectOption('#cang', 'B');

@@ -259,6 +259,17 @@ function dueBanner(){
   return h;
 }
 
+const RDV_MSG="Bonjour {contact}, c'est Kissima, comme convenu on se retrouve {quand} pour notre échange de 15 min en visio. Voici le lien : {lien}. À très vite !";
+const icsDate=d=>d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'T'+pad(d.getHours())+pad(d.getMinutes())+'00';
+function rdvCard(){
+  const p=S.lastRDV?byId(S.lastRDV):null;if(!p||!p.rdvAt)return '';
+  const d=new Date(p.rdvAt),e=new Date(d.getTime()+15*60000);
+  const quand=d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})+' à '+pad(d.getHours())+'h'+pad(d.getMinutes());
+  const gcal='https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent('Échange avec '+p.name)+'&dates='+icsDate(d)+'/'+icsDate(e)+'&ctz=Europe/Paris&details='+encodeURIComponent('Échange de 15 minutes en visio.')+(p.email?'&add='+encodeURIComponent(p.email):'');
+  const msg=fillScript(RDV_MSG,p).replace('{quand}',quand).replace('{lien}','[lien Meet]').replace('monsieur/madame','').replace('Bonjour ,','Bonjour,');
+  const ph=normPhone(p.phone),enc=encodeURIComponent(msg);
+  const wa=ph?'https://wa.me/'+(ph.startsWith('0')?'33'+ph.slice(1):ph.replace('+',''))+'?text='+enc:'';
+  return `<div class="card" style="border:2px solid var(--ok,#2a7)"><b>RDV pris : ${esc(p.name)}, ${esc(quand)}.</b> Confirme-le en 2 clics :<div class="row" style="margin-top:8px;flex-wrap:wrap"><a class="btn primary" href="${gcal}" target="_blank" rel="noopener">1. Créer l'invitation Google (ajoute Meet)</a>${wa?`<a class="btn" href="${wa}" target="_blank" rel="noopener">2. WhatsApp</a>`:''}${p.email?`<a class="btn" href="mailto:${esc(p.email)}?subject=${encodeURIComponent('Notre échange')}&body=${enc}">2. Email</a>`:''}<button class="btn sm" data-act="rdvdone">OK, fait</button></div><p class="muted sm" style="margin-top:6px">Dans Google Agenda, clique « Ajouter Google Meet », enregistre, puis remplace [lien Meet] dans le message.</p></div>`}
 const NR_SMS="Bonjour {contact}, Kissima. Je viens d'essayer de vous joindre : j'aide des plombiers/chauffagistes à recevoir plus de demandes de devis. Auriez-vous 10 min cette semaine ? Bonne journée.";
 function nrCard(){
   const p=S.lastNR?byId(S.lastNR):null;if(!p)return '';
@@ -268,7 +279,7 @@ function nrCard(){
   return `<div class="card" style="border:2px solid var(--ok,#2a7)"><b>Pas de réponse : ${esc(p.name)}.</b> Relance en 1 clic :<div class="row" style="margin-top:8px;flex-wrap:wrap">${ph?`<a class="btn primary" href="sms:${esc(ph)}?&body=${e}" data-act="nrdone">SMS</a><a class="btn" href="${wa}" target="_blank" rel="noopener" data-act="nrdone">WhatsApp</a>`:''}${p.email?`<a class="btn" href="mailto:${esc(p.email)}?subject=${encodeURIComponent('Suite à mon appel')}&body=${e}" data-act="nrdone">Email</a>`:''}<button class="btn sm" data-act="nrdone">Ignorer</button></div><p class="muted sm" style="margin-top:6px">${esc(msg)}</p></div>`}
 function appelsHTML(){
   const Q=callQueue(),st=todayStats(),sc=settings();
-  const nrc=nrCard();
+  const nrc=rdvCard()+nrCard();
   let cur=S.call.pid?byId(S.call.pid):null;
   if(!cur||!Q.some(x=>x.id===cur.id))cur=Q[0]||null;
   if(cur&&S.call.pid!==cur.id){S.call.pid=cur.id;S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date=''}
@@ -319,7 +330,7 @@ async function callResult(r){
   else if(r==='bad')patch={...base,phone:'',badPhone:true};
   else patch={...base,stage:'stop',optout:true};
   const ok=await guard(async()=>{await DB.set('calls',id,call);await DB.update('prospects',p.id,patch)});
-  if(ok){S.calls.push({id,...call});Object.assign(p,patch);S.call.pid='';if(r==='nr')S.lastNR=p.id;toast(RES_L[r]+' enregistré.');render()}
+  if(ok){S.calls.push({id,...call});Object.assign(p,patch);S.call.pid='';if(r==='nr')S.lastNR=p.id;if(r==='rdv')S.lastRDV=p.id;toast(RES_L[r]+' enregistré.');render()}
 }
 
 /* ================= outreach (DM, vidéo, email) ================= */
@@ -350,7 +361,7 @@ function outreachHTML(){
   let cur=S.out.pid?byId(S.out.pid):null;
   if(!cur||!Q.some(x=>x.id===cur.id))cur=Q[0]||null;
   if(cur&&S.out.pid!==cur.id){S.out.pid=cur.id;S.out.note='';S.out.handle='';S.out.rdvAt=''}
-  if(!cur){S.out.pid='';return dueBanner()+kp+`<div class="card"><b>Personne à contacter pour l'instant.</b><div class="muted sm">Importe une liste ou attends les relances (3 jours ouvrés après un envoi).</div></div>`}
+  if(!cur){S.out.pid='';return dueBanner()+rdvCard()+kp+`<div class="card"><b>Personne à contacter pour l'instant.</b><div class="muted sm">Importe une liste ou attends les relances (3 jours ouvrés après un envoi).</div></div>`}
   const isVid=S.out.ch==='video',isMail=S.out.ch==='email';
   const variants=Object.entries(sc.outScripts);
   const v=sc.outScripts[S.out.variant]||variants[0][1];
@@ -372,7 +383,7 @@ function outreachHTML(){
   const text=fillOut(v.text,cur);
   const right=`<div class="card"><h3>${esc(v.name)}</h3><div class="script" id="otext">${esc(text)}</div><button class="btn sm" data-act="copy">Copier le message</button>
    <p class="muted sm" style="margin-top:10px">${isVid?'Vidéo : une par prospect, adressée à lui, avec sa fiche Google à l\'écran. Tu l\'envoies seulement s\'il a répondu « oui, envoie » ou en première approche si tu préfères.':'DM : le but de la première phrase est de déclencher une réponse, pas de vendre. Aucune promesse de chantiers, aucune fausse référence, aucun faux profil.'}</p></div>`;
-  return dueBanner()+kp+`<div class="grid2">${left}${right}</div>`;
+  return dueBanner()+rdvCard()+kp+`<div class="grid2">${left}${right}</div>`;
 }
 async function outResult(r){
   const p=byId(S.out.pid);if(!p)return;
@@ -392,7 +403,7 @@ async function outResult(r){
   else if(r==='no')patch={...base,stage:'perdu',lostReason:'Pas intéressé ('+CH_L[ch]+')'};
   else patch={...base,stage:'stop',optout:true};
   const ok=await guard(async()=>{await DB.set('calls',id,call);await DB.update('prospects',p.id,patch)});
-  if(ok){S.calls.push({id,...call});Object.assign(p,patch);S.out.pid='';toast(ALL_RES_L[r]+' enregistré.');render()}
+  if(ok){S.calls.push({id,...call});Object.assign(p,patch);S.out.pid='';if(r==='rdv')S.lastRDV=p.id;toast(ALL_RES_L[r]+' enregistré.');render()}
 }
 
 /* ================= contenu ================= */
@@ -851,6 +862,7 @@ document.addEventListener('click',async e=>{
   else if(a==='demo')loadDemo();
   else if(a==='goals-save')saveGoals();
   else if(a==='dedupe')cleanDupes();
+  else if(a==='rdvdone'){S.lastRDV='';render()}
   else if(a==='nrdone'){const p=byId(S.lastNR);if(p&&b.tagName==='A'){DB.update('prospects',p.id,{nrSent:(p.nrSent||0)+1});p.nrSent=(p.nrSent||0)+1}S.lastNR='';setTimeout(render,50)}
   else if(a==='osm')sourceOSM();
   else if(a==='gouv')sourceGouv();
