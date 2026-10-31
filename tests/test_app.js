@@ -15,6 +15,8 @@ const fs = require('fs');
   const ok = (c, m) => { if (!c) { console.log('FAIL', m); process.exitCode = 1; } else console.log('ok  ', m); };
 
   await pg.waitForSelector('nav.tabs');
+  ok(/Aujourd'hui/.test(await pg.textContent('main')) && /0<\/b>|0 \//.test(await pg.innerHTML('main')),'onglet Aujourd\'hui par défaut');
+  await pg.click('[data-v=appels]');
   ok(await pg.locator('text=Plus personne à appeler').count() === 1, 'file vide au départ');
 
   // import CSV
@@ -33,7 +35,7 @@ const fs = require('fs');
   // appel 1 : Dupont (score 100) -> RDV
   await pg.click('[data-v=appels]');
   ok(await pg.locator('h2:has-text("Dupont Plomberie")').count() === 1, 'file triée par score : Dupont en premier');
-  ok(await pg.locator('.script:has-text("40 avis")').count() === 1, 'script rempli avec avis');
+  ok(await pg.locator('.script:has-text("20 et 30 chantiers")').count() === 1, 'script Hamza tel quel affiché');
   await pg.fill('#cn', 'Gérant sympa, 2 techniciens');
   await pg.selectOption('#co', 'Déjà trop de travail');
   await pg.click('[data-act=callres][data-r=rdv]');
@@ -48,6 +50,7 @@ const fs = require('fs');
   await pg.selectOption('#cang', 'B');
   await pg.click('[data-act=callres][data-r=nr]');
   ok(await pg.locator('text=Plus personne à appeler').count() === 1, 'Pas de réponse reprogrammé au lendemain');
+  ok(/Relance en 1 clic/.test(await pg.textContent('main')) && await pg.locator('a[href^="sms:"]').count()===1, 'carte relance SMS après pas de réponse');
 
   // outreach : file DM
   await pg.click('[data-v=outreach]');
@@ -83,12 +86,20 @@ const fs = require('fs');
   await pg.click('[data-act=met-add]');
   ok((await pg.textContent('main')).includes('20 €') || (await pg.textContent('main')).includes('coût/lead 20 €'), 'coût par lead = 20 €');
 
+  // aujourd'hui
+  await pg.click('[data-v=auj]');
+  const aj=await pg.textContent('main');
+  ok(/2\s*\/\s*70/.test(aj)||/Appels\s*2\s*\/\s*70/.test(aj),'checklist : appels 2 / 70 ('+aj.replace(/\s+/g,' ').slice(0,200)+')');
+  await pg.check('[data-k=liste]'); ok(await pg.isChecked('[data-k=liste]'),'case cochée persistée');
+  await pg.waitForTimeout(300); await pg.click('details summary'); await pg.fill('#g-calls-0','80'); await pg.click('[data-act=goals-save]'); await pg.waitForTimeout(200);
+  const m80=await pg.textContent('main');ok(/2\s*\/\s*80/.test(m80),'objectif modifiable '+m80.replace(/\s+/g,' ').slice(0,260));
+
   // stats
   await pg.click('[data-v=stats]');
   const st = await pg.textContent('main');
   ok(/2\s*appels/.test(st), 'stats : 2 appels');
   ok(st.includes('DM Instagram') && st.includes('Appel'), 'stats par canal');
-  ok(st.includes('H · Base Hamza') && st.includes('B · Découverte'), 'stats par angle');
+  ok(st.includes('H · Script Hamza') && st.includes('B · Découverte'), 'stats par angle');
 
   // scripts + export
   await pg.click('[data-v=scripts]');
