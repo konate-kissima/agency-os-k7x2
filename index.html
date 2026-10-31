@@ -112,7 +112,11 @@ const OUT_CH=[['dm_insta','DM Instagram'],['dm_fb','DM Facebook'],['dm_lin','DM 
 const OUT_RES=[['sent','Envoyé','primary'],['reply','A répondu',''],['rdv','RDV pris','primary'],['no','Pas intéressé',''],['stop','Ne plus contacter','danger']];
 const OUT_JOINT=['reply','rdv','no','stop'];
 const MAX_OUT=4;
-const OUT_GOAL=15;
+const OUT_GOAL=70;
+const IDF=['75','77','78','91','92','93','94','95'];
+const FR_DEPTS=['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','19','21','22','23','24','25','26','27','28','29','2A','2B','30','31','32','33','34','35','36','37','38','39','40','41','42','43','44','45','46','47','48','49','50','51','52','53','54','55','56','57','58','59','60','61','62','63','64','65','66','67','68','69','70','71','72','73','74','75','76','77','78','79','80','81','82','83','84','85','86','87','88','89','90','91','92','93','94','95'];
+const scopeDepts=v=>v==='fr'?FR_DEPTS:IDF;
+const sleep=ms=>new Promise(r=>setTimeout(r,window.__noSleep?0:ms));
 const DEF_OUT={
  D1:{name:'D1 · Question courte (DM)',text:`Bonjour {nom_court}, {accroche}. Question rapide : aujourd'hui vos nouveaux clients viennent surtout du bouche-à-oreille ou d'autre chose ?`},
  D2:{name:'D2 · Fiche Google + capacité (DM)',text:`Bonjour, je vois que {nom} a {avis} avis à {note}/5, belle réputation. Vous avez de la place dans votre planning pour quelques chantiers de plus ce mois-ci ? Je monte un programme pilote de demandes de devis par publicité pour 3 artisans d'Île-de-France, je me demandais si ça pouvait vous parler.`},
@@ -261,11 +265,13 @@ async function callResult(r){
 function outTries(p){return callsOf(p.id).filter(c=>!isCall(c)&&c.result==='sent').length}
 function outQueue(){
   const t=today(),sk=S.out.skip;
-  return S.prospects.filter(p=>!p.optout&&!p.outDone&&['a_contacter','contacte'].includes(p.stage||'a_contacter')&&!sk.includes(p.id)&&(!p.outNext||p.outNext<=t))
+  return S.prospects.filter(p=>!p.optout&&!p.outDone&&['a_contacter','contacte'].includes(p.stage||'a_contacter')&&!sk.includes(p.id)&&!(p.enrich==='todo'&&!(p.instagram||p.facebook||p.linkedin||p.email))&&(!p.outNext||p.outNext<=t))
    .sort((a,b)=>{const h=x=>(x.instagram||x.facebook||x.linkedin||x.email)?0:1;return h(a)-h(b)||(+b.score||0)-(+a.score||0)||(+b.reviews||0)-(+a.reviews||0)});
 }
 function hookFor(p){
   const n=p.name||'votre entreprise',v=p.city||'votre secteur';
+  const yr=p.created_co?+String(p.created_co).slice(0,4):0;
+  if(yr&&yr>=new Date().getFullYear()-2)return `j'ai vu que ${n} a été créée en ${yr}, vous lancez votre activité sur ${v}`;
   if(+p.reviews>=30&&+p.rating>=4.5)return `j'ai vu que ${n} a ${p.reviews} avis à ${p.rating}/5 sur Google, c'est un vrai bouche-à-oreille`;
   if(/chauffage|chaudi|pompe|thermi|énergie|energie/i.test(n))return `j'ai vu que ${n} fait du chauffage sur ${v}`;
   if(/dépann|depann|urgence|sos|express/i.test(n))return `j'ai vu que ${n} fait du dépannage sur ${v}`;
@@ -505,28 +511,67 @@ async function importCSV(text){
   });
   if(await guard(()=>DB.setMany('prospects',items))){items.forEach(([id,d])=>S.prospects.push({id,...d}));toast(items.length+' fiches ajoutées, '+dup+' doublons ignorés, '+nophone+' sans téléphone.');render()}
 }
+function mergeNew(items,have,phones,mk){/* utilitaire de dédoublonnage */}
+async function addProspects(items){
+  if(!items.length)return 0;
+  if(await guard(()=>DB.setMany('prospects',items))){items.forEach(([id,d])=>S.prospects.push({id,...d}));return items.length}
+  return 0;
+}
 async function sourceOSM(){
-  const btn=$('#osmbtn');if(btn){btn.disabled=true;btn.textContent='Recherche en cours (jusqu\'à 1 minute)…'}
-  const q='[out:json][timeout:90];area["ISO3166-2"="FR-IDF"]->.a;nwr(area.a)["craft"~"^(plumber|hvac)$"];out center tags;';
-  try{
-    const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'data='+encodeURIComponent(q)});
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    const j=await r.json();
-    const have=new Set(S.prospects.map(p=>p.id));const phones=new Set(S.prospects.map(p=>normPhone(p.phone)).filter(Boolean));
-    const items=[];let dup=0,pauvre=0;
-    (j.elements||[]).forEach(e=>{const t=e.tags||{};const name=(t.name||'').trim();if(!name)return;
-      const phone=t.phone||t['contact:phone']||t['contact:mobile']||'';
-      const insta=t['contact:instagram']||t.instagram||'',fb=t['contact:facebook']||t.facebook||'',mail=t.email||t['contact:email']||'';
-      const web=t.website||t['contact:website']||t.url||'';
-      if(!hasPhone(phone)&&!insta&&!fb&&!mail){pauvre++;return}
-      const id='o'+e.type[0]+e.id;const np=normPhone(phone);
-      if(have.has(id)||(np&&phones.has(np))){dup++;return}have.add(id);if(np)phones.add(np);
-      const pc=t['addr:postcode']||'';
-      items.push([id,{name,phone:hasPhone(phone)?phone:'',website:web,instagram:insta,facebook:fb,email:mail,city:t['addr:city']||'',dept:pc?pc.slice(0,2):'',address:[t['addr:housenumber'],t['addr:street'],pc].filter(Boolean).join(' '),score:40+(insta?30:0)+(fb?15:0)+(hasPhone(phone)?10:0)+(web?5:0),stage:'a_contacter',created:today(),source:'osm'}]);
-    });
-    if(!items.length){toast('Aucune nouvelle fiche ('+dup+' déjà présentes).')}
-    else if(await guard(()=>DB.setMany('prospects',items))){items.forEach(([id,d])=>S.prospects.push({id,...d}));toast(items.length+' fiches ajoutées, '+dup+' doublons, '+pauvre+' ignorées (ni téléphone, ni réseau social, ni email).')}
-  }catch(err){toast('Recherche impossible : '+err.message+'. Réessaie dans une minute.')}
+  const scope=($('#osmscope')||{}).value||'idf';const depts=scopeDepts(scope);
+  const btn=$('#osmbtn');if(btn)btn.disabled=true;
+  const have=new Set(S.prospects.map(p=>p.id));const phones=new Set(S.prospects.map(p=>normPhone(p.phone)).filter(Boolean));
+  let added=0,dup=0,pauvre=0,errs=0;
+  for(let i=0;i<depts.length;i++){
+    const d=depts[i];if(btn)btn.textContent='OpenStreetMap : département '+d+' ('+(i+1)+'/'+depts.length+')…';
+    const q='[out:json][timeout:60];area["boundary"="administrative"]["admin_level"="6"]["ref:INSEE"="'+d+'"]->.a;nwr(area.a)["craft"~"^(plumber|hvac)$"];out center tags;';
+    try{
+      const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'data='+encodeURIComponent(q)});
+      if(!r.ok)throw new Error('HTTP '+r.status);const j=await r.json();const items=[];
+      (j.elements||[]).forEach(e=>{const t=e.tags||{};const name=(t.name||'').trim();if(!name)return;
+        const phone=t.phone||t['contact:phone']||t['contact:mobile']||'';
+        const insta=t['contact:instagram']||t.instagram||'',fb=t['contact:facebook']||t.facebook||'',mail=t.email||t['contact:email']||'';
+        const web=t.website||t['contact:website']||t.url||'';
+        if(!hasPhone(phone)&&!insta&&!fb&&!mail){pauvre++;return}
+        const id='o'+e.type[0]+e.id;const np=normPhone(phone);
+        if(have.has(id)||(np&&phones.has(np))){dup++;return}have.add(id);if(np)phones.add(np);
+        const pc=t['addr:postcode']||'';
+        items.push([id,{name,phone:hasPhone(phone)?phone:'',website:web,instagram:insta,facebook:fb,email:mail,city:t['addr:city']||'',dept:pc?pc.slice(0,2):d,address:[t['addr:housenumber'],t['addr:street'],pc].filter(Boolean).join(' '),score:40+(insta?30:0)+(fb?15:0)+(hasPhone(phone)?10:0)+(web?5:0),stage:'a_contacter',created:today(),source:'osm'}]);
+      });
+      added+=await addProspects(items);
+    }catch(err){errs++}
+    await sleep(2500);
+  }
+  toast(added+' fiches OpenStreetMap ajoutées, '+dup+' doublons, '+pauvre+' ignorées (aucun contact)'+(errs?', '+errs+' départements en erreur (relance plus tard)':'')+'.');
+  render();
+}
+const cleanName=n=>String(n||'').replace(/\s*\(.*?\)\s*$/,'').replace(/\s+/g,' ').trim();
+const titleCase=n=>String(n||'').toLowerCase().replace(/(^|[\s\-'])([a-zà-ÿ])/g,(m,a,b)=>a+b.toUpperCase());
+async function sourceGouv(){
+  const scope=($('#osmscope')||{}).value||'idf';const depts=scopeDepts(scope);
+  const btn=$('#govbtn');if(btn)btn.disabled=true;
+  const have=new Set(S.prospects.map(p=>p.id));let added=0,errs=0;
+  for(let i=0;i<depts.length;i++){
+    const d=depts[i];const items=[];
+    for(const naf of ['43.22A','43.22B']){
+      for(let page=1;page<=400;page++){
+        if(btn)btn.textContent='Annuaire officiel : département '+d+' ('+(i+1)+'/'+depts.length+'), '+naf+' page '+page+'…';
+        try{
+          const r=await fetch('https://recherche-entreprises.api.gouv.fr/search?activite_principale='+naf+'&departement='+d+'&etat_administratif=A&per_page=25&page='+page);
+          if(r.status===429){await sleep(2500);page--;continue}
+          if(!r.ok)throw new Error('HTTP '+r.status);const j=await r.json();const res=j.results||[];
+          res.forEach(x=>{const id='s'+x.siren;if(have.has(id))return;have.add(id);
+            const sg=x.siege||{};const dir=(x.dirigeants||[]).find(z=>z.prenoms&&z.nom);
+            items.push([id,{name:titleCase(cleanName(x.nom_complet)),phone:'',website:'',city:titleCase(sg.libelle_commune||''),dept:d,address:[sg.adresse].filter(Boolean).join(' '),dirigeant:dir?titleCase(String(dir.prenoms).split(/[\s,]+/)[0]+' '+dir.nom):'',created_co:x.date_creation||'',effectif:x.tranche_effectif_salarie||'',siren:x.siren,score:30+(x.date_creation&&+String(x.date_creation).slice(0,4)>=new Date().getFullYear()-2?20:0),stage:'a_contacter',created:today(),source:'gouv',enrich:'todo'}]);
+          });
+          if(res.length<25||page>=j.total_pages)break;
+          await sleep(160);
+        }catch(err){errs++;break}
+      }
+    }
+    added+=await addProspects(items);
+  }
+  toast(added+' entreprises ajoutées depuis l\'annuaire officiel'+(errs?' ('+errs+' erreurs, relance plus tard)':'')+'. Elles n\'ont pas encore de téléphone ni de compte : voir « À enrichir ».');
   render();
 }
 async function loadDemo(){
@@ -548,7 +593,13 @@ function exportProspects(){
 function donneesHTML(){
   const mode=DB.mode==='local'?`<div class="banner">Mode local : les données sont dans CE navigateur seulement. Exporte régulièrement les CSV. Pour le cloud, voir le guide ci-dessous.</div>`:'';
   return mode+`<div class="card"><h2>Importer une liste</h2><p class="muted sm">CSV produit par le script de recherche (colonnes : name, phone, website, rating, reviews, address, city, dept, place_id, maps_url, score). Les doublons (même numéro) sont ignorés, les fiches sans téléphone aussi.</p><input type="file" id="csvf" accept=".csv,text/csv"></div>
-  <div class="card"><h2>Chercher des plombiers et chauffagistes (gratuit)</h2><p class="muted sm">Interroge OpenStreetMap, sans clé et sans abonnement, pour toute l'Île-de-France. Récupère le téléphone, le site, Instagram, Facebook et l'email quand ils sont renseignés. Les fiches sans aucun moyen de contact sont ignorées. Tu peux relancer la recherche : les doublons ne sont pas recréés.</p><button class="btn" id="osmbtn" data-act="osm">Lancer la recherche</button></div>
+  <div class="card"><h2>Sources gratuites</h2><p class="muted sm">Sans clé, sans abonnement. Tu peux relancer : les doublons ne sont pas recréés.</p>
+   <label class="f" for="osmscope">Zone</label><select id="osmscope"><option value="idf">Île-de-France</option><option value="fr">France entière (long)</option></select>
+   <div class="res" style="margin-top:8px"><button class="btn" id="osmbtn" data-act="osm">OpenStreetMap : téléphones et comptes déjà renseignés</button></div>
+   <p class="muted sm">Peu de fiches mais immédiatement appelables (téléphone). Environ 200 en Île-de-France.</p>
+   <div class="res" style="margin-top:8px"><button class="btn" id="govbtn" data-act="gouv">Annuaire officiel des entreprises : liste complète</button></div>
+   <p class="muted sm">Plusieurs milliers d'entreprises (plomberie et chauffage actifs) avec le prénom du dirigeant et la date de création. Pas de téléphone : elles attendent l'enrichissement. La recherche utilise la zone choisie ci-dessus.</p>
+   <p class="sm"><b>À enrichir : ${S.prospects.filter(p=>p.enrich==='todo'&&!p.phone&&!p.instagram&&!p.facebook&&!p.email).length}</b> · Appelables : ${S.prospects.filter(p=>hasPhone(p.phone)).length} · Contactables en DM : ${S.prospects.filter(p=>p.instagram||p.facebook||p.linkedin||p.email).length}</p></div>
   <div class="card"><h2>Essayer l'outil</h2><p class="muted sm">Charge 10 fiches fictives (numéros de la plage réservée à la fiction) pour tester les appels, les DM et les stats. Tu peux ensuite les ignorer ou les retirer en les passant en « Ne plus appeler ».</p><button class="btn" data-act="demo">Charger 10 fiches de démonstration</button></div>
   <div class="card"><h2>Exporter</h2><div class="row"><button class="btn" data-act="exp-calls">Appels (CSV)</button><button class="btn" data-act="exp-pros">Prospects (CSV)</button></div></div>
   <div class="card"><h2>Registre d'opposition (${S.prospects.filter(p=>p.optout).length})</h2><p class="muted sm">Toute personne marquée « Ne plus appeler » est exclue de la file d'appels et doit le rester.</p></div>
@@ -609,6 +660,7 @@ document.addEventListener('click',async e=>{
   else if(a==='addangle')addAngle();
   else if(a==='demo')loadDemo();
   else if(a==='osm')sourceOSM();
+  else if(a==='gouv')sourceGouv();
   else if(a==='exp-calls')exportCalls();
   else if(a==='exp-pros')exportProspects();
   else if(a==='logout'){await DB.sb.auth.signOut();S.user=null;render()}

@@ -38,9 +38,10 @@ const fs = require('fs');
   await pg.selectOption('#co', 'Déjà trop de travail');
   await pg.click('[data-act=callres][data-r=rdv]');
   ok(/date et l'heure/.test(await pg.textContent('#toast')), 'RDV exige une date');
+  await pg.waitForTimeout(600);
   await pg.fill('#cr', '2026-11-04T10:00');
   await pg.click('[data-act=callres][data-r=rdv]');
-  await pg.waitForSelector('h2:has-text("Martin Chauffage")');
+  try{await pg.waitForSelector('h2:has-text("Martin Chauffage")',{timeout:5000})}catch(e){console.log('DIAG toast=',await pg.textContent('#toast'),'| cr=',await pg.inputValue('#cr').catch(()=>'-'),'| h2=',await pg.$$eval('h2',h=>h.map(x=>x.textContent)).catch(()=>'-'));process.exitCode=1}
   ok(true, 'fiche suivante après RDV');
 
   // appel 2 : Martin -> pas de réponse (reprogrammé) puis plus personne
