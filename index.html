@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Agency OS</title>
+<style>
+:root{color-scheme:light dark;--bg:#f6f5f2;--surface:#fff;--surface2:#eeece7;--ink:#1c1b19;--muted:#6b675f;--line:#dcd8cf;--accent:#1f4d3a;--accent-ink:#fff;--good:#1b7a43;--bad:#b3261e;--warn:#9a6700;--brass:#a47a1e;--shadow:0 1px 3px rgba(0,0,0,.12);--f-body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+@media (prefers-color-scheme:dark){:root{--bg:#141412;--surface:#1e1d1a;--surface2:#2a2925;--ink:#eeebe4;--muted:#a09b90;--line:#38362f;--accent:#5fb98a;--accent-ink:#0d1a13;--good:#5fd08c;--bad:#ff8a80;--warn:#e3b341;--brass:#d6a84a;--shadow:0 1px 3px rgba(0,0,0,.5)}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 var(--f-body)}
+a{color:var(--accent)}h1,h2,h3,h4{margin:0 0 8px}h2{font-size:19px}h3{font-size:16px}
+header.top{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+header.top .brand{font-weight:700;margin-right:6px}
+nav.tabs{display:flex;gap:4px;flex-wrap:wrap;flex:1}
+nav.tabs button{border:0;background:transparent;color:var(--ink);padding:7px 12px;border-radius:8px;font:inherit;cursor:pointer}
+nav.tabs button[aria-selected=true]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+main{padding:14px;max-width:1150px;margin:0 auto}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px;box-shadow:var(--shadow)}
+.grid2{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:820px){.grid2,.grid3{grid-template-columns:1fr}}
+.muted{color:var(--muted)}.sm{font-size:13px}.r{text-align:right}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 13px;border-radius:8px;font:inherit;cursor:pointer}
+.btn:hover{border-color:var(--accent)}.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn.danger{color:var(--bad)}.btn.sm{padding:4px 9px;font-size:13px}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 9px;max-width:100%}
+textarea{width:100%}label.f{display:block;margin:8px 0 3px;font-size:13px;color:var(--muted)}
+.chip{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;background:var(--surface2);margin-right:4px}
+.chip.hot{background:var(--good);color:#fff}.chip.warn{background:var(--warn);color:#fff}.chip.bad{background:var(--bad);color:#fff}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}.kpi b{display:block;font-size:24px}.kpi span{font-size:12px;color:var(--muted)}
+table.t{width:100%;border-collapse:collapse;font-size:14px}table.t th,table.t td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}table.t th{font-size:12px;color:var(--muted);font-weight:600}table.t td.r,table.t th.r{text-align:right}
+.scroll-x{overflow-x:auto}
+.callnum{display:inline-block;font-size:26px;font-weight:700;margin:6px 0;text-decoration:none}
+.script{background:var(--surface2);border-radius:8px;padding:10px 12px;margin:10px 0;white-space:pre-wrap;font-size:14px}
+.res{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.bar{display:flex;align-items:flex-end;gap:3px;height:90px}.bar div{flex:1;background:var(--accent);min-width:6px;border-radius:3px 3px 0 0;position:relative}
+.bar div.b2{background:var(--brass)}
+.banner{background:var(--warn);color:#fff;border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:14px}
+.banner.info{background:var(--surface2);color:var(--ink);border:1px solid var(--line)}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);max-width:760px;width:94%;padding:16px}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ck{display:flex;gap:8px;align-items:center;padding:4px 0}
+#toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:10px;display:none;z-index:99}
+.login{max-width:360px;margin:12vh auto;padding:0 14px}
+ul.plain{margin:6px 0;padding-left:18px}
+</style></head><body>
+<div id="app"></div><div id="toast" role="status"></div><dialog id="dlg"></dialog>
+<script src="config.js"></script>
+<script>
+"use strict";
+/* ================= utilitaires ================= */
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const toISO=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const today=()=>toISO(new Date());
+const addDays=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return toISO(d)};
+const workday=n=>{let d=new Date();d.setHours(12);let k=0;while(k<n){d.setDate(d.getDate()+1);if(d.getDay()!==0)k++}return toISO(d)};
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const normPhone=p=>{let s=String(p||'').replace(/[^\d+]/g,'');if(s.startsWith('+33'))s='0'+s.slice(3);else if(s.startsWith('0033'))s='0'+s.slice(4);return s};
+const fmtPhone=p=>{const s=normPhone(p);return /^0\d{9}$/.test(s)?s.replace(/(\d{2})(?=\d)/g,'$1 ').trim():String(p||'')};
+const isMobile=p=>/^0[67]/.test(normPhone(p));
+const hasPhone=p=>normPhone(p).length>=9;
+const fdate=iso=>{if(!iso)return '';const d=new Date(iso.length>10?iso:iso+'T12:00:00');return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})+(iso.length>10?' '+pad(d.getHours())+'h'+pad(d.getMinutes()):'')};
+const money=n=>(Math.round(+n||0)).toLocaleString('fr-FR')+' €';
+let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toastT);toastT=setTimeout(()=>t.style.display='none',2600)}
+
+/* ================= constantes métier ================= */
+const STAGES=[['a_contacter','À contacter'],['contacte','Contacté / à rappeler'],['rdv','RDV pris'],['rdv_fait','RDV fait'],['pilote','Pilote proposé'],['signe','Signé'],['perdu','Perdu'],['stop','Ne plus appeler']];
+const RES=[['rdv','RDV pris','primary'],['rap','À rappeler',''],['nr','Pas de réponse',''],['rep','Répondeur',''],['no','Pas intéressé',''],['bad','Mauvais numéro',''],['stop','Ne plus appeler','danger']];
+const RES_L=Object.fromEntries(RES.map(r=>[r[0],r[1]]));
+const JOINT=['rdv','rap','no','stop'];
+const OBJ=['—','Pas le temps','Déjà une agence','Le bouche-à-oreille suffit','Pas de budget / trop cher','Déjà trop de travail','Doit en parler (associé, conjoint)','A déjà essayé les pubs (sans résultat)','Pas le décideur','Méfiance','Autre'];
+const MAX_TRIES=5;
+const DEF_SCRIPTS={
+ A:{name:'A · Capacité de chantiers',text:`INTRO
+« Bonjour, Kissima à l'appareil. Je regarde votre fiche Google : {avis} avis, {note}/5, bravo. Vous avez 30 secondes ? »
+
+QUESTION D'ACCROCHE
+« Est-ce que vous avez de la place dans votre planning pour 5 à 10 chantiers de plus par mois (chaudière, salle de bain, rénovation) ? »
+
+SI OUI
+« Je monte en ce moment un programme pilote avec 3 artisans d'Île-de-France : je vous amène des demandes de devis via Facebook et Instagram. Vous payez la publicité directement à Meta, je ne promets pas de chantiers, je livre des demandes. »
+
+RDV
+« 15 minutes en visio {jour} pour voir si ça colle. Matin ou après-midi ? »`},
+ B:{name:'B · Découverte (d\'où viennent vos clients)',text:`INTRO
+« Bonjour, Kissima à l'appareil. Je vous appelle vite fait : je travaille avec des artisans sur leur recherche de clients. »
+
+DÉCOUVERTE (écoute, ne vends pas)
+1. « Aujourd'hui, vos nouveaux clients viennent d'où ? »
+2. « Et ça tombe régulièrement, ou par à-coups ? »
+3. « Vous en perdez combien par mois, faute de temps ou de réponse ? »
+4. « Si vous pouviez choisir, vous voudriez quel type de chantiers en plus ? »
+
+PONT
+« Je teste justement un système de demandes de devis par publicité, pour un petit nombre d'artisans. Ça vous parlerait d'en discuter 15 minutes ? »`},
+ C:{name:'C · Pilote direct (tarif réduit)',text:`INTRO
+« Bonjour, Kissima à l'appareil. Je vous appelle directement : je cherche 3 artisans plombiers/chauffagistes pour un programme pilote. »
+
+OFFRE
+« Je mets en place et je pilote vos publicités Facebook et Instagram pour générer des demandes de devis. Tarif pilote réduit en échange de l'autorisation de présenter les résultats. Vous gardez la main : la publicité tourne sur votre compte, vous payez Meta directement. »
+
+HONNÊTETÉ
+« Je démarre cette offre : c'est pour ça que c'est un pilote. Je m'engage sur le nombre de demandes livrées, pas sur les chantiers signés. »
+
+RDV
+« On se voit 15 minutes en visio {jour} ? »`}
+};
+const DEF_SETTINGS={angle:'A',pilotPrice:1200,normalPrice:2000,budgetDay:30,minMonths:3,recordText:'Cet appel peut être enregistré pour ma formation. Dites-le-moi si vous préférez que non.',scripts:DEF_SCRIPTS};
+const CHECK=[['contrat','Contrat signé + 1er paiement'],['page','Page Facebook du client prête'],['bm','Accès partenaire au Business Manager / compte pub du client'],['pay','Moyen de paiement du client sur le compte pub'],['form','Formulaire de leads (3 questions de qualification)'],['crea','Créatives (3 variantes) validées par le client'],['alerte','Alerte lead (SMS/WhatsApp au client) + rappel du lead en moins de 5 min'],['launch','Campagne lancée (date = début des 14 jours sans toucher)'],['j14','Revue à J+14'],['cas','Accord écrit pour le cas d\'étude']];
+const OUT_CH=[['dm_insta','DM Instagram'],['dm_fb','DM Facebook'],['dm_lin','DM LinkedIn'],['video','Vidéo personnalisée (Loom, 45 s)'],['email','Email']];
+const OUT_RES=[['sent','Envoyé','primary'],['reply','A répondu',''],['rdv','RDV pris','primary'],['no','Pas intéressé',''],['stop','Ne plus contacter','danger']];
+const OUT_JOINT=['reply','rdv','no','stop'];
+const MAX_OUT=4;
+const DEF_OUT={
+ D1:{name:'D1 · Question courte (DM)',text:`Bonjour {nom_court}, question rapide : aujourd'hui vos nouveaux clients viennent surtout du bouche-à-oreille ou d'autre chose ?`},
+ D2:{name:'D2 · Fiche Google + capacité (DM)',text:`Bonjour, je vois que {nom} a {avis} avis à {note}/5, belle réputation. Vous avez de la place dans votre planning pour quelques chantiers de plus ce mois-ci ? Je monte un programme pilote de demandes de devis par publicité pour 3 artisans d'Île-de-France, je me demandais si ça pouvait vous parler.`},
+ V1:{name:'V1 · Vidéo perso 45 s (Loom)',text:`1. (0-5 s) « Bonjour [prénom], je suis Kissima, je vous ai préparé cette vidéo à vous, pas un message copié-collé. »
+2. (5-20 s) Montre sa fiche Google / son site : « J'ai vu que vous faites [chaudières / salles de bain] sur {ville}, {avis} avis, vous avez un vrai bouche-à-oreille. »
+3. (20-35 s) « Le point faible que je vois : aucune source de demandes régulière en dehors du bouche-à-oreille. Je teste un système de demandes de devis par pub Facebook/Instagram pour 3 artisans. »
+4. (35-45 s) « Si ça vous parle, répondez-moi ici, on se fait 15 minutes en visio. »
+Règle : une vidéo par prospect, jamais de faux client cité, jamais de promesse de chantiers.`},
+ E1:{name:'E1 · Email court',text:`Objet : question sur {nom}
+
+Bonjour,
+
+Je vois que {nom} a {avis} avis Google à {note}/5. Pour 3 artisans d'Île-de-France, je teste un système de demandes de devis par publicité Facebook/Instagram (la pub est payée directement par l'artisan à Meta).
+
+Avez-vous de la place pour quelques chantiers de plus ?
+
+Kissima
+
+(Message professionnel. Pour ne plus recevoir mes messages, répondez STOP.)`}
+};
+const CLI_STATUS=[['onboarding','Mise en place'],['live','En diffusion'],['pause','En pause'],['fini','Terminé']];
+
+/* ================= couche de données ================= */
+function localBackend(){
+  const mem={},subs={};
+  const read=c=>{try{const s=localStorage.getItem('aos:'+c);return s?JSON.parse(s):(mem[c]||{})}catch(e){return mem[c]||{}}};
+  const write=(c,o)=>{mem[c]=o;try{localStorage.setItem('aos:'+c,JSON.stringify(o))}catch(e){}(subs[c]||[]).forEach(f=>f())};
+  return{mode:'local',
+    async list(c){return Object.entries(read(c)).map(([id,d])=>({id,...d}))},
+    async set(c,id,d){const o=read(c);o[id]=d;write(c,o)},
+    async update(c,id,p){const o=read(c);o[id]={...(o[id]||{}),...p};write(c,o)},
+    async del(c,id){const o=read(c);delete o[id];write(c,o)},
+    async setMany(c,items){const o=read(c);items.forEach(([id,d])=>{o[id]=d});write(c,o)},
+    watch(c,f){(subs[c]=subs[c]||[]).push(f)}};
+}
+function cloudBackend(sb){
+  return{mode:'cloud',sb,
+    async list(c){let out=[],from=0;for(;;){const{data,error}=await sb.from(c).select('id,data').range(from,from+999);if(error)throw error;out=out.concat(data.map(r=>({id:r.id,...r.data})));if(data.length<1000)break;from+=1000}return out},
+    async set(c,id,d){const{error}=await sb.from(c).upsert({id,data:d});if(error)throw error},
+    async update(c,id,p){const{error}=await sb.rpc('fusion_doc',{t:c,doc_id:id,patch:p});if(error)throw error},
+    async del(c,id){const{error}=await sb.from(c).delete().eq('id',id);if(error)throw error},
+    async setMany(c,items){for(let i=0;i<items.length;i+=400){const{error}=await sb.from(c).upsert(items.slice(i,i+400).map(([id,d])=>({id,data:d})));if(error)throw error}},
+    watch(c,f){sb.channel('rt-'+c).on('postgres_changes',{event:'*',schema:'public',table:c},f).subscribe()}};
+}
+let DB;
+
+/* ================= état ================= */
+const S={tab:'appels',prospects:[],calls:[],clients:[],content:[],settings:{...DEF_SETTINGS},loaded:false,
+  out:{pid:'',ch:'dm_insta',variant:'D1',note:'',handle:'',rdvAt:'',skip:[]},
+  call:{pid:'',angle:'',note:'',obj:'—',audio:'',informed:false,skip:[],mob:'all',rdvAt:'',date:''},
+  pf:{q:'',stage:'',dept:''},st:{days:14},cl:{open:''},err:''};
+const byId=id=>S.prospects.find(p=>p.id===id);
+const cliById=id=>S.clients.find(c=>c.id===id);
+const settings=()=>({...DEF_SETTINGS,...S.settings,scripts:{...DEF_SCRIPTS,...(S.settings.scripts||{})},outScripts:{...DEF_OUT,...(S.settings.outScripts||{})}});
+const isCall=c=>!c.channel||c.channel==='appel';
+const CH_L=Object.assign({appel:'Appel'},Object.fromEntries(OUT_CH));
+const ALL_RES_L=Object.assign({},Object.fromEntries(OUT_RES.map(r=>[r[0],r[1]])),Object.fromEntries(RES.map(r=>[r[0],r[1]])));
+
+async function loadAll(){
+  const [p,c,cl,st,ct]=await Promise.all(['prospects','calls','clients','settings','content'].map(x=>DB.list(x)));
+  S.content=ct.sort((a,b)=>String(b.d).localeCompare(String(a.d)));S.prospects=p;S.calls=c.sort((a,b)=>String(a.t).localeCompare(String(b.t)));S.clients=cl;
+  const m=st.find(x=>x.id==='main');S.settings=m?(({id,...r})=>r)(m):{};S.loaded=true;
+}
+let rt;function refresh(){clearTimeout(rt);rt=setTimeout(async()=>{try{await loadAll()}catch(e){S.err=String(e.message||e)}render()},150)}
+async function guard(fn){try{await fn();return true}catch(e){toast('Erreur : '+(e.message||e));return false}}
+const saveP=(id,patch)=>guard(async()=>{await DB.update('prospects',id,patch);Object.assign(byId(id)||{},patch)});
+
+/* ================= file d'appels ================= */
+function callQueue(){
+  const t=today(),sk=S.call.skip,mob=S.call.mob;
+  return S.prospects.filter(p=>!p.optout&&hasPhone(p.phone)&&!sk.includes(p.id)&&(p.stage==='a_contacter'||(p.stage==='contacte'&&(!p.nextDate||p.nextDate<=t)))
+    &&(mob==='all'||(mob==='fixe'&&!isMobile(p.phone))||(mob==='mobile'&&isMobile(p.phone))))
+   .sort((a,b)=>{const da=a.stage==='contacte'?0:1,db=b.stage==='contacte'?0:1;return da-db||(+b.score||0)-(+a.score||0)||(+b.reviews||0)-(+a.reviews||0)||String(a.name).localeCompare(String(b.name))});
+}
+function callsOf(pid){return S.calls.filter(c=>c.prospectId===pid)}
+function todayStats(){const t=today();const L=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t);return{n:L.length,j:L.filter(c=>JOINT.includes(c.result)).length,r:L.filter(c=>c.result==='rdv').length}}
+function fillScript(txt,p){return String(txt||'').replace(/\{avis\}/g,p.reviews||'?').replace(/\{note\}/g,p.rating||'?').replace(/\{nom\}/g,p.name||'').replace(/\{ville\}/g,p.city||'').replace(/\{jour\}/g,'demain')}
+
+function dueBanner(){
+  const t=today();const items=S.clients.filter(c=>c.status!=='fini'&&c.checklist&&c.checklist.launch&&!c.checklist.j14).map(c=>({c,d:addDays(c.checklist.launch,14)}));
+  const due=items.filter(x=>x.d<=t);const soon=items.filter(x=>x.d>t&&x.d<=addDays(t,3));
+  let h='';
+  due.forEach(x=>{h+=`<div class="banner">Revue J+14 à faire : <b>${esc(x.c.name)}</b> (campagne lancée le ${fdate(x.c.checklist.launch)}). <button class="btn sm" data-act="cli-open" data-id="${esc(x.c.id)}">Ouvrir</button></div>`});
+  soon.forEach(x=>{h+=`<div class="banner info">Revue J+14 le ${fdate(x.d)} : ${esc(x.c.name)} (ne pas toucher la campagne avant).</div>`});
+  const rdv=S.prospects.filter(p=>p.stage==='rdv'&&p.rdvAt&&p.rdvAt.slice(0,10)<=addDays(t,1)).sort((a,b)=>a.rdvAt.localeCompare(b.rdvAt));
+  rdv.forEach(p=>{h+=`<div class="banner info">RDV ${fdate(p.rdvAt)} : <b>${esc(p.name)}</b> ${esc(fmtPhone(p.phone))} <button class="btn sm" data-act="open" data-id="${esc(p.id)}">Fiche</button></div>`});
+  return h;
+}
+
+function appelsHTML(){
+  const Q=callQueue(),st=todayStats(),sc=settings();
+  let cur=S.call.pid?byId(S.call.pid):null;
+  if(!cur||!Q.some(x=>x.id===cur.id))cur=Q[0]||null;
+  if(cur&&S.call.pid!==cur.id){S.call.pid=cur.id;S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date=''}
+  if(!cur)S.call.pid='';
+  const ang=S.call.angle||sc.angle;
+  const kp=`<div class="kpis"><div class="kpi"><b>${st.n}</b><span>appels aujourd'hui</span></div><div class="kpi"><b>${st.j}</b><span>conversations</span></div><div class="kpi"><b>${st.r}</b><span>RDV pris</span></div><div class="kpi"><b>${Q.length}</b><span>à appeler</span></div></div>`;
+  const filt=`<div class="row sm" style="margin-bottom:10px"><span class="muted">Lignes :</span><select data-act="mobsel" aria-label="Type de ligne"><option value="all"${S.call.mob==='all'?' selected':''}>Toutes</option><option value="fixe"${S.call.mob==='fixe'?' selected':''}>Fixes / standards</option><option value="mobile"${S.call.mob==='mobile'?' selected':''}>Mobiles (06/07)</option></select></div>`;
+  if(!cur)return dueBanner()+kp+filt+`<div class="card"><b>Plus personne à appeler pour l'instant.</b><div class="muted sm">Importe une liste (onglet Données) ou attends les rappels programmés.</div></div>`;
+  const hist=callsOf(cur.id).slice(-4).reverse();
+  const mob=isMobile(cur.phone);
+  const left=`<div class="card"><div class="muted sm">${cur.stage==='contacte'?'<span class="chip warn">Rappel</span>':'<span class="chip hot">Premier appel</span>'}${mob?'<span class="chip bad" title="Mobile : le régime consommateur peut s\'appliquer aux indépendants, à vérifier">Mobile</span>':''}${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}${cur.touches?' · '+cur.touches+' tentative(s)':''}</div>
+   <h2 style="margin-top:4px">${esc(cur.name)}</h2>
+   <div class="sm muted">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a>`:''}${cur.score?' · score '+esc(cur.score):''}</div>
+   <a class="callnum" href="tel:${esc(normPhone(cur.phone))}">${esc(fmtPhone(cur.phone))}</a>
+   ${hist.length?`<div class="sm muted" style="margin-bottom:6px"><b>Historique</b><br>${hist.map(h=>`${fdate(h.t)} · ${esc(CH_L[h.channel||'appel'])} · ${esc(ALL_RES_L[h.result]||h.result)}${h.note?' — '+esc(h.note):''}`).join('<br>')}</div>`:''}
+   ${cur.notes?`<div class="sm muted" style="white-space:pre-wrap">${esc(cur.notes)}</div>`:''}
+   <label class="f" for="cn">Note de l'appel (interlocuteur, objection exacte, volume de chantiers, outils utilisés…)</label>
+   <textarea id="cn" rows="5" placeholder="Ce que tu as appris">${esc(S.call.note)}</textarea>
+   <div class="row"><div><label class="f" for="co">Objection principale</label><select id="co">${OBJ.map(o=>`<option${S.call.obj===o?' selected':''}>${esc(o)}</option>`).join('')}</select></div>
+   <div><label class="f" for="cd">Rappel le</label><input type="date" id="cd" value="${esc(S.call.date||workday(2))}"></div>
+   <div><label class="f" for="cr">RDV (si pris)</label><input type="datetime-local" id="cr" value="${esc(S.call.rdvAt)}"></div></div>
+   <label class="f" for="ca">Lien de l'enregistrement (Drive), si enregistré</label><input id="ca" style="width:100%" placeholder="https://drive.google.com/…" value="${esc(S.call.audio)}">
+   <label class="ck sm"><input type="checkbox" id="ci"${S.call.informed?' checked':''}> J'ai informé l'interlocuteur de l'enregistrement</label>
+   <div class="res">${RES.map(([k,l,c])=>`<button class="btn ${c}" data-act="callres" data-r="${k}">${l}</button>`).join('')}<button class="btn" data-act="callskip">Passer</button></div>
+   <div style="margin-top:8px"><button class="btn sm" data-act="open" data-id="${esc(cur.id)}">Ouvrir la fiche</button></div></div>`;
+  const right=`<div class="card"><label class="f" for="cang">Angle de script (sert aux statistiques)</label><select id="cang">${Object.entries(sc.scripts).map(([k,v])=>`<option value="${esc(k)}"${k===ang?' selected':''}>${esc(v.name)}</option>`).join('')}</select>
+   <div class="script">${esc(fillScript((sc.scripts[ang]||{}).text,cur))}</div>
+   <div class="sm muted"><b>Information d'enregistrement</b><br>${esc(sc.recordText)}</div></div>`;
+  return dueBanner()+kp+filt+`<div class="grid2">${left}${right}</div>`;
+}
+
+async function callResult(r){
+  const p=byId(S.call.pid);if(!p)return;
+  const sc=settings();
+  const note=($('#cn')||{}).value||'',obj=($('#co')||{}).value||'—',audio=($('#ca')||{}).value||'',informed=!!($('#ci')||{}).checked;
+  const date=($('#cd')||{}).value||workday(2),rdvAt=($('#cr')||{}).value||'';
+  if(r==='rdv'&&!rdvAt){toast('Renseigne la date et l\'heure du RDV.');return}
+  const now=new Date();
+  const call={channel:'appel',prospectId:p.id,prospectName:p.name,t:now.toISOString(),hour:now.getHours(),result:r,angle:S.call.angle||sc.angle,obj:obj==='—'?'':obj,note,audio,informed,dept:p.dept||'',joint:JOINT.includes(r)};
+  const id='c'+uid();
+  const touches=(p.touches||0)+1;
+  const base={touches,lastCall:call.t,lastResult:r,notes:note?((p.notes?p.notes+'\n':'')+today()+' : '+note):(p.notes||'')};
+  let patch;
+  if(r==='rdv')patch={...base,stage:'rdv',rdvAt,nextDate:''};
+  else if(r==='rap')patch={...base,stage:'contacte',nextDate:date};
+  else if(r==='nr'||r==='rep'){const joined=callsOf(p.id).some(c=>c.joint);const ctries=callsOf(p.id).filter(isCall).length+1;patch=(ctries>=MAX_TRIES&&!joined)?{...base,stage:'perdu',lostReason:'Injoignable ('+MAX_TRIES+' tentatives)'}:{...base,stage:'contacte',nextDate:workday(r==='nr'?1:2)}}
+  else if(r==='no')patch={...base,stage:'perdu',lostReason:call.obj||'Pas intéressé'};
+  else if(r==='bad')patch={...base,phone:'',badPhone:true};
+  else patch={...base,stage:'stop',optout:true};
+  const ok=await guard(async()=>{await DB.set('calls',id,call);await DB.update('prospects',p.id,patch)});
+  if(ok){S.calls.push({id,...call});Object.assign(p,patch);S.call.pid='';toast(RES_L[r]+' enregistré.');render()}
+}
+
+/* ================= outreach (DM, vidéo, email) ================= */
+function outTries(p){return callsOf(p.id).filter(c=>!isCall(c)&&c.result==='sent').length}
+function outQueue(){
+  const t=today(),sk=S.out.skip;
+  return S.prospects.filter(p=>!p.optout&&!p.outDone&&['a_contacter','contacte'].includes(p.stage||'a_contacter')&&!sk.includes(p.id)&&(!p.outNext||p.outNext<=t))
+   .sort((a,b)=>{const h=x=>(x.instagram||x.facebook||x.linkedin||x.email)?0:1;return h(a)-h(b)||(+b.score||0)-(+a.score||0)||(+b.reviews||0)-(+a.reviews||0)});
+}
+function fillOut(txt,p){return fillScript(txt,p).replace(/\{nom_court\}/g,(p.name||'').split(/\s+/).slice(0,2).join(' '))}
+function outreachHTML(){
+  const sc=settings(),Q=outQueue();
+  const t=today();const L=S.calls.filter(c=>!isCall(c)&&String(c.t).slice(0,10)===t);
+  const kp=`<div class="kpis"><div class="kpi"><b>${L.filter(c=>c.result==='sent').length}</b><span>messages / vidéos envoyés aujourd'hui</span></div><div class="kpi"><b>${L.filter(c=>c.result==='reply').length}</b><span>réponses</span></div><div class="kpi"><b>${L.filter(c=>c.result==='rdv').length}</b><span>RDV</span></div><div class="kpi"><b>${Q.length}</b><span>à contacter</span></div></div>`;
+  let cur=S.out.pid?byId(S.out.pid):null;
+  if(!cur||!Q.some(x=>x.id===cur.id))cur=Q[0]||null;
+  if(cur&&S.out.pid!==cur.id){S.out.pid=cur.id;S.out.note='';S.out.handle='';S.out.rdvAt=''}
+  if(!cur){S.out.pid='';return dueBanner()+kp+`<div class="card"><b>Personne à contacter pour l'instant.</b><div class="muted sm">Importe une liste ou attends les relances (3 jours ouvrés après un envoi).</div></div>`}
+  const isVid=S.out.ch==='video',isMail=S.out.ch==='email';
+  const variants=Object.entries(sc.outScripts);
+  const v=sc.outScripts[S.out.variant]||variants[0][1];
+  const hist=callsOf(cur.id).slice(-4).reverse();
+  const handleKey=S.out.ch==='dm_fb'?'facebook':S.out.ch==='dm_lin'?'linkedin':S.out.ch==='email'?'email':'instagram';
+  const handleVal=cur[handleKey]||'';
+  const left=`<div class="card"><div class="muted sm">${outTries(cur)?'<span class="chip warn">Relance '+outTries(cur)+'</span>':'<span class="chip hot">Premier contact</span>'}${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}</div>
+   <h2 style="margin-top:4px">${esc(cur.name)}</h2>
+   <div class="sm muted">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a> · `:''}<a href="https://www.google.com/search?q=${encodeURIComponent((cur.name||'')+' '+(cur.city||'')+' instagram')}" target="_blank" rel="noopener">chercher le compte</a></div>
+   <div class="row" style="margin-top:8px"><div><label class="f" for="och">Canal</label><select id="och">${OUT_CH.map(([k,l])=>`<option value="${k}"${S.out.ch===k?' selected':''}>${l}</option>`).join('')}</select></div>
+   <div><label class="f" for="ovar">Message</label><select id="ovar">${variants.map(([k,x])=>`<option value="${esc(k)}"${S.out.variant===k?' selected':''}>${esc(x.name)}</option>`).join('')}</select></div></div>
+   <label class="f" for="oh">${isVid?'Lien de la vidéo envoyée':S.out.ch==='email'?'Email':'Compte / lien du profil'}</label><input id="oh" style="width:100%" value="${esc(S.out.handle||handleVal)}" placeholder="${isVid?'https://www.loom.com/share/…':S.out.ch==='email'?'contact@…':'@compte ou lien'}">
+   <label class="f" for="on">Note</label><textarea id="on" rows="3" placeholder="Ce que tu as remarqué sur son profil, sa réponse…">${esc(S.out.note)}</textarea>
+   <label class="f" for="or">RDV (si pris)</label><input type="datetime-local" id="or" value="${esc(S.out.rdvAt)}">
+   ${hist.length?`<div class="sm muted" style="margin-top:8px"><b>Historique</b><br>${hist.map(h=>`${fdate(h.t)} · ${esc(CH_L[h.channel||'appel'])} · ${esc(ALL_RES_L[h.result]||h.result)}${h.note?' — '+esc(h.note):''}`).join('<br>')}</div>`:''}
+   <div class="res">${OUT_RES.map(([k,l,c])=>`<button class="btn ${c}" data-act="outres" data-r="${k}">${l}</button>`).join('')}<button class="btn" data-act="outskip">Passer</button></div>
+   <div style="margin-top:8px"><button class="btn sm" data-act="open" data-id="${esc(cur.id)}">Ouvrir la fiche</button></div></div>`;
+  const text=fillOut(v.text,cur);
+  const right=`<div class="card"><h3>${esc(v.name)}</h3><div class="script" id="otext">${esc(text)}</div><button class="btn sm" data-act="copy">Copier le message</button>
+   <p class="muted sm" style="margin-top:10px">${isVid?'Vidéo : une par prospect, adressée à lui, avec sa fiche Google à l\'écran. Tu l\'envoies seulement s\'il a répondu « oui, envoie » ou en première approche si tu préfères.':'DM : le but de la première phrase est de déclencher une réponse, pas de vendre. Aucune promesse de chantiers, aucune fausse référence, aucun faux profil.'}</p></div>`;
+  return dueBanner()+kp+`<div class="grid2">${left}${right}</div>`;
+}
+async function outResult(r){
+  const p=byId(S.out.pid);if(!p)return;
+  const note=($('#on')||{}).value||'',handle=($('#oh')||{}).value.trim?$('#oh').value.trim():'',rdvAt=($('#or')||{}).value||'';
+  if(r==='rdv'&&!rdvAt){toast('Renseigne la date et l\'heure du RDV.');return}
+  const sc=settings();const now=new Date();const ch=S.out.ch;
+  const call={channel:ch,prospectId:p.id,prospectName:p.name,t:now.toISOString(),hour:now.getHours(),result:r,angle:S.out.variant,obj:'',note,audio:ch==='video'?handle:'',informed:false,dept:p.dept||'',joint:OUT_JOINT.includes(r)};
+  const id='c'+uid();
+  const hk=ch==='dm_fb'?'facebook':ch==='dm_lin'?'linkedin':ch==='email'?'email':ch==='video'?'':'instagram';
+  const base={touches:(p.touches||0)+1,lastCall:call.t,notes:note?((p.notes?p.notes+'\n':'')+today()+' : '+note):(p.notes||'')};
+  if(hk&&handle)base[hk]=handle;
+  let patch;
+  if(r==='sent'){const tries=outTries(p)+1;patch={...base,stage:p.stage==='a_contacter'?'contacte':p.stage,outNext:workday(3)};if(tries>=MAX_OUT)patch.outDone=true;
+    if(p.stage==='a_contacter')patch.nextDate=workday(2)}
+  else if(r==='reply')patch={...base,stage:'contacte',nextDate:today(),outNext:workday(7)};
+  else if(r==='rdv')patch={...base,stage:'rdv',rdvAt,nextDate:''};
+  else if(r==='no')patch={...base,stage:'perdu',lostReason:'Pas intéressé ('+CH_L[ch]+')'};
+  else patch={...base,stage:'stop',optout:true};
+  const ok=await guard(async()=>{await DB.set('calls',id,call);await DB.update('prospects',p.id,patch)});
+  if(ok){S.calls.push({id,...call});Object.assign(p,patch);S.out.pid='';toast(ALL_RES_L[r]+' enregistré.');render()}
+}
+
+/* ================= contenu ================= */
+function contenuHTML(){
+  const wk=addDays(today(),-6);const L=S.content.filter(x=>x.d>=wk);
+  const sum=(a,k)=>a.reduce((s,x)=>s+(+x[k]||0),0);
+  const inbound=S.prospects.filter(p=>p.source==='contenu');
+  const kp=`<div class="kpis"><div class="kpi"><b>${L.length}</b><span>publications (7 jours)</span></div><div class="kpi"><b>${sum(L,'views')}</b><span>vues</span></div><div class="kpi"><b>${sum(L,'dms')}</b><span>DM / messages reçus</span></div><div class="kpi"><b>${inbound.length}</b><span>prospects venus du contenu</span></div></div>`;
+  const form=`<div class="card"><h2>Ajouter une publication</h2><div class="row"><input type="date" id="ct-d" value="${today()}"><select id="ct-p"><option>Instagram</option><option>TikTok</option><option>LinkedIn</option><option>Facebook</option><option>YouTube</option></select><select id="ct-f"><option>Reel / vidéo</option><option>Carrousel</option><option>Story</option><option>Post</option><option>Live</option></select></div>
+   <label class="f" for="ct-h">Accroche (première phrase) — sert à comparer les accroches</label><input id="ct-h" style="width:100%"><div class="row"><input type="number" id="ct-v" placeholder="Vues" style="width:90px"><input type="number" id="ct-m" placeholder="DM / commentaires" style="width:150px"><input type="number" id="ct-r" placeholder="RDV" style="width:80px"></div>
+   <div style="margin-top:8px"><button class="btn primary" data-act="ct-add">Ajouter</button> <span class="muted sm">Un prospect qui arrive par le contenu : ajoute sa fiche avec la source « contenu » (Pipeline, + Ajouter une fiche).</span></div></div>`;
+  const rows=S.content.slice(0,40).map(x=>`<tr><td>${fdate(x.d)}</td><td>${esc(x.platform)} · ${esc(x.format)}</td><td>${esc(x.hook||'')}</td><td class="r">${esc(x.views||0)}</td><td class="r">${esc(x.dms||0)}</td><td class="r">${esc(x.rdv||0)}</td></tr>`).join('');
+  return kp+form+`<div class="card"><h3>Dernières publications</h3><div class="scroll-x"><table class="t"><thead><tr><th>Date</th><th>Support</th><th>Accroche</th><th class="r">Vues</th><th class="r">DM</th><th class="r">RDV</th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="muted">Rien pour l\'instant.</td></tr>'}</tbody></table></div></div>`;
+}
+async function addContent(){
+  const o={d:$('#ct-d').value||today(),platform:$('#ct-p').value,format:$('#ct-f').value,hook:$('#ct-h').value.trim(),views:+$('#ct-v').value||0,dms:+$('#ct-m').value||0,rdv:+$('#ct-r').value||0};
+  const id='p'+uid();
+  if(await guard(()=>DB.set('content',id,o))){S.content.unshift({id,...o});render()}
+}
+
+/* ================= pipeline ================= */
+function deptOf(p){return p.dept||''}
+function pipelineHTML(){
+  const f=S.pf;let L=S.prospects;
+  if(f.q){const q=f.q.toLowerCase();L=L.filter(p=>[p.name,p.city,p.phone].join(' ').toLowerCase().includes(q))}
+  if(f.dept)L=L.filter(p=>deptOf(p)===f.dept);
+  const depts=[...new Set(S.prospects.map(deptOf).filter(Boolean))].sort();
+  const bar=`<div class="row" style="margin-bottom:12px"><input type="search" id="pq" placeholder="Rechercher (nom, ville, téléphone)" value="${esc(f.q)}"><select id="pdept"><option value="">Tous départements</option>${depts.map(d=>`<option${f.dept===d?' selected':''}>${esc(d)}</option>`).join('')}</select><button class="btn sm" data-act="newp">+ Ajouter une fiche</button></div>`;
+  const cols=STAGES.map(([k,l])=>{const items=L.filter(p=>(p.stage||'a_contacter')===k);
+    const shown=items.slice(0,25);
+    return `<section class="card"><h3>${l} <span class="muted">(${items.length})</span></h3>${shown.length?shown.map(p=>`<div class="row" style="justify-content:space-between;border-bottom:1px solid var(--line);padding:4px 0"><span><b>${esc(p.name)}</b> <span class="muted sm">${esc(p.city||'')}${p.rdvAt&&k==='rdv'?' · RDV '+fdate(p.rdvAt):''}${p.nextDate&&k==='contacte'?' · rappel '+fdate(p.nextDate):''}${p.lostReason&&k==='perdu'?' · '+esc(p.lostReason):''}</span></span><button class="btn sm" data-act="open" data-id="${esc(p.id)}">Ouvrir</button></div>`).join(''):'<p class="muted sm">Aucune fiche.</p>'}${items.length>shown.length?`<p class="muted sm">+ ${items.length-shown.length} autres (utilise la recherche).</p>`:''}</section>`}).join('');
+  return bar+`<div class="grid3">${cols}</div>`;
+}
+
+function openProspect(id){
+  const p=byId(id);if(!p)return;const d=$('#dlg');
+  const cs=callsOf(id).slice().reverse();
+  const cli=S.clients.find(c=>c.prospectId===id);
+  d.innerHTML=`<h2>${esc(p.name)}</h2><div class="muted sm">${esc(p.address||'')} ${p.mapsUrl?`· <a href="${esc(p.mapsUrl)}" target="_blank" rel="noopener">Google</a>`:''} ${p.website?`· <a href="${esc(p.website)}" target="_blank" rel="noopener">site</a>`:''}</div>
+  <div class="row"><div><label class="f">Téléphone</label><input id="fp-phone" value="${esc(p.phone||'')}"></div><div><label class="f">Étape</label><select id="fp-stage">${STAGES.map(([k,l])=>`<option value="${k}"${(p.stage||'a_contacter')===k?' selected':''}>${l}</option>`).join('')}</select></div><div><label class="f">Rappel</label><input type="date" id="fp-next" value="${esc(p.nextDate||'')}"></div><div><label class="f">RDV</label><input type="datetime-local" id="fp-rdv" value="${esc(p.rdvAt||'')}"></div></div>
+  <label class="f">Email</label><input id="fp-email" style="width:100%" value="${esc(p.email||'')}">
+  <label class="f">Notes</label><textarea id="fp-notes" rows="5">${esc(p.notes||'')}</textarea>
+  <h3 style="margin-top:12px">Appels (${cs.length})</h3>${cs.length?`<div class="sm">${cs.map(c=>`<div>${fdate(c.t)} · ${esc(CH_L[c.channel||'appel'])} · ${esc(ALL_RES_L[c.result]||c.result)} · angle ${esc(c.angle||'')}${c.obj?' · '+esc(c.obj):''}${c.note?' — '+esc(c.note):''}${c.audio?` · <a href="${esc(c.audio)}" target="_blank" rel="noopener">audio</a>`:''}</div>`).join('')}</div>`:'<p class="muted sm">Aucun appel.</p>'}
+  <div class="row" style="margin-top:14px;justify-content:space-between"><span>${p.stage==='signe'&&!cli?`<button class="btn primary" data-act="mkclient" data-id="${esc(id)}">Créer le client</button>`:cli?`<button class="btn" data-act="cli-open" data-id="${esc(cli.id)}">Voir le client</button>`:''}</span><span><button class="btn primary" data-act="savep" data-id="${esc(id)}">Enregistrer</button> <button class="btn" data-act="close">Fermer</button></span></div>`;
+  d.showModal();
+}
+async function saveProspectDlg(id){
+  const p=byId(id);const stage=$('#fp-stage').value;
+  const patch={phone:$('#fp-phone').value.trim(),email:$('#fp-email').value.trim(),notes:$('#fp-notes').value,nextDate:$('#fp-next').value,rdvAt:$('#fp-rdv').value,stage};
+  if(stage==='stop')patch.optout=true;
+  if(await saveP(id,patch)){if(stage==='signe')toast('Signé ! Crée le client depuis la fiche.');$('#dlg').close();render()}
+}
+function newProspectDlg(){
+  const d=$('#dlg');
+  d.innerHTML=`<h2>Nouvelle fiche</h2><label class="f">Nom de l'entreprise</label><input id="np-name" style="width:100%"><div class="row"><div><label class="f">Source</label><select id="np-src"><option value="manuel">Manuel</option><option value="contenu">Contenu (vient de moi)</option><option value="dm_entrant">DM entrant</option><option value="reco">Recommandation</option></select></div><div><label class="f">Téléphone</label><input id="np-phone"></div><div><label class="f">Ville</label><input id="np-city"></div><div><label class="f">Département</label><input id="np-dept" size="4"></div></div><div class="row" style="margin-top:12px"><button class="btn primary" data-act="np-save">Ajouter</button><button class="btn" data-act="close">Annuler</button></div>`;d.showModal();
+}
+async function addProspect(){
+  const name=$('#np-name').value.trim();if(!name){toast('Nom obligatoire.');return}
+  const phone=$('#np-phone').value.trim();const id=hasPhone(phone)?'t'+normPhone(phone):'m'+uid();
+  if(byId(id)){toast('Cette fiche existe déjà.');return}
+  const o={name,phone,city:$('#np-city').value.trim(),dept:$('#np-dept').value.trim(),stage:'a_contacter',created:today(),source:$('#np-src').value};
+  if(await guard(()=>DB.set('prospects',id,o))){S.prospects.push({id,...o});$('#dlg').close();render()}
+}
+
+/* ================= clients ================= */
+async function makeClient(pid){
+  const p=byId(pid);const sc=settings();const id='k'+uid();
+  const o={prospectId:pid,name:p.name,phone:p.phone||'',email:p.email||'',contact:'',price:sc.pilotPrice,budgetDay:sc.budgetDay,signedAt:today(),status:'onboarding',checklist:{contrat:today()},metrics:[],notes:'',caseOk:false};
+  if(await guard(()=>DB.set('clients',id,o))){S.clients.push({id,...o});S.cl.open=id;$('#dlg').close();S.tab='clients';render()}
+}
+function cliKpi(c){const m=c.metrics||[];const sp=m.reduce((s,x)=>s+(+x.spend||0),0),le=m.reduce((s,x)=>s+(+x.leads||0),0),qu=m.reduce((s,x)=>s+(+x.qual||0),0),jb=m.reduce((s,x)=>s+(+x.jobs||0),0);return{sp,le,qu,jb,cpl:le?sp/le:0,cpq:qu?sp/qu:0}}
+function clientsHTML(){
+  const act=S.clients.filter(c=>c.status!=='fini');const mrr=act.reduce((s,c)=>s+(+c.price||0),0);
+  const head=`<div class="kpis"><div class="kpi"><b>${S.clients.length}</b><span>clients</span></div><div class="kpi"><b>${act.filter(c=>c.status==='live').length}</b><span>en diffusion</span></div><div class="kpi"><b>${money(mrr)}</b><span>récurrent mensuel</span></div><div class="kpi"><b>${money(10000-mrr)}</b><span>reste vers 10 000 €</span></div></div>`;
+  if(!S.clients.length)return head+`<div class="card"><b>Aucun client pour l'instant.</b><div class="muted sm">Quand une fiche passe à « Signé », ouvre-la et clique « Créer le client ».</div></div>`;
+  return head+S.clients.map(c=>{
+    const k=cliKpi(c),open=S.cl.open===c.id,done=CHECK.filter(([key])=>c.checklist&&c.checklist[key]).length;
+    const j14=c.checklist&&c.checklist.launch?addDays(c.checklist.launch,14):'';
+    return `<section class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">${esc(c.name)} <span class="chip">${esc((CLI_STATUS.find(s=>s[0]===c.status)||[])[1]||c.status)}</span></h3><button class="btn sm" data-act="${open?'cli-close':'cli-open'}" data-id="${esc(c.id)}">${open?'Réduire':'Ouvrir'}</button></div>
+    <div class="sm muted">${money(c.price)}/mois · budget pub ${esc(c.budgetDay)} €/jour (payé par le client) · signé le ${fdate(c.signedAt)} · mise en place ${done}/${CHECK.length}${j14?' · revue J+14 le '+fdate(j14):''}</div>
+    <div class="sm" style="margin-top:4px">${k.le} leads · ${k.qu} qualifiés · pub ${money(k.sp)} · coût/lead ${k.cpl?money(k.cpl):'—'} · coût/lead qualifié ${k.cpq?money(k.cpq):'—'} · chantiers signés (déclarés) ${k.jb}</div>
+    ${open?clientDetail(c):''}</section>`}).join('');
+}
+function clientDetail(c){
+  const m=(c.metrics||[]).slice().sort((a,b)=>b.d.localeCompare(a.d));
+  return `<div class="grid2" style="margin-top:10px"><div><h4>Mise en place</h4>${CHECK.map(([k,l])=>`<label class="ck"><input type="checkbox" data-act="chk" data-id="${esc(c.id)}" data-k="${k}"${c.checklist&&c.checklist[k]?' checked':''}> ${esc(l)}${c.checklist&&c.checklist[k]?` <span class="muted sm">(${fdate(c.checklist[k])})</span>`:''}</label>`).join('')}
+   <h4 style="margin-top:12px">Infos</h4><div class="row"><div><label class="f">Prix mensuel (€)</label><input type="number" id="k-price" value="${esc(c.price)}" style="width:100px"></div><div><label class="f">Budget pub / jour (€)</label><input type="number" id="k-bud" value="${esc(c.budgetDay)}" style="width:100px"></div><div><label class="f">Statut</label><select id="k-status">${CLI_STATUS.map(([k,l])=>`<option value="${k}"${c.status===k?' selected':''}>${l}</option>`).join('')}</select></div></div>
+   <label class="f">Contact (prénom, email)</label><input id="k-contact" style="width:100%" value="${esc(c.contact||'')}"><label class="f">Notes</label><textarea id="k-notes" rows="3">${esc(c.notes||'')}</textarea><div style="margin-top:8px"><button class="btn primary sm" data-act="cli-save" data-id="${esc(c.id)}">Enregistrer</button></div></div>
+  <div><h4>Résultats (saisie hebdomadaire)</h4><div class="row"><input type="date" id="m-d" value="${today()}"><input type="number" id="m-spend" placeholder="Dépensé €" style="width:100px"><input type="number" id="m-leads" placeholder="Leads" style="width:80px"><input type="number" id="m-qual" placeholder="Qualifiés" style="width:90px"><input type="number" id="m-jobs" placeholder="Chantiers" style="width:90px"></div><div style="margin-top:6px"><button class="btn sm" data-act="met-add" data-id="${esc(c.id)}">Ajouter la semaine</button></div>
+  <table class="t" style="margin-top:8px"><thead><tr><th>Date</th><th class="r">Pub</th><th class="r">Leads</th><th class="r">Qualif.</th><th class="r">Chant.</th></tr></thead><tbody>${m.map(x=>`<tr><td>${fdate(x.d)}</td><td class="r">${money(x.spend)}</td><td class="r">${esc(x.leads)}</td><td class="r">${esc(x.qual)}</td><td class="r">${esc(x.jobs)}</td></tr>`).join('')||'<tr><td colspan="5" class="muted">Rien de saisi.</td></tr>'}</tbody></table>
+  <p class="muted sm">Promesse commerciale : des demandes de devis livrées, pas des chantiers signés. Ne touche pas la campagne pendant les 14 premiers jours.</p></div></div>`;
+}
+async function toggleCheck(cid,k,on){
+  const c=cliById(cid);const cl={...(c.checklist||{})};if(on)cl[k]=today();else delete cl[k];
+  const patch={checklist:cl};if(cl.launch&&c.status==='onboarding')patch.status='live';
+  if(await guard(()=>DB.update('clients',cid,patch))){Object.assign(c,patch);render()}
+}
+async function saveClient(cid){
+  const patch={price:+$('#k-price').value||0,budgetDay:+$('#k-bud').value||0,status:$('#k-status').value,contact:$('#k-contact').value,notes:$('#k-notes').value};
+  if(await guard(()=>DB.update('clients',cid,patch))){Object.assign(cliById(cid),patch);toast('Client enregistré.');render()}
+}
+async function addMetric(cid){
+  const c=cliById(cid);const x={d:$('#m-d').value||today(),spend:+$('#m-spend').value||0,leads:+$('#m-leads').value||0,qual:+$('#m-qual').value||0,jobs:+$('#m-jobs').value||0};
+  const metrics=[...(c.metrics||[]),x];
+  if(await guard(()=>DB.update('clients',cid,{metrics}))){c.metrics=metrics;render()}
+}
+
+/* ================= statistiques ================= */
+function statsHTML(){
+  const days=S.st.days;const from=days>0?addDays(today(),-(days-1)):'0000-00-00';
+  const L=S.calls.filter(c=>String(c.t).slice(0,10)>=from);
+  const LA=L,LC=L.filter(isCall);L.length;const j=LC.filter(c=>c.joint),rdv=LA.filter(c=>c.result==='rdv');
+  const pct=(a,b)=>b?Math.round(1000*a/b)/10+' %':'—';
+  const done=S.prospects.filter(p=>['rdv_fait','pilote','signe'].includes(p.stage)).length;
+  const signed=S.prospects.filter(p=>p.stage==='signe').length;
+  const sel=`<div class="row" style="margin-bottom:12px"><select id="stdays">${[[7,'7 jours'],[14,'14 jours'],[30,'30 jours'],[0,'Depuis le début']].map(([v,l])=>`<option value="${v}"${days===v?' selected':''}>${l}</option>`).join('')}</select><button class="btn sm" data-act="exp-calls">Exporter les appels (CSV)</button></div>`;
+  const kp=`<div class="kpis"><div class="kpi"><b>${LC.length}</b><span>appels</span></div><div class="kpi"><b>${j.length}</b><span>conversations (${pct(j.length,LC.length)})</span></div><div class="kpi"><b>${L.length-LC.length}</b><span>DM / vidéos / emails</span></div><div class="kpi"><b>${rdv.length}</b><span>RDV (tous canaux)</span></div><div class="kpi"><b>${done}</b><span>RDV faits ou plus loin (total)</span></div><div class="kpi"><b>${signed}</b><span>signés (total)</span></div></div>`;
+  const grp=(keyFn,title,minJ=30,src=LC)=>{const m={};src.forEach(c=>{const k=keyFn(c)||'—';(m[k]=m[k]||{n:0,j:0,r:0});m[k].n++;if(c.joint)m[k].j++;if(c.result==='rdv')m[k].r++});
+    const rows=Object.entries(m).sort((a,b)=>b[1].n-a[1].n).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="r">${v.n}</td><td class="r">${v.j}</td><td class="r">${v.r}</td><td class="r"><b>${pct(v.r,v.j)}</b>${v.j<minJ?` <span class="muted sm">(${v.j} conv. : trop peu pour conclure)</span>`:''}</td></tr>`).join('');
+    return `<section class="card"><h3>${title}</h3><div class="scroll-x"><table class="t"><thead><tr><th></th><th class="r">Appels</th><th class="r">Conv.</th><th class="r">RDV</th><th class="r">RDV / conv.</th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="muted">Aucune donnée.</td></tr>'}</tbody></table></div></section>`};
+  const obj={};LC.filter(c=>c.obj).forEach(c=>{obj[c.obj]=(obj[c.obj]||0)+1});
+  const objT=Object.entries(obj).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="r">${v}</td></tr>`).join('');
+  const sc=settings();
+  const dayB=[];for(let i=13;i>=0;i--){const d=addDays(today(),-i);const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);dayB.push({d,n:cs.length,r:cs.filter(c=>c.result==='rdv').length})}
+  const mx=Math.max(1,...dayB.map(x=>x.n));
+  const chart=`<section class="card"><h3>14 derniers jours (appels, RDV en doré)</h3><div class="bar">${dayB.map(x=>`<div title="${fdate(x.d)} : ${x.n} appels, ${x.r} RDV" style="height:${Math.max(2,Math.round(90*x.n/mx))}px"><span class="b2" style="display:block;position:absolute;bottom:0;left:0;right:0;background:var(--brass);height:${x.n?Math.round(100*x.r/x.n):0}%"></span></div>`).join('')}</div></section>`;
+  return sel+kp+chart+`${grp(c=>CH_L[c.channel||'appel'],'Par canal (appels, DM, vidéos, emails)',30,L)}<div class="grid2">${grp(c=>(sc.scripts[c.angle]||{}).name||c.angle,'Appels : par angle de script')}${grp(c=>c.hour!=null?pad(c.hour)+'h':'','Appels : par heure',20)}</div><div class="grid2">${grp(c=>c.dept,'Appels : par département')}<section class="card"><h3>Objections</h3><table class="t"><tbody>${objT||'<tr><td class="muted">Aucune objection saisie.</td></tr>'}</tbody></table></section></div>
+  <p class="muted sm">Règle : on ne compare pas deux angles avant 30 conversations chacun. Un taux sur 10 conversations ne veut rien dire.</p>`;
+}
+
+/* ================= scripts & réglages ================= */
+function scriptsHTML(){
+  const sc=settings();
+  return `<div class="card"><h2>Réglages offre</h2><div class="row"><div><label class="f">Prix pilote (€/mois)</label><input type="number" id="s-pp" value="${esc(sc.pilotPrice)}" style="width:100px"></div><div><label class="f">Prix normal (€/mois)</label><input type="number" id="s-np" value="${esc(sc.normalPrice)}" style="width:100px"></div><div><label class="f">Budget pub / jour (€)</label><input type="number" id="s-bd" value="${esc(sc.budgetDay)}" style="width:100px"></div><div><label class="f">Engagement (mois)</label><input type="number" id="s-mm" value="${esc(sc.minMonths)}" style="width:80px"></div></div>
+  <label class="f">Phrase d'information d'enregistrement (dite en début d'appel)</label><textarea id="s-rec" rows="2">${esc(sc.recordText)}</textarea></div>
+  ${Object.entries(sc.scripts).map(([k,v])=>`<div class="card"><h3>Angle ${esc(k)}</h3><label class="f">Nom</label><input id="sn-${esc(k)}" style="width:100%" value="${esc(v.name)}"><label class="f">Texte (variables : {avis} {note} {nom} {ville} {jour})</label><textarea id="st-${esc(k)}" rows="12">${esc(v.text)}</textarea></div>`).join('')}
+  ${Object.entries(sc.outScripts).map(([k,v])=>`<div class="card"><h3>Message ${esc(k)}</h3><label class="f">Nom</label><input id="on-${esc(k)}" style="width:100%" value="${esc(v.name)}"><label class="f">Texte (variables : {avis} {note} {nom} {nom_court} {ville})</label><textarea id="ot-${esc(k)}" rows="8">${esc(v.text)}</textarea></div>`).join('')}
+  <button class="btn primary" data-act="set-save">Enregistrer</button> <span class="muted sm">Quand tu modifies un script, crée un nouvel angle plutôt que d'écraser : sinon les statistiques mélangent deux versions.</span>`;
+}
+async function saveSettings(){
+  const sc=settings();const scripts={};
+  Object.keys(sc.scripts).forEach(k=>{scripts[k]={name:$('#sn-'+k).value,text:$('#st-'+k).value}});
+  const outScripts={};Object.keys(sc.outScripts).forEach(k=>{outScripts[k]={name:$('#on-'+k).value,text:$('#ot-'+k).value}});
+  const patch={outScripts,pilotPrice:+$('#s-pp').value||0,normalPrice:+$('#s-np').value||0,budgetDay:+$('#s-bd').value||0,minMonths:+$('#s-mm').value||3,recordText:$('#s-rec').value,scripts};
+  if(await guard(()=>DB.update('settings','main',patch))){Object.assign(S.settings,patch);toast('Réglages enregistrés.')}
+}
+async function addAngle(){
+  const sc=settings();const keys=Object.keys(sc.scripts);const k=String.fromCharCode(65+keys.length);
+  const scripts={...sc.scripts,[k]:{name:k+' · Nouvel angle',text:''}};
+  if(await guard(()=>DB.update('settings','main',{scripts}))){S.settings.scripts=scripts;render()}
+}
+
+/* ================= données (import / export) ================= */
+function parseCSV(text){
+  const rows=[];let row=[],cur='',q=false;text=text.replace(/^﻿/,'');
+  const delim=(text.split('\n')[0].match(/;/g)||[]).length>(text.split('\n')[0].match(/,/g)||[]).length?';':',';
+  for(let i=0;i<text.length;i++){const c=text[i];
+    if(q){if(c==='"'){if(text[i+1]==='"'){cur+='"';i++}else q=false}else cur+=c}
+    else if(c==='"')q=true;else if(c===delim){row.push(cur);cur=''}else if(c==='\n'||c==='\r'){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cur);cur='';if(row.some(x=>x!==''))rows.push(row);row=[]}else cur+=c}
+  row.push(cur);if(row.some(x=>x!==''))rows.push(row);return rows;
+}
+const HMAP={name:['name','nom','entreprise','displayname'],phone:['phone','telephone','téléphone','tel'],website:['website','site','url'],rating:['rating','note'],reviews:['reviews','avis','userratingcount'],address:['address','adresse'],city:['city','ville'],dept:['dept','departement','département'],placeId:['place_id','placeid','id'],mapsUrl:['maps_url','mapsurl','googlemapsuri'],score:['score'],email:['email','mail']};
+async function importCSV(text){
+  const rows=parseCSV(text);if(rows.length<2){toast('Fichier vide.');return}
+  const hdr=rows[0].map(h=>h.trim().toLowerCase());const idx={};
+  Object.entries(HMAP).forEach(([k,al])=>{const i=hdr.findIndex(h=>al.includes(h));if(i>=0)idx[k]=i});
+  if(idx.name==null){toast('Colonne « name » introuvable.');return}
+  const have=new Set(S.prospects.map(p=>p.id));const phones=new Set(S.prospects.map(p=>normPhone(p.phone)).filter(Boolean));
+  const items=[];let dup=0,nophone=0;
+  rows.slice(1).forEach(r=>{const g=k=>idx[k]!=null?(r[idx[k]]||'').trim():'';
+    const name=g('name');if(!name)return;const phone=g('phone');
+    if(!hasPhone(phone)){nophone++;return}
+    const np=normPhone(phone);const id=g('placeId')?'g'+g('placeId'):'t'+np;
+    if(have.has(id)||phones.has(np)){dup++;return}have.add(id);phones.add(np);
+    let dept=g('dept');if(!dept){const m=(g('address')+' '+g('city')).match(/\b(\d{2})\d{3}\b/);if(m)dept=m[1]}
+    items.push([id,{name,phone,website:g('website'),rating:g('rating'),reviews:+g('reviews')||0,address:g('address'),city:g('city'),dept,mapsUrl:g('mapsUrl'),score:+g('score')||0,email:g('email'),stage:'a_contacter',created:today(),source:'import'}]);
+  });
+  if(await guard(()=>DB.setMany('prospects',items))){items.forEach(([id,d])=>S.prospects.push({id,...d}));toast(items.length+' fiches ajoutées, '+dup+' doublons ignorés, '+nophone+' sans téléphone.');render()}
+}
+async function loadDemo(){
+  const noms=['Plomberie Dupont','Chauffage Martin','SOS Plomberie 78','Durand Énergies','Bernard Sanitaire','Thermo Services','Leroy Chauffage','Plomb\'Express','Moreau Rénovation','Garcia Chauffage'];
+  const villes=[['Triel-sur-Seine','78'],['Poissy','78'],['Versailles','78'],['Boulogne-Billancourt','92'],['Nanterre','92'],['Cergy','95'],['Argenteuil','95'],['Saint-Germain-en-Laye','78'],['Colombes','92'],['Pontoise','95']];
+  const items=noms.map((n,i)=>['demo'+i,{name:n+' (démo)',phone:'01 99 00 00 '+pad(i+10),website:i%3?'https://exemple.fr':'',rating:(4+((i*3)%10)/10).toFixed(1),reviews:5+i*6,address:'',city:villes[i][0],dept:villes[i][1],score:Math.max(20,100-i*8),stage:'a_contacter',created:today(),source:'demo'}]);
+  if(await guard(()=>DB.setMany('prospects',items))){items.forEach(([id,d])=>{if(!byId(id))S.prospects.push({id,...d})});toast('10 fiches de démonstration ajoutées (numéros fictifs).');render()}
+}
+function csvEsc(v){v=String(v==null?'':v);return /[",;\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+function download(name,text){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['﻿'+text],{type:'text/csv;charset=utf-8'}));a.download=name;document.body.appendChild(a);a.click();a.remove()}
+function exportCalls(){
+  const h=['date','heure','entreprise','département','résultat','angle','objection','note','audio','info_enregistrement'];
+  download('appels.csv',[h.join(';')].concat(S.calls.map(c=>[c.t,c.hour,c.prospectName,c.dept,CH_L[c.channel||'appel']+' / '+(ALL_RES_L[c.result]||c.result),c.angle,c.obj,c.note,c.audio,c.informed?'oui':'non'].map(csvEsc).join(';'))).join('\n'));
+}
+function exportProspects(){
+  const h=['name','phone','website','rating','reviews','address','city','dept','stage','touches','notes','lostReason'];
+  download('prospects.csv',[h.join(';')].concat(S.prospects.map(p=>h.map(k=>csvEsc(p[k])).join(';'))).join('\n'));
+}
+function donneesHTML(){
+  const mode=DB.mode==='local'?`<div class="banner">Mode local : les données sont dans CE navigateur seulement. Exporte régulièrement les CSV. Pour le cloud, voir le guide ci-dessous.</div>`:'';
+  return mode+`<div class="card"><h2>Importer une liste</h2><p class="muted sm">CSV produit par le script de recherche (colonnes : name, phone, website, rating, reviews, address, city, dept, place_id, maps_url, score). Les doublons (même numéro) sont ignorés, les fiches sans téléphone aussi.</p><input type="file" id="csvf" accept=".csv,text/csv"></div>
+  <div class="card"><h2>Essayer l'outil</h2><p class="muted sm">Charge 10 fiches fictives (numéros de la plage réservée à la fiction) pour tester les appels, les DM et les stats. Tu peux ensuite les ignorer ou les retirer en les passant en « Ne plus appeler ».</p><button class="btn" data-act="demo">Charger 10 fiches de démonstration</button></div>
+  <div class="card"><h2>Exporter</h2><div class="row"><button class="btn" data-act="exp-calls">Appels (CSV)</button><button class="btn" data-act="exp-pros">Prospects (CSV)</button></div></div>
+  <div class="card"><h2>Registre d'opposition (${S.prospects.filter(p=>p.optout).length})</h2><p class="muted sm">Toute personne marquée « Ne plus appeler » est exclue de la file d'appels et doit le rester.</p></div>
+  ${DB.mode==='local'?`<div class="card"><h3>Passer en cloud (Supabase)</h3><ol class="plain sm"><li>Crée TON projet Supabase (pas celui de Germaine ni de Gaston).</li><li>Exécute <code>schema.sql</code> dans l'éditeur SQL, ajoute ton email dans la table <code>membres</code>, crée ton utilisateur (Authentication) et désactive l'inscription libre.</li><li>Colle l'URL et la clé publique (publishable) dans <code>config.js</code>.</li><li>Recharge la page : exporte d'abord tes CSV en mode local, puis réimporte-les.</li></ol></div>`:''}`;
+}
+
+/* ================= aide ================= */
+function aideHTML(){return `<div class="card"><h2>Explication de l'outil</h2>
+<h3>Appels</h3><p><b>À quoi ça sert :</b> appeler la liste, une fiche à la fois, et tout enregistrer.</p><ol class="plain"><li>Lis la fiche et le script de l'angle choisi.</li><li>Appelle (clique le numéro).</li><li>Note ce que tu apprends, choisis l'objection, puis clique le résultat.</li><li>La fiche suivante arrive toute seule.</li></ol><p class="muted sm">Bon à savoir : « Pas de réponse » reprogramme l'appel au prochain jour ouvré ; après ${MAX_TRIES} tentatives sans jamais joindre, la fiche passe en « Perdu ».</p>
+<h3>Enregistrement</h3><p class="muted sm">Dis la phrase d'information au début de l'appel, coche la case, colle le lien de l'audio (Drive). Garde les enregistrements au plus quelques mois. Je ne suis pas juriste : fais valider le cadre légal (appels, enregistrement, mobiles d'indépendants).</p>
+<h3>DM &amp; vidéos</h3><p><b>À quoi ça sert :</b> les deux autres canaux de Hamza : message privé (Instagram, Facebook, LinkedIn), vidéo personnalisée, email.</p><ol class="plain"><li>Choisis le canal et le message ; le texte se remplit avec les infos de la fiche.</li><li>Copie le message, envoie-le sur la plateforme, colle le compte (ou le lien de la vidéo).</li><li>Clique « Envoyé » : la relance revient après 3 jours ouvrés, 4 envois maximum.</li><li>Si la personne répond, clique « A répondu » puis passe à l'appel.</li></ol><p class="muted sm">Pas de faux profil, pas de fausse référence, pas de promesse de chantiers.</p>
+<h3>Contenu</h3><p>Note chaque publication (accroche, vues, messages reçus, RDV) pour savoir quelles accroches font venir des prospects.</p>
+<h3>Pipeline</h3><p>Toutes les fiches par étape. Ouvre une fiche pour corriger, ajouter une note ou la passer en « Signé ».</p>
+<h3>Clients</h3><p>Une fois « Signé », crée le client : liste de mise en place, saisie des résultats chaque semaine, coût par lead, alerte de revue à J+14.</p>
+<h3>Stats</h3><p>Appels → conversations → RDV → signés, par angle de script, par heure, par département. Attends 30 conversations avant de comparer deux angles.</p>
+<h3>Scripts</h3><p>Modifie les scripts et les prix. Crée un nouvel angle plutôt que d'écraser l'ancien.</p>
+<h3>Données</h3><p>Import de la liste (CSV du script de recherche), exports, passage en cloud.</p></div>`}
+
+/* ================= rendu ================= */
+const TABS=[['appels','Appels'],['outreach','DM & vidéos'],['contenu','Contenu'],['pipeline','Pipeline'],['clients','Clients'],['stats','Stats'],['scripts','Scripts'],['donnees','Données'],['aide','Aide']];
+function render(){
+  const app=$('#app');
+  if(DB.mode==='cloud'&&!S.user){loginHTML();return}
+  const active=document.activeElement&&document.activeElement.id;
+  let body='';
+  if(!S.loaded)body='<div class="card">Chargement…</div>';
+  else if(S.err)body=`<div class="banner">Erreur de données : ${esc(S.err)}</div>`;
+  else body={appels:appelsHTML,outreach:outreachHTML,contenu:contenuHTML,pipeline:pipelineHTML,clients:clientsHTML,stats:statsHTML,scripts:scriptsHTML,donnees:donneesHTML,aide:aideHTML}[S.tab]();
+  app.innerHTML=`<header class="top"><span class="brand">Agency OS</span><nav class="tabs" role="tablist">${TABS.map(([k,l])=>`<button role="tab" aria-selected="${S.tab===k}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</nav>${DB.mode==='cloud'?'<button class="btn sm" data-act="logout">Déconnexion</button>':'<span class="chip">Mode local</span>'}</header><main>${body}</main>`;
+  if(S.tab==='scripts'&&S.loaded){const m=$('main');m.insertAdjacentHTML('beforeend','<p><button class="btn sm" data-act="addangle">+ Nouvel angle de script</button></p>')}
+  if(active&&$('#'+active)&&['cn','pq','on','oh'].includes(active)){const el=$('#'+active);el.focus();try{el.setSelectionRange(el.value.length,el.value.length)}catch(e){}}
+}
+function loginHTML(){
+  $('#app').innerHTML=`<div class="login card"><h2>Agency OS</h2><label class="f" for="lgm">Email</label><input id="lgm" type="email" style="width:100%" autocomplete="username"><label class="f" for="lgp">Mot de passe</label><input id="lgp" type="password" style="width:100%" autocomplete="current-password"><div style="margin-top:12px"><button class="btn primary" data-act="login">Connexion</button></div><p id="lge" class="sm" style="color:var(--bad)"></p></div>`;
+}
+
+/* ================= événements ================= */
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-act]');if(!b||b.tagName==='SELECT')return;const a=b.dataset.act;
+  if(a==='tab'){S.tab=b.dataset.v;render()}
+  else if(a==='callres')callResult(b.dataset.r);
+  else if(a==='outres')outResult(b.dataset.r);
+  else if(a==='outskip'){if(S.out.pid)S.out.skip.push(S.out.pid);S.out.pid='';render()}
+  else if(a==='copy'){const t=($('#otext')||{}).textContent||'';try{await navigator.clipboard.writeText(t);toast('Message copié.')}catch(e){toast('Copie impossible : sélectionne le texte.')}}
+  else if(a==='ct-add')addContent();
+  else if(a==='callskip'){if(S.call.pid)S.call.skip.push(S.call.pid);S.call.pid='';render()}
+  else if(a==='open')openProspect(b.dataset.id);
+  else if(a==='close')$('#dlg').close();
+  else if(a==='savep')saveProspectDlg(b.dataset.id);
+  else if(a==='newp')newProspectDlg();
+  else if(a==='np-save')addProspect();
+  else if(a==='mkclient')makeClient(b.dataset.id);
+  else if(a==='cli-open'){$('#dlg').open&&$('#dlg').close();S.tab='clients';S.cl.open=b.dataset.id;render()}
+  else if(a==='cli-close'){S.cl.open='';render()}
+  else if(a==='cli-save')saveClient(b.dataset.id);
+  else if(a==='met-add')addMetric(b.dataset.id);
+  else if(a==='set-save')saveSettings();
+  else if(a==='addangle')addAngle();
+  else if(a==='demo')loadDemo();
+  else if(a==='exp-calls')exportCalls();
+  else if(a==='exp-pros')exportProspects();
+  else if(a==='logout'){await DB.sb.auth.signOut();S.user=null;render()}
+  else if(a==='login'){const {data,error}=await DB.sb.auth.signInWithPassword({email:$('#lgm').value.trim(),password:$('#lgp').value});if(error){$('#lge').textContent='Connexion impossible : '+error.message;return}S.user=data.user;await start()}
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.id==='cang'){S.call.angle=t.value;const keep={note:$('#cn')?$('#cn').value:'',obj:$('#co')?$('#co').value:'—',audio:$('#ca')?$('#ca').value:'',informed:$('#ci')?$('#ci').checked:false};Object.assign(S.call,keep);render()}
+  else if(t.dataset&&t.dataset.act==='mobsel'){S.call.mob=t.value;S.call.pid='';render()}
+  else if(t.id==='och'||t.id==='ovar'){S.out.note=$('#on')?$('#on').value:S.out.note;S.out.handle='';if(t.id==='och')S.out.ch=t.value;else S.out.variant=t.value;render()}
+  else if(t.id==='stdays'){S.st.days=+t.value;render()}
+  else if(t.id==='pdept'){S.pf.dept=t.value;render()}
+  else if(t.dataset&&t.dataset.act==='chk')toggleCheck(t.dataset.id,t.dataset.k,t.checked);
+  else if(t.id==='csvf'&&t.files[0]){const r=new FileReader();r.onload=()=>importCSV(String(r.result));r.readAsText(t.files[0])}
+});
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.id==='cn')S.call.note=t.value;else if(t.id==='ca')S.call.audio=t.value;else if(t.id==='on')S.out.note=t.value;else if(t.id==='oh')S.out.handle=t.value;
+  else if(t.id==='pq'){S.pf.q=t.value;render()}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lgp'){$('[data-act=login]').click()}});
+
+/* ================= démarrage ================= */
+async function start(){
+  try{
+    await loadAll();
+    if(!S.settings||!Object.keys(S.settings).length){/* réglages par défaut en mémoire, écrits à la première sauvegarde */}
+    ['prospects','calls','clients','settings','content'].forEach(c=>DB.watch(c,refresh));
+  }catch(e){S.err=String(e.message||e);S.loaded=true}
+  render();
+}
+(async function boot(){
+  const cfg=window.AOS_CONFIG||{};
+  if(cfg.url&&cfg.key){
+    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';s.onload=res;s.onerror=()=>rej(new Error('Supabase indisponible'));document.head.appendChild(s)}).catch(e=>{S.err=e.message});
+    if(window.supabase){const sb=window.supabase.createClient(cfg.url,cfg.key,{auth:{persistSession:true,autoRefreshToken:true}});DB=cloudBackend(sb);
+      const {data}=await sb.auth.getSession();S.user=data.session?data.session.user:null;if(!S.user){render();return}}
+    else DB=localBackend();
+  }else DB=localBackend();
+  await start();
+})();
+</script></body></html>
