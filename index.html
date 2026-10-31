@@ -167,7 +167,8 @@ const MAX_OUT=4;
 const OUT_GOAL=70;
 const IDF=['75','77','78','91','92','93','94','95'];
 const FR_DEPTS=['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','19','21','22','23','24','25','26','27','28','29','2A','2B','30','31','32','33','34','35','36','37','38','39','40','41','42','43','44','45','46','47','48','49','50','51','52','53','54','55','56','57','58','59','60','61','62','63','64','65','66','67','68','69','70','71','72','73','74','75','76','77','78','79','80','81','82','83','84','85','86','87','88','89','90','91','92','93','94','95'];
-const scopeDepts=v=>v==='fr'?FR_DEPTS:IDF;
+const REGIONS={idf:['Île-de-France',IDF],idfv:['Île-de-France + départements voisins',[...IDF,'60','27','28','45','89','10','51','02']],hdf:['Hauts-de-France',['02','59','60','62','80']],nor:['Normandie',['14','27','50','61','76']],bre:['Bretagne',['22','29','35','56']],pdl:['Pays de la Loire',['44','49','53','72','85']],cvl:['Centre-Val de Loire',['18','28','36','37','41','45']],bfc:['Bourgogne-Franche-Comté',['21','25','39','58','70','71','89','90']],ge:['Grand Est',['08','10','51','52','54','55','57','67','68','88']],naq:['Nouvelle-Aquitaine',['16','17','19','23','24','33','40','47','64','79','86','87']],occ:['Occitanie',['09','11','12','30','31','32','34','46','48','65','66','81','82']],ara:['Auvergne-Rhône-Alpes',['01','03','07','15','26','38','42','43','63','69','73','74']],paca:['Provence-Alpes-Côte d\'Azur',['04','05','06','13','83','84']],cor:['Corse',['2A','2B']]};
+const scopeDepts=v=>v==='fr'?FR_DEPTS:(REGIONS[v]?REGIONS[v][1]:IDF);
 const sleep=ms=>new Promise(r=>setTimeout(r,window.__noSleep?0:ms));
 const DEF_OUT={
  D1:{name:'D1 · Question courte (DM)',text:`Bonjour {nom_court}, {accroche}. Question rapide : aujourd'hui vos nouveaux clients viennent surtout du bouche-à-oreille ou d'autre chose ?`},
@@ -683,7 +684,7 @@ function donneesHTML(){
   const mode=DB.mode==='local'?`<div class="banner">Mode local : les données sont dans CE navigateur seulement. Exporte régulièrement les CSV. Pour le cloud, voir le guide ci-dessous.</div>`:'';
   return mode+`<div class="card"><h2>Importer une liste</h2><p class="muted sm">CSV produit par le script de recherche (colonnes : name, phone, website, rating, reviews, address, city, dept, place_id, maps_url, score). Les doublons (même numéro) sont ignorés, les fiches sans téléphone aussi.</p><input type="file" id="csvf" accept=".csv,text/csv"></div>
   <div class="card"><h2>Sources gratuites</h2><p class="muted sm">Sans clé, sans abonnement. Tu peux relancer : les doublons ne sont pas recréés.</p>
-   <label class="f" for="osmscope">Zone</label><select id="osmscope"><option value="idf">Île-de-France</option><option value="fr">France entière (long)</option></select>
+   <label class="f" for="osmscope">Région (commence par la tienne, puis élargis quand la liste est épuisée)</label><select id="osmscope">${Object.entries(REGIONS).map(([k,[l]])=>`<option value="${k}">${esc(l)}</option>`).join('')}<option value="fr">France entière (long)</option></select>
    <div class="res" style="margin-top:8px"><button class="btn" id="osmbtn" data-act="osm">OpenStreetMap : téléphones et comptes déjà renseignés</button></div>
    <p class="muted sm">Peu de fiches mais immédiatement appelables (téléphone). Environ 200 en Île-de-France.</p>
    <div class="res" style="margin-top:8px"><button class="btn" id="rgebtn" data-act="rge">Fichier RGE (ADEME) : chauffagistes avec téléphone et email</button></div>
@@ -698,7 +699,44 @@ function donneesHTML(){
 }
 
 /* ================= aide ================= */
-function aideHTML(){return `<div class="card"><h2>Explication de l'outil</h2>
+function aideHTML(){return `<div class="card"><h2>Fiche de l'activité : tout ton process, de A à Z</h2>
+<p class="muted sm">Tout se fait depuis ta chambre : téléphone, ordinateur, visio, signature en ligne, paiement en ligne. Les chiffres marqués « hypothèse » sont à remplacer par tes vrais chiffres (onglet Stats) après 2 semaines.</p>
+<details open><summary><b>1. Ce que tu vends, en une phrase</b></summary>
+<p>Tu apportes des demandes de devis à des plombiers/chauffagistes grâce à des publicités Facebook et Instagram (Meta Ads). Le client te paie un forfait mensuel (pilote ${settings().pilotPrice} €, puis ${settings().normalPrice} € dans tes réglages), il paie lui-même la pub à Meta. Objectif 10 000 €/mois : avec un forfait de ${settings().normalPrice} €, cela fait environ ${Math.ceil(10000/(settings().normalPrice||2000))} clients actifs. Calcule toujours ton objectif en nombre de clients, pas en euros.</p></details>
+<details><summary><b>2. Ta journée type (cible)</b></summary><ol class="plain">
+<li><b>Veille ou tôt le matin :</b> liste du jour prête (onglet Données), 100 fiches appelables minimum.</li>
+<li><b>Bloc appels (artisans décrochent surtout tôt le matin, entre midi et deux, ou en fin de journée) :</b> 70 appels minimum, tu enchaînes sans réfléchir, onglet Appels.</li>
+<li><b>Bloc DM / vidéos :</b> onglet DM &amp; vidéos, 40 à 70 messages, 10 à 15 vidéos de 45 s.</li>
+<li><b>Visios :</b> les RDV pris la veille, 30 à 45 min chacun.</li>
+<li><b>Soir :</b> relances, rappel des RDV de demain, débrief 5 min (onglet Aujourd'hui).</li></ol></details>
+<details><summary><b>3. L'entonnoir (hypothèses à mesurer)</b></summary>
+<p>70 appels → environ 15 à 20 vraies conversations → 2 à 4 RDV → 1 signature sur 3 à 5 RDV. Soit environ 1 client pour 100 à 200 appels. <b>Hypothèse, pas un fait</b> : Hamza dit que la grande majorité dit non et c'est normal. Ton onglet Stats te donne tes vrais taux au bout de 30 conversations. Si le goulot est l'appel → travaille l'accroche ; si c'est le RDV → travaille la visio ; si c'est la signature → travaille l'offre et le prix.</p></details>
+<details><summary><b>4. Le process complet, étape par étape</b></summary><ol class="plain">
+<li><b>Appel (3 min)</b> : script Hamza, but = un RDV de 10 à 15 min avec créneau précis (14h52). Tu prends son email et son numéro direct. Si pas de réponse : carte « Relance en 1 clic ».</li>
+<li><b>Entre l'appel et le RDV</b> : tu envoies une invitation Google Meet ou Zoom (message neutre, le mot « RDV » suffit) et tu rappelles le matin même.</li>
+<li><b>Visio découverte (30 à 45 min)</b> : (a) il parle de son activité, ses chantiers, ses panneaux de devis ; (b) tu poses : combien de chantiers par mois, panier moyen, ce qu'il veut absorber, d'où viennent ses clients ; (c) tu montres comment tu amènes des demandes ; (d) tu présentes l'offre pilote, le prix, la durée minimum (${settings().minMonths} mois), ce que tu promets et ce que tu ne promets pas. Ne promets jamais un nombre de chantiers signés : tu t'engages sur des demandes de devis, pas sur sa signature avec ses clients.</li>
+<li><b>Décision</b> : il dit oui → tu envoies le contrat et le paiement tout de suite pendant la visio (voir 5). Il dit « je réfléchis » → date précise du prochain échange avant de raccrocher.</li>
+<li><b>Onboarding (48 h)</b> : accès à sa page Facebook, compte publicitaire, zone d'intervention, offre phare, photos de chantiers, avis, numéro qui reçoit les demandes.</li>
+<li><b>Lancement</b> : première campagne, budget test, 2 à 3 créas ; coche « lancement » dans l'onglet Clients.</li>
+<li><b>Suivi</b> : toutes les demandes sont rappelées en moins de 5 minutes (c'est ce qui fait que ça convertit). Revue à J+14 : l'onglet Clients te l'indique.</li></ol></details>
+<details><summary><b>5. Contrat et paiement (à faire valider, je ne suis pas juriste)</b></summary><ul class="plain">
+<li><b>Contrat court</b> : objet, durée minimum, prix, ce que tu fournis, ce que le client fournit (budget pub, accès, réactivité), résiliation, ce que tu ne garantis pas. Signature électronique (Yousign, Docusign ou équivalent). À faire relire par un professionnel avant le premier client.</li>
+<li><b>Paiement en ligne</b> : lien de paiement ou prélèvement mensuel (Stripe, SumUp, GoCardless ou le lien de ta banque pro). C'est toi qui crées ces comptes et qui acceptes leurs conditions.</li>
+<li><b>Facture</b> : numérotée, avec les mentions obligatoires de ton statut. <b>Vérifie ton statut juridique et la TVA avec ton guichet unique INPI ou un expert-comptable avant la première facture</b> : ce n'est pas à moi de trancher.</li>
+<li><b>Le budget publicitaire</b> : le client le paie directement à Meta depuis son compte, pas à toi. Ça te protège.</li></ul></details>
+<details><summary><b>6. Ce que tu dois apprendre (dans cet ordre)</b></summary><ol class="plain">
+<li><b>Jours 1 à 3 :</b> le script et l'adaptabilité. Appelle, écoute les objections, note-les. C'est la seule compétence qui te rapporte tout de suite.</li>
+<li><b>Semaine 1 :</b> la visio de découverte, avec ton plan en 4 parties (section 4). Enregistre-toi, réécoute.</li>
+<li><b>Semaine 1 à 2 :</b> Meta Ads de base : Business Manager, page, compte publicitaire, formulaire instantané, structure campagne / ensemble de pubs / pub, budget, ciblage par zone, lecture du coût par demande. Hamza donne comme repère 10 à 20 € la demande pour la plomberie et le chauffage ; <b>c'est un repère de son PDF, pas une garantie</b>.</li>
+<li><b>Semaine 2 :</b> créer 3 pubs (vidéo, image, texte), le suivi des demandes, le tableau de bord client (onglet Clients).</li>
+<li><b>Ensuite :</b> la gestion de plusieurs clients, le reporting mensuel, la rétention.</li></ol>
+<p class="muted sm">Avant ton premier client, fais une campagne test pour toi ou un proche, pour savoir de quoi tu parles en visio.</p></details>
+<details><summary><b>7. Les règles du jeu (pour ne pas te faire bloquer)</b></summary><ul class="plain">
+<li><b>Instagram/Facebook</b> : pas d'envoi automatique de DM, pas d'outil de scraping. Tu envoies à la main ; monte progressivement 20, puis 40, puis 70 par jour.</li>
+<li><b>Email</b> : domaine séparé de ton adresse principale, SPF/DKIM/DMARC, 2 à 3 semaines de chauffe, ligne de désinscription, message court et en lien avec leur métier.</li>
+<li><b>Appels</b> : respecte immédiatement un « ne plus m'appeler » (case « Ne plus appeler » dans l'outil). Bloctel protège les particuliers ; pour des entreprises le cadre est différent, à faire confirmer.</li>
+<li><b>Enregistrement</b> : annonce-le en début d'appel (phrase dans Réglages).</li></ul></details>
+</div><div class="card"><h2>Explication de l'outil</h2>
 <h3>Appels</h3><p><b>À quoi ça sert :</b> appeler la liste, une fiche à la fois, et tout enregistrer.</p><ol class="plain"><li>Lis la fiche et le script de l'angle choisi.</li><li>Appelle (clique le numéro).</li><li>Note ce que tu apprends, choisis l'objection, puis clique le résultat.</li><li>La fiche suivante arrive toute seule.</li></ol><p class="muted sm">Bon à savoir : « Pas de réponse » reprogramme l'appel au prochain jour ouvré ; après ${MAX_TRIES} tentatives sans jamais joindre, la fiche passe en « Perdu ».</p>
 <h3>Enregistrement</h3><p class="muted sm">Dis la phrase d'information au début de l'appel, coche la case, colle le lien de l'audio (Drive). Garde les enregistrements au plus quelques mois. Je ne suis pas juriste : fais valider le cadre légal (appels, enregistrement, mobiles d'indépendants).</p>
 <h3>DM &amp; vidéos</h3><p><b>À quoi ça sert :</b> les deux autres canaux de Hamza : message privé (Instagram, Facebook, LinkedIn), vidéo personnalisée, email.</p><ol class="plain"><li>Choisis le canal et le message ; le texte se remplit avec les infos de la fiche.</li><li>Copie le message, envoie-le sur la plateforme, colle le compte (ou le lien de la vidéo).</li><li>Clique « Envoyé » : la relance revient après 3 jours ouvrés, 4 envois maximum.</li><li>Si la personne répond, clique « A répondu » puis passe à l'appel.</li></ol><p class="muted sm">Pas de faux profil, pas de fausse référence, pas de promesse de chantiers.</p>
