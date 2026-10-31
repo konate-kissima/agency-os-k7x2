@@ -573,10 +573,36 @@ async function importCSV(text){
   if(await guard(()=>DB.setMany('prospects',items))){items.forEach(([id,d])=>S.prospects.push({id,...d}));toast(items.length+' fiches ajoutées, '+dup+' doublons ignorés, '+nophone+' sans téléphone.');render()}
 }
 function mergeNew(items,have,phones,mk){/* utilitaire de dédoublonnage */}
+const dupKeys=p=>{const k=[];const ph=normPhone(p.phone);if(ph)k.push('t'+ph);if(p.siren)k.push('s'+p.siren);if(p.name&&p.city)k.push('n'+String(p.name).toLowerCase().replace(/[^a-z0-9]/g,'')+'|'+String(p.city).toLowerCase())+'';return k};
+const isDup=p=>p.stage==='perdu'&&p.lostReason==='Doublon';
 async function addProspects(items){
   if(!items.length)return 0;
-  if(await guard(()=>DB.setMany('prospects',items))){items.forEach(([id,d])=>S.prospects.push({id,...d}));return items.length}
-  return 0;
+  const idx=new Map();S.prospects.forEach(p=>{if(!isDup(p))dupKeys(p).forEach(k=>{if(!idx.has(k))idx.set(k,p)})});
+  const fresh=[];let merged=0;
+  for(const it of items){
+    const d=it[1];const keys=dupKeys(d);const hit=keys.map(k=>idx.get(k)).find(Boolean);
+    if(hit){
+      if(hit.enrich==='todo'&&!hasPhone(hit.phone)&&hasPhone(d.phone)){
+        const patch={phone:d.phone,email:d.email||hit.email||'',website:d.website||hit.website||'',address:d.address||hit.address,enrich:'done',score:Math.max(hit.score||0,d.score||0)};
+        if(await guard(()=>DB.update('prospects',hit.id,patch))){Object.assign(hit,patch);keys.forEach(k=>idx.set(k,hit));merged++}
+      }
+      continue;
+    }
+    keys.forEach(k=>idx.set(k,{id:it[0]}));fresh.push(it);
+  }
+  let n=0;
+  if(fresh.length&&await guard(()=>DB.setMany('prospects',fresh))){fresh.forEach(([id,d])=>S.prospects.push({id,...d}));n=fresh.length}
+  return n+merged;
+}
+async function cleanDupes(){
+  const seen=new Map();let n=0;
+  const list=[...S.prospects].filter(p=>!isDup(p)).sort((a,b)=>(hasPhone(b.phone)?1:0)-(hasPhone(a.phone)?1:0)||(callsOf(b.id).length-callsOf(a.id).length)||String(a.created).localeCompare(String(b.created)));
+  for(const p of list){
+    const keys=dupKeys(p);const hit=keys.map(k=>seen.get(k)).find(Boolean);
+    if(hit){const patch={stage:'perdu',lostReason:'Doublon',optout:p.optout||false};if(await guard(()=>DB.update('prospects',p.id,patch))){Object.assign(p,patch);n++}}
+    else keys.forEach(k=>seen.set(k,p));
+  }
+  toast(n+' doublons retirés de la file (gardés en « perdu / Doublon », rien n\'est supprimé).');render();
 }
 async function sourceOSM(){
   const scope=($('#osmscope')||{}).value||'idf';const depts=scopeDepts(scope);
@@ -687,7 +713,7 @@ function donneesHTML(){
    <label class="f" for="osmscope">Région (commence par la tienne, puis élargis quand la liste est épuisée)</label><select id="osmscope">${Object.entries(REGIONS).map(([k,[l]])=>`<option value="${k}">${esc(l)}</option>`).join('')}<option value="fr">France entière (long)</option></select>
    <div class="res" style="margin-top:8px"><button class="btn" id="osmbtn" data-act="osm">OpenStreetMap : téléphones et comptes déjà renseignés</button></div>
    <p class="muted sm">Peu de fiches mais immédiatement appelables (téléphone). Environ 200 en Île-de-France.</p>
-   <div class="res" style="margin-top:8px"><button class="btn" id="rgebtn" data-act="rge">Fichier RGE (ADEME) : chauffagistes avec téléphone et email</button></div>
+   <div class="res" style="margin-top:8px"><button class="btn" data-act="dedupe">Nettoyer les doublons (téléphone, SIREN, nom + ville)</button></div><div class="res" style="margin-top:8px"><button class="btn" id="rgebtn" data-act="rge">Fichier RGE (ADEME) : chauffagistes avec téléphone et email</button></div>
    <p class="muted sm"><b>La meilleure source gratuite.</b> Des milliers d'entreprises de chauffage (chaudière, pompe à chaleur, poêle…) avec téléphone, email et site. Prêtes à appeler dès l'import.</p>
    <div class="res" style="margin-top:8px"><button class="btn" id="govbtn" data-act="gouv">Annuaire officiel des entreprises : liste complète</button></div>
    <p class="muted sm">Plusieurs milliers d'entreprises (plomberie et chauffage actifs) avec le prénom du dirigeant et la date de création. Pas de téléphone : elles attendent l'enrichissement. La recherche utilise la zone choisie ci-dessus.</p>
@@ -824,6 +850,7 @@ document.addEventListener('click',async e=>{
   else if(a==='addangle')addAngle();
   else if(a==='demo')loadDemo();
   else if(a==='goals-save')saveGoals();
+  else if(a==='dedupe')cleanDupes();
   else if(a==='nrdone'){const p=byId(S.lastNR);if(p&&b.tagName==='A'){DB.update('prospects',p.id,{nrSent:(p.nrSent||0)+1});p.nrSent=(p.nrSent||0)+1}S.lastNR='';setTimeout(render,50)}
   else if(a==='osm')sourceOSM();
   else if(a==='gouv')sourceGouv();
