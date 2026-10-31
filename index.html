@@ -112,11 +112,12 @@ const OUT_CH=[['dm_insta','DM Instagram'],['dm_fb','DM Facebook'],['dm_lin','DM 
 const OUT_RES=[['sent','Envoyé','primary'],['reply','A répondu',''],['rdv','RDV pris','primary'],['no','Pas intéressé',''],['stop','Ne plus contacter','danger']];
 const OUT_JOINT=['reply','rdv','no','stop'];
 const MAX_OUT=4;
+const OUT_GOAL=15;
 const DEF_OUT={
- D1:{name:'D1 · Question courte (DM)',text:`Bonjour {nom_court}, question rapide : aujourd'hui vos nouveaux clients viennent surtout du bouche-à-oreille ou d'autre chose ?`},
+ D1:{name:'D1 · Question courte (DM)',text:`Bonjour {nom_court}, {accroche}. Question rapide : aujourd'hui vos nouveaux clients viennent surtout du bouche-à-oreille ou d'autre chose ?`},
  D2:{name:'D2 · Fiche Google + capacité (DM)',text:`Bonjour, je vois que {nom} a {avis} avis à {note}/5, belle réputation. Vous avez de la place dans votre planning pour quelques chantiers de plus ce mois-ci ? Je monte un programme pilote de demandes de devis par publicité pour 3 artisans d'Île-de-France, je me demandais si ça pouvait vous parler.`},
  V1:{name:'V1 · Vidéo perso 45 s (Loom)',text:`1. (0-5 s) « Bonjour [prénom], je suis Kissima, je vous ai préparé cette vidéo à vous, pas un message copié-collé. »
-2. (5-20 s) Montre sa fiche Google / son site : « J'ai vu que vous faites [chaudières / salles de bain] sur {ville}, {avis} avis, vous avez un vrai bouche-à-oreille. »
+2. (5-20 s) Montre sa fiche Google / son site / son profil : « {accroche}. »
 3. (20-35 s) « Le point faible que je vois : aucune source de demandes régulière en dehors du bouche-à-oreille. Je teste un système de demandes de devis par pub Facebook/Instagram pour 3 artisans. »
 4. (35-45 s) « Si ça vous parle, répondez-moi ici, on se fait 15 minutes en visio. »
 Règle : une vidéo par prospect, jamais de faux client cité, jamais de promesse de chantiers.`},
@@ -188,7 +189,7 @@ function callQueue(){
 }
 function callsOf(pid){return S.calls.filter(c=>c.prospectId===pid)}
 function todayStats(){const t=today();const L=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t);return{n:L.length,j:L.filter(c=>JOINT.includes(c.result)).length,r:L.filter(c=>c.result==='rdv').length}}
-function fillScript(txt,p){return String(txt||'').replace(/\{avis\}/g,p.reviews||'?').replace(/\{note\}/g,p.rating||'?').replace(/\{nom\}/g,p.name||'').replace(/\{ville\}/g,p.city||'').replace(/\{jour\}/g,'demain')}
+function fillScript(txt,p){return String(txt||'').replace(/\{accroche\}/g,hookFor(p)).replace(/\{avis\}/g,p.reviews||'?').replace(/\{note\}/g,p.rating||'?').replace(/\{nom\}/g,p.name||'').replace(/\{ville\}/g,p.city||'').replace(/\{jour\}/g,'demain')}
 
 function dueBanner(){
   const t=today();const items=S.clients.filter(c=>c.status!=='fini'&&c.checklist&&c.checklist.launch&&!c.checklist.j14).map(c=>({c,d:addDays(c.checklist.launch,14)}));
@@ -263,11 +264,22 @@ function outQueue(){
   return S.prospects.filter(p=>!p.optout&&!p.outDone&&['a_contacter','contacte'].includes(p.stage||'a_contacter')&&!sk.includes(p.id)&&(!p.outNext||p.outNext<=t))
    .sort((a,b)=>{const h=x=>(x.instagram||x.facebook||x.linkedin||x.email)?0:1;return h(a)-h(b)||(+b.score||0)-(+a.score||0)||(+b.reviews||0)-(+a.reviews||0)});
 }
+function hookFor(p){
+  const n=p.name||'votre entreprise',v=p.city||'votre secteur';
+  if(+p.reviews>=30&&+p.rating>=4.5)return `j'ai vu que ${n} a ${p.reviews} avis à ${p.rating}/5 sur Google, c'est un vrai bouche-à-oreille`;
+  if(/chauffage|chaudi|pompe|thermi|énergie|energie/i.test(n))return `j'ai vu que ${n} fait du chauffage sur ${v}`;
+  if(/dépann|depann|urgence|sos|express/i.test(n))return `j'ai vu que ${n} fait du dépannage sur ${v}`;
+  if(/sanitaire|salle de bain|plomb/i.test(n)&&!p.website)return `je n'ai pas trouvé de site pour ${n}, les clients qui cherchent sur Google ne vous trouvent pas facilement`;
+  if(p.instagram)return `j'ai vu votre compte Instagram, ${n} montre de vrais chantiers`;
+  if(!p.website)return `je n'ai pas trouvé de site pour ${n} à ${v}`;
+  return `je suis tombé sur ${n} à ${v}`;
+}
+function socialUrl(h,kind){h=String(h||'').trim();if(!h)return '';if(/^https?:/i.test(h))return h;h=h.replace(/^@/,'');return (kind==='facebook'?'https://facebook.com/':'https://instagram.com/')+h}
 function fillOut(txt,p){return fillScript(txt,p).replace(/\{nom_court\}/g,(p.name||'').split(/\s+/).slice(0,2).join(' '))}
 function outreachHTML(){
   const sc=settings(),Q=outQueue();
   const t=today();const L=S.calls.filter(c=>!isCall(c)&&String(c.t).slice(0,10)===t);
-  const kp=`<div class="kpis"><div class="kpi"><b>${L.filter(c=>c.result==='sent').length}</b><span>messages / vidéos envoyés aujourd'hui</span></div><div class="kpi"><b>${L.filter(c=>c.result==='reply').length}</b><span>réponses</span></div><div class="kpi"><b>${L.filter(c=>c.result==='rdv').length}</b><span>RDV</span></div><div class="kpi"><b>${Q.length}</b><span>à contacter</span></div></div>`;
+  const kp=`<div class="kpis"><div class="kpi"><b>${L.filter(c=>c.result==='sent').length} / ${OUT_GOAL}</b><span>messages / vidéos envoyés aujourd'hui (objectif)</span></div><div class="kpi"><b>${L.filter(c=>c.result==='reply').length}</b><span>réponses</span></div><div class="kpi"><b>${L.filter(c=>c.result==='rdv').length}</b><span>RDV</span></div><div class="kpi"><b>${Q.length}</b><span>à contacter</span></div></div>`;
   let cur=S.out.pid?byId(S.out.pid):null;
   if(!cur||!Q.some(x=>x.id===cur.id))cur=Q[0]||null;
   if(cur&&S.out.pid!==cur.id){S.out.pid=cur.id;S.out.note='';S.out.handle='';S.out.rdvAt=''}
@@ -280,7 +292,8 @@ function outreachHTML(){
   const handleVal=cur[handleKey]||'';
   const left=`<div class="card"><div class="muted sm">${outTries(cur)?'<span class="chip warn">Relance '+outTries(cur)+'</span>':'<span class="chip hot">Premier contact</span>'}${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}</div>
    <h2 style="margin-top:4px">${esc(cur.name)}</h2>
-   <div class="sm muted">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a> · `:''}<a href="https://www.google.com/search?q=${encodeURIComponent((cur.name||'')+' '+(cur.city||'')+' instagram')}" target="_blank" rel="noopener">chercher le compte</a></div>
+   <div class="sm muted">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a> · `:''}${cur.instagram?`<a href="${esc(socialUrl(cur.instagram))}" target="_blank" rel="noopener">Instagram</a> · `:''}${cur.facebook?`<a href="${esc(socialUrl(cur.facebook,'facebook'))}" target="_blank" rel="noopener">Facebook</a> · `:''}<a href="https://www.google.com/search?q=${encodeURIComponent((cur.name||'')+' '+(cur.city||'')+' instagram')}" target="_blank" rel="noopener">chercher le compte</a></div>
+   <div class="banner" style="margin-top:8px"><b>Accroche suggérée</b><br>${esc(hookFor(cur))}<br><span class="muted sm">Ajoute un détail vu sur son profil (dernier chantier, photo) : c'est ce qui rend le message personnel.</span></div>
    <div class="row" style="margin-top:8px"><div><label class="f" for="och">Canal</label><select id="och">${OUT_CH.map(([k,l])=>`<option value="${k}"${S.out.ch===k?' selected':''}>${l}</option>`).join('')}</select></div>
    <div><label class="f" for="ovar">Message</label><select id="ovar">${variants.map(([k,x])=>`<option value="${esc(k)}"${S.out.variant===k?' selected':''}>${esc(x.name)}</option>`).join('')}</select></div></div>
    <label class="f" for="oh">${isVid?'Lien de la vidéo envoyée':S.out.ch==='email'?'Email':'Compte / lien du profil'}</label><input id="oh" style="width:100%" value="${esc(S.out.handle||handleVal)}" placeholder="${isVid?'https://www.loom.com/share/…':S.out.ch==='email'?'contact@…':'@compte ou lien'}">
@@ -492,6 +505,30 @@ async function importCSV(text){
   });
   if(await guard(()=>DB.setMany('prospects',items))){items.forEach(([id,d])=>S.prospects.push({id,...d}));toast(items.length+' fiches ajoutées, '+dup+' doublons ignorés, '+nophone+' sans téléphone.');render()}
 }
+async function sourceOSM(){
+  const btn=$('#osmbtn');if(btn){btn.disabled=true;btn.textContent='Recherche en cours (jusqu\'à 1 minute)…'}
+  const q='[out:json][timeout:90];area["ISO3166-2"="FR-IDF"]->.a;nwr(area.a)["craft"~"^(plumber|hvac)$"];out center tags;';
+  try{
+    const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'data='+encodeURIComponent(q)});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    const have=new Set(S.prospects.map(p=>p.id));const phones=new Set(S.prospects.map(p=>normPhone(p.phone)).filter(Boolean));
+    const items=[];let dup=0,pauvre=0;
+    (j.elements||[]).forEach(e=>{const t=e.tags||{};const name=(t.name||'').trim();if(!name)return;
+      const phone=t.phone||t['contact:phone']||t['contact:mobile']||'';
+      const insta=t['contact:instagram']||t.instagram||'',fb=t['contact:facebook']||t.facebook||'',mail=t.email||t['contact:email']||'';
+      const web=t.website||t['contact:website']||t.url||'';
+      if(!hasPhone(phone)&&!insta&&!fb&&!mail){pauvre++;return}
+      const id='o'+e.type[0]+e.id;const np=normPhone(phone);
+      if(have.has(id)||(np&&phones.has(np))){dup++;return}have.add(id);if(np)phones.add(np);
+      const pc=t['addr:postcode']||'';
+      items.push([id,{name,phone:hasPhone(phone)?phone:'',website:web,instagram:insta,facebook:fb,email:mail,city:t['addr:city']||'',dept:pc?pc.slice(0,2):'',address:[t['addr:housenumber'],t['addr:street'],pc].filter(Boolean).join(' '),score:40+(insta?30:0)+(fb?15:0)+(hasPhone(phone)?10:0)+(web?5:0),stage:'a_contacter',created:today(),source:'osm'}]);
+    });
+    if(!items.length){toast('Aucune nouvelle fiche ('+dup+' déjà présentes).')}
+    else if(await guard(()=>DB.setMany('prospects',items))){items.forEach(([id,d])=>S.prospects.push({id,...d}));toast(items.length+' fiches ajoutées, '+dup+' doublons, '+pauvre+' ignorées (ni téléphone, ni réseau social, ni email).')}
+  }catch(err){toast('Recherche impossible : '+err.message+'. Réessaie dans une minute.')}
+  render();
+}
 async function loadDemo(){
   const noms=['Plomberie Dupont','Chauffage Martin','SOS Plomberie 78','Durand Énergies','Bernard Sanitaire','Thermo Services','Leroy Chauffage','Plomb\'Express','Moreau Rénovation','Garcia Chauffage'];
   const villes=[['Triel-sur-Seine','78'],['Poissy','78'],['Versailles','78'],['Boulogne-Billancourt','92'],['Nanterre','92'],['Cergy','95'],['Argenteuil','95'],['Saint-Germain-en-Laye','78'],['Colombes','92'],['Pontoise','95']];
@@ -511,6 +548,7 @@ function exportProspects(){
 function donneesHTML(){
   const mode=DB.mode==='local'?`<div class="banner">Mode local : les données sont dans CE navigateur seulement. Exporte régulièrement les CSV. Pour le cloud, voir le guide ci-dessous.</div>`:'';
   return mode+`<div class="card"><h2>Importer une liste</h2><p class="muted sm">CSV produit par le script de recherche (colonnes : name, phone, website, rating, reviews, address, city, dept, place_id, maps_url, score). Les doublons (même numéro) sont ignorés, les fiches sans téléphone aussi.</p><input type="file" id="csvf" accept=".csv,text/csv"></div>
+  <div class="card"><h2>Chercher des plombiers et chauffagistes (gratuit)</h2><p class="muted sm">Interroge OpenStreetMap, sans clé et sans abonnement, pour toute l'Île-de-France. Récupère le téléphone, le site, Instagram, Facebook et l'email quand ils sont renseignés. Les fiches sans aucun moyen de contact sont ignorées. Tu peux relancer la recherche : les doublons ne sont pas recréés.</p><button class="btn" id="osmbtn" data-act="osm">Lancer la recherche</button></div>
   <div class="card"><h2>Essayer l'outil</h2><p class="muted sm">Charge 10 fiches fictives (numéros de la plage réservée à la fiction) pour tester les appels, les DM et les stats. Tu peux ensuite les ignorer ou les retirer en les passant en « Ne plus appeler ».</p><button class="btn" data-act="demo">Charger 10 fiches de démonstration</button></div>
   <div class="card"><h2>Exporter</h2><div class="row"><button class="btn" data-act="exp-calls">Appels (CSV)</button><button class="btn" data-act="exp-pros">Prospects (CSV)</button></div></div>
   <div class="card"><h2>Registre d'opposition (${S.prospects.filter(p=>p.optout).length})</h2><p class="muted sm">Toute personne marquée « Ne plus appeler » est exclue de la file d'appels et doit le rester.</p></div>
@@ -570,6 +608,7 @@ document.addEventListener('click',async e=>{
   else if(a==='set-save')saveSettings();
   else if(a==='addangle')addAngle();
   else if(a==='demo')loadDemo();
+  else if(a==='osm')sourceOSM();
   else if(a==='exp-calls')exportCalls();
   else if(a==='exp-pros')exportProspects();
   else if(a==='logout'){await DB.sb.auth.signOut();S.user=null;render()}
