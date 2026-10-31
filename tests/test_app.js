@@ -88,7 +88,7 @@ const fs = require('fs');
   const st = await pg.textContent('main');
   ok(/2\s*appels/.test(st), 'stats : 2 appels');
   ok(st.includes('DM Instagram') && st.includes('Appel'), 'stats par canal');
-  ok(st.includes('A · Capacité') && st.includes('B · Découverte'), 'stats par angle');
+  ok(st.includes('H · Base Hamza') && st.includes('B · Découverte'), 'stats par angle');
 
   // scripts + export
   await pg.click('[data-v=scripts]');

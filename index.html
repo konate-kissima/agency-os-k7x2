@@ -72,6 +72,31 @@ const JOINT=['rdv','rap','no','stop'];
 const OBJ=['—','Pas le temps','Déjà une agence','Le bouche-à-oreille suffit','Pas de budget / trop cher','Déjà trop de travail','Doit en parler (associé, conjoint)','A déjà essayé les pubs (sans résultat)','Pas le décideur','Méfiance','Autre'];
 const MAX_TRIES=5;
 const DEF_SCRIPTS={
+ H:{name:'H · Base Hamza (adaptée, sans fausse référence)',text:`1. OUVERTURE
+« Bonjour {contact}, Kissima à l'appareil, de [ton agence]. Comment allez-vous ? »
+
+2. COMPLIMENT (ta préparation de la veille : fiche Google, site, une chose précise)
+« Je vous appelle vite fait, je suis devant votre fiche Google : {avis} avis, {note}/5. Ça résulte forcément d'un très bon travail. »
+
+3. LA QUESTION QUI ACCROCHE
+« Est-ce que ce serait possible pour vous d'absorber 20 à 30 chantiers de plus d'ici les trois prochains mois ? Vous avez de la bande passante ? »
+
+4. LA PREUVE (vraie : tu n'as pas encore de clients, ne cite jamais de fausse référence)
+« Je lance en ce moment un programme pilote avec 3 artisans d'Île-de-France : je leur amène des demandes de devis par Facebook et Instagram. Vous avez le même profil que ceux que je cherche. »
+
+5. LA DEMANDE DE RDV
+« Le but serait de vous prendre 10 à 15 minutes la semaine prochaine pour voir ce que ça pourrait donner. »
+
+6. LE CRÉNEAU PRÉCIS
+« J'ai une dispo {jour} à 14h52. » (une heure précise, pas « l'après-midi »)
+
+7. LES COORDONNÉES
+« Je prends votre email et votre numéro, ça ne vous dérange pas ? C'est bien le numéro direct, ou celui de l'entreprise ? »
+
+8. CONFIRMATION ET CLÔTURE
+« Je me note ça, je vous rappelle le matin même pour confirmer. Merci pour votre temps, belle journée. »
+
+ADAPTE-TOI : le script n'est qu'une base. Écoute, rebondis sur ce qu'il dit, sois humain. Un non est normal, enchaîne le suivant.`},
  A:{name:'A · Capacité de chantiers',text:`INTRO
 « Bonjour, Kissima à l'appareil. Je regarde votre fiche Google : {avis} avis, {note}/5, bravo. Vous avez 30 secondes ? »
 
@@ -106,7 +131,7 @@ HONNÊTETÉ
 RDV
 « On se voit 15 minutes en visio {jour} ? »`}
 };
-const DEF_SETTINGS={angle:'A',pilotPrice:1200,normalPrice:2000,budgetDay:30,minMonths:3,recordText:'Cet appel peut être enregistré pour ma formation. Dites-le-moi si vous préférez que non.',scripts:DEF_SCRIPTS};
+const DEF_SETTINGS={angle:'H',pilotPrice:1200,normalPrice:2000,budgetDay:30,minMonths:3,recordText:'Cet appel peut être enregistré pour ma formation. Dites-le-moi si vous préférez que non.',scripts:DEF_SCRIPTS};
 const CHECK=[['contrat','Contrat signé + 1er paiement'],['page','Page Facebook du client prête'],['bm','Accès partenaire au Business Manager / compte pub du client'],['pay','Moyen de paiement du client sur le compte pub'],['form','Formulaire de leads (3 questions de qualification)'],['crea','Créatives (3 variantes) validées par le client'],['alerte','Alerte lead (SMS/WhatsApp au client) + rappel du lead en moins de 5 min'],['launch','Campagne lancée (date = début des 14 jours sans toucher)'],['j14','Revue à J+14'],['cas','Accord écrit pour le cas d\'étude']];
 const OUT_CH=[['dm_insta','DM Instagram'],['dm_fb','DM Facebook'],['dm_lin','DM LinkedIn'],['video','Vidéo personnalisée (Loom, 45 s)'],['email','Email']];
 const OUT_RES=[['sent','Envoyé','primary'],['reply','A répondu',''],['rdv','RDV pris','primary'],['no','Pas intéressé',''],['stop','Ne plus contacter','danger']];
@@ -193,7 +218,7 @@ function callQueue(){
 }
 function callsOf(pid){return S.calls.filter(c=>c.prospectId===pid)}
 function todayStats(){const t=today();const L=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t);return{n:L.length,j:L.filter(c=>JOINT.includes(c.result)).length,r:L.filter(c=>c.result==='rdv').length}}
-function fillScript(txt,p){return String(txt||'').replace(/\{accroche\}/g,hookFor(p)).replace(/\{avis\}/g,p.reviews||'?').replace(/\{note\}/g,p.rating||'?').replace(/\{nom\}/g,p.name||'').replace(/\{ville\}/g,p.city||'').replace(/\{jour\}/g,'demain')}
+function fillScript(txt,p){return String(txt||'').replace(/\{contact\}/g,p.dirigeant||'monsieur/madame').replace(/\{accroche\}/g,hookFor(p)).replace(/\{avis\}/g,p.reviews||'?').replace(/\{note\}/g,p.rating||'?').replace(/\{nom\}/g,p.name||'').replace(/\{ville\}/g,p.city||'').replace(/\{jour\}/g,'demain')}
 
 function dueBanner(){
   const t=today();const items=S.clients.filter(c=>c.status!=='fini'&&c.checklist&&c.checklist.launch&&!c.checklist.j14).map(c=>({c,d:addDays(c.checklist.launch,14)}));
@@ -479,7 +504,7 @@ async function saveSettings(){
   if(await guard(()=>DB.update('settings','main',patch))){Object.assign(S.settings,patch);toast('Réglages enregistrés.')}
 }
 async function addAngle(){
-  const sc=settings();const keys=Object.keys(sc.scripts);const k=String.fromCharCode(65+keys.length);
+  const sc=settings();const keys=Object.keys(sc.scripts);let k='';for(let i=0;i<26;i++){const c=String.fromCharCode(65+i);if(!keys.includes(c)){k=c;break}}if(!k)return;
   const scripts={...sc.scripts,[k]:{name:k+' · Nouvel angle',text:''}};
   if(await guard(()=>DB.update('settings','main',{scripts}))){S.settings.scripts=scripts;render()}
 }
