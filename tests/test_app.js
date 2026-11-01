@@ -52,7 +52,7 @@ const fs = require('fs');
   await pg.click('[data-act=callres][data-r=nr]');
   ok(await pg.locator('text=Plus personne à appeler').count() === 1, 'Pas de réponse reprogrammé au lendemain');
   ok(/Relance en 1 clic/.test(await pg.textContent('main')) && await pg.locator('a[href^="sms:"]').count()===1, 'carte relance SMS après pas de réponse');
-  { const sms=decodeURIComponent((await pg.getAttribute('a[href^="sms:"]','href'))||''); ok(/c'est Kissima\. J'ai vu|c'est Kissima\. Je /.test(sms)&&/5 minutes suffisent/.test(sms)&&!/\{/.test(sms), 'SMS de relance : bonjour, fait sur l\'entreprise, question de disponibilité (5 min)'); console.log(sms); }
+  { const sms=decodeURIComponent((await pg.getAttribute('a[href^="sms:"]','href'))||''); ok(/c'est Kissima, j'ai essayé de vous joindre\. (J'ai vu|Je suis)/.test(sms)&&/5 minutes cette semaine/.test(sms)&&/Très cordialement, Kissima/.test(sms)&&!/\{/.test(sms), 'SMS de relance : chaleureux, fait sur l\'entreprise, question de disponibilité, formule de politesse'); console.log(sms); }
 
   // outreach : file DM
   await pg.click('[data-v=outreach]');

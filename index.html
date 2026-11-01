@@ -279,7 +279,7 @@ function callQueue(){
 }
 function callsOf(pid){return S.calls.filter(c=>c.prospectId===pid)}
 function todayStats(){const t=today();const L=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t);return{n:L.length,j:L.filter(c=>JOINT.includes(c.result)).length,r:L.filter(c=>c.result==='rdv').length}}
-function fillScript(txt,p){return String(txt||'').replace(/\{contact\}/g,p.dirigeant||'monsieur/madame').replace(/\{accroche\}/g,hookFor(p)).replace(/\{Accroche\}/g,(()=>{const h=hookFor(p);return h.charAt(0).toUpperCase()+h.slice(1)})()).replace(/\{avis\}/g,p.reviews||'?').replace(/\{note\}/g,p.rating||'?').replace(/\{nom\}/g,p.name||'').replace(/\{ville\}/g,p.city||'').replace(/\{jour\}/g,'demain')}
+function fillScript(txt,p){return String(txt||'').replace(/\{contact\}/g,p.dirigeant||'monsieur/madame').replace(/\{accroche\}/g,hookFor(p)).replace(/\{Accroche\}/g,(()=>{let h=hookFor(p);if(/je n'ai pas trouvé de site/.test(h))h=p.city?`j'ai découvert ${p.name} à ${p.city}`:`j'ai découvert ${p.name}`;return h.charAt(0).toUpperCase()+h.slice(1)})()).replace(/\{avis\}/g,p.reviews||'?').replace(/\{note\}/g,p.rating||'?').replace(/\{nom\}/g,p.name||'').replace(/\{ville\}/g,p.city||'').replace(/\{jour\}/g,'demain')}
 
 function dueBanner(){
   const t=today();const items=S.clients.filter(c=>c.status!=='fini'&&c.checklist&&c.checklist.launch&&!c.checklist.j14).map(c=>({c,d:addDays(c.checklist.launch,14)}));
@@ -303,7 +303,7 @@ function rdvCard(){
   const ph=normPhone(p.phone),enc=encodeURIComponent(msg);
   const wa=ph?'https://wa.me/'+(ph.startsWith('0')?'33'+ph.slice(1):ph.replace('+',''))+'?text='+enc:'';
   return `<div class="card" style="border:2px solid var(--ok,#2a7)"><b>RDV pris : ${esc(p.name)}, ${esc(quand)}.</b> Confirme-le en 2 clics :<div class="row" style="margin-top:8px;flex-wrap:wrap"><a class="btn primary" href="${gcal}" target="_blank" rel="noopener">1. Créer l'invitation Google (ajoute Meet)</a>${wa?`<a class="btn" href="${wa}" target="_blank" rel="noopener">2. WhatsApp</a>`:''}${p.email?`<a class="btn" href="mailto:${esc(p.email)}?subject=${encodeURIComponent('Notre échange')}&body=${enc}">2. Email</a>`:''}<button class="btn sm" data-act="rdvdone">OK, fait</button></div><p class="muted sm" style="margin-top:6px">Dans Google Agenda, clique « Ajouter Google Meet », enregistre, puis remplace [lien Meet] dans le message.</p></div>`}
-const NR_SMS="Bonjour {contact}, c'est Kissima. {Accroche}. J'aurais aimé échanger avec vous au sujet de votre activité et de la publicité en ligne. Dites-moi quand vous êtes le plus disponible : 5 minutes suffisent. Bonne journée.";
+const NR_SMS="Bonjour {contact}, c'est Kissima, j'ai essayé de vous joindre. {Accroche}, et cela m'a donné envie de faire votre connaissance. Auriez-vous 5 minutes cette semaine pour échanger sur votre activité ? Dites-moi simplement le moment qui vous arrange le mieux. Au plaisir d'avoir votre retour. Très cordialement, Kissima";
 function nrCard(){
   const p=S.lastNR?byId(S.lastNR):null;if(!p)return '';
   const msg=fillScript(settings().nrText||NR_SMS,p).replace('monsieur/madame','').replace('Bonjour ,','Bonjour,');
