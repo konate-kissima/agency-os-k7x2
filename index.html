@@ -265,11 +265,17 @@ async function guard(fn){try{await fn();return true}catch(e){toast('Erreur : '+(
 const saveP=(id,patch)=>guard(async()=>{await DB.update('prospects',id,patch);Object.assign(byId(id)||{},patch)});
 
 /* ================= file d'appels ================= */
+const RAPPEL_CAP=45; // au-delà, les nouvelles fiches passent devant : les rappels ne mangent pas toute la journée
+const SLOT_L={m:'matin tôt (avant 11 h)',d:'midi / après-midi (11 h–17 h)',s:'fin de journée (après 17 h)'};
+const slotOf=h=>h<11?'m':h<17?'d':'s';
+function rappelsToday(){const t=today(),first={};S.calls.forEach(c=>{if(isCall(c)&&(first[c.prospectId]===undefined||c.t<first[c.prospectId]))first[c.prospectId]=c.t});return S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t&&c.t>first[c.prospectId]).length}
 function callQueue(){
-  const t=today(),sk=S.call.skip,mob=S.call.mob;
+  const t=today(),sk=S.call.skip,mob=S.call.mob,cap=rappelsToday()>=RAPPEL_CAP,slot=slotOf(new Date().getHours());
+  // ordre : rappels du créneau en cours, autres rappels dus, nouvelles fiches (ou nouvelles d'abord une fois le quota de rappels atteint)
+  const rank=p=>p.stage==='contacte'?(cap?1:(!p.slots||!p.slots.length||p.slots.includes(slot)?0:1)):(cap?0:2);
   return S.prospects.filter(p=>!p.optout&&hasPhone(p.phone)&&!sk.includes(p.id)&&(p.stage==='a_contacter'||(p.stage==='contacte'&&(!p.nextDate||p.nextDate<=t)))
     &&(mob==='all'||(mob==='fixe'&&!isMobile(p.phone))||(mob==='mobile'&&isMobile(p.phone))))
-   .sort((a,b)=>{const da=a.stage==='contacte'?0:1,db=b.stage==='contacte'?0:1;return da-db||(+b.score||0)-(+a.score||0)||(+b.reviews||0)-(+a.reviews||0)||String(a.name).localeCompare(String(b.name))});
+   .sort((a,b)=>rank(a)-rank(b)||(a.stage==='contacte'&&b.stage==='contacte'?String(a.nextDate||'').localeCompare(String(b.nextDate||'')):0)||(+b.score||0)-(+a.score||0)||(+b.reviews||0)-(+a.reviews||0)||String(a.name).localeCompare(String(b.name)));
 }
 function callsOf(pid){return S.calls.filter(c=>c.prospectId===pid)}
 function todayStats(){const t=today();const L=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t);return{n:L.length,j:L.filter(c=>JOINT.includes(c.result)).length,r:L.filter(c=>c.result==='rdv').length}}
@@ -317,7 +323,7 @@ function appelsHTML(){
   if(!cur)return dueBanner()+nrc+kp+filt+`<div class="card"><b>Plus personne à appeler pour l'instant.</b><div class="muted sm">Importe une liste (onglet Données) ou attends les rappels programmés.</div></div>`;
   const hist=callsOf(cur.id).slice(-4).reverse();
   const mob=isMobile(cur.phone);
-  const left=`<div class="card"><div class="muted sm">${cur.stage==='contacte'?'<span class="chip warn">Rappel</span>':'<span class="chip hot">Premier appel</span>'}${mob?'<span class="chip bad" title="Mobile : le régime consommateur peut s\'appliquer aux indépendants, à vérifier">Mobile</span>':''}${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}${cur.touches?' · '+cur.touches+' tentative(s)':''}</div>
+  const left=`<div class="card"><div class="muted sm">${cur.stage==='contacte'?'<span class="chip warn">'+((cur.cycle||1)>=2?'Rappel de réserve':'Rappel')+'</span>':'<span class="chip hot">Premier appel</span>'}${cur.stage==='contacte'&&cur.slots&&cur.slots.length&&cur.slots.length<3?'<span class="chip" title="Les artisans sont souvent sur chantier : on varie le moment de l\'appel">Mieux : '+cur.slots.map(x=>SLOT_L[x]).join(' ou ')+'</span>':''}${mob?'<span class="chip bad" title="Mobile : le régime consommateur peut s\'appliquer aux indépendants, à vérifier">Mobile</span>':''}${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}${cur.touches?' · '+cur.touches+' tentative(s)':''}</div>
    <h2 style="margin-top:4px">${esc(cur.name)}</h2>
    <div class="sm muted">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a>`:''}${cur.score?' · score '+esc(cur.score):''}</div>
    <a class="callnum" href="tel:${esc(normPhone(cur.phone))}">${esc(fmtPhone(cur.phone))}</a>
@@ -352,7 +358,10 @@ async function callResult(r){
   let patch;
   if(r==='rdv')patch={...base,stage:'rdv',rdvAt,nextDate:''};
   else if(r==='rap')patch={...base,stage:'contacte',nextDate:date};
-  else if(r==='nr'||r==='rep'){const joined=callsOf(p.id).some(c=>c.joint);const ctries=callsOf(p.id).filter(isCall).length+1;patch=(ctries>=MAX_TRIES&&!joined)?{...base,stage:'perdu',lostReason:'Injoignable ('+MAX_TRIES+' tentatives)'}:{...base,stage:'contacte',nextDate:workday(r==='nr'?1:2)}}
+  else if(r==='nr'||r==='rep'){const joined=callsOf(p.id).some(c=>c.joint);const ctries=callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).length+1;
+    const slots=['m','d','s'].filter(x=>x!==slotOf(call.hour));
+    if(ctries>=MAX_TRIES&&!joined){patch=(p.cycle||1)<2?{...base,stage:'contacte',nextDate:addDays(today(),30),slots:[],cycle:2,cycleStart:new Date(now.getTime()+1).toISOString()}:{...base,stage:'perdu',lostReason:'Injoignable (2 cycles de '+MAX_TRIES+' tentatives)'}}
+    else patch={...base,stage:'contacte',nextDate:workday(r==='nr'?1:2),slots}}
   else if(r==='no')patch={...base,stage:'perdu',lostReason:call.obj||'Pas intéressé'};
   else if(r==='bad')patch={...base,phone:'',badPhone:true};
   else patch={...base,stage:'stop',optout:true};
