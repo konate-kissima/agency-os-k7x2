@@ -773,7 +773,21 @@ function donneesHTML(){
 }
 
 /* ================= aide ================= */
-function aideHTML(){return `<div class="card"><h2>Fiche de l'activité : tout ton process, de A à Z</h2>
+function aideHTML(){return `<div class="card"><h2>Explication de l'outil</h2>
+<p class="muted sm">Pour toi et pour toute personne qui rejoint l'équipe : à quoi sert chaque onglet et comment le process se déroule de A à Z.</p>
+<details><summary><b>La note (score) des fiches : sur quoi elle repose</b></summary>
+<p>Chaque fiche a une note de 0 à 100. Elle ne dit <b>pas</b> qui va signer : elle classe les fiches pour que tu appelles d'abord celles qui ont le plus de chances d'être de vraies entreprises actives et joignables. Elle sert à trier, rien d'autre.</p>
+<table class="t"><thead><tr><th>D'où vient la fiche</th><th>Calcul de la note</th></tr></thead><tbody>
+<tr><td>Google Maps (recherche de plombiers)</td><td>25 points de base, plus : nombre d'avis (jusqu'à 30 avis comptés), note Google au-dessus de 3,5, site internet (+10), téléphone (+20), ligne fixe (+15). Ce total est réduit à 60 % puis plafonné à 100.</td></tr>
+<tr><td>Fichier CSV importé</td><td>La note fournie dans le fichier : avis (2 points par avis, jusqu'à 40), note au-dessus de 3,5, site (+15), téléphone (+10), ligne fixe (+15).</td></tr>
+<tr><td>Annuaire OpenStreetMap</td><td>40 points, plus Instagram (+30), Facebook (+15), téléphone (+10), site (+5).</td></tr>
+<tr><td>Annuaire RGE (rénovation énergétique)</td><td>50 points, plus téléphone (+20), email (+10), site (+5).</td></tr>
+<tr><td>Annuaire officiel des entreprises</td><td>30 points, plus 20 si l'entreprise a été créée il y a moins de 2 ans.</td></tr>
+<tr><td>Après l'enrichissement automatique</td><td>Bonus ajoutés quand on trouve un compte : Instagram (+15), Facebook (+8), note Google d'au moins 4,5 (+5).</td></tr>
+</tbody></table>
+<p class="sm"><b>À quoi elle sert :</b></p>
+<ol class="plain"><li><b>Appels :</b> d'abord les rappels dus, puis les nouvelles fiches de la plus haute note à la plus basse (à note égale, celles qui ont le plus d'avis).</li><li><b>DM &amp; vidéos :</b> d'abord les fiches où on a trouvé un Instagram, Facebook, LinkedIn ou email, puis par note.</li></ol>
+<p class="muted sm">Les pondérations sont mon choix de départ, pas une vérité démontrée. Après quelques semaines d'appels, l'onglet Stats montrera si les fiches très bien notées répondent vraiment mieux, et on ajustera.</p></details>
 <p class="muted sm">Tout se fait depuis ta chambre : téléphone, ordinateur, visio, signature en ligne, paiement en ligne. Les chiffres marqués « hypothèse » sont à remplacer par tes vrais chiffres (onglet Stats) après 2 semaines.</p>
 <details open><summary><b>1. Ce que tu vends, en une phrase</b></summary>
 <p>Tu apportes des demandes de devis à des plombiers/chauffagistes grâce à des publicités Facebook et Instagram (Meta Ads). Modèle Hamza : contrat de 90 jours, prix total ${settings().pilotPrice} € au départ (moitié à la signature, moitié quand le client a reçu 20 leads qualifiés), puis ${settings().normalPrice} € quand tu montes tes prix. Le client paie lui-même la pub à Meta. Objectif 10 000 €/mois : avec un contrat à ${settings().normalPrice} € sur 3 mois, cela fait environ ${Math.ceil(10000/((settings().normalPrice||4000)/3))} clients en cours en même temps (${Math.ceil(10000/((settings().pilotPrice||3000)/3))} au prix de départ). Calcule toujours ton objectif en nombre de clients.</p></details>
@@ -869,7 +883,7 @@ async function saveGoals(){
 }
 
 /* ================= rendu ================= */
-const TABS=[['auj','Aujourd\'hui'],['appels','Appels'],['outreach','DM & vidéos'],['contenu','Contenu'],['pipeline','Pipeline'],['clients','Clients'],['stats','Stats'],['scripts','Scripts'],['donnees','Données'],['aide','Aide']];
+const TABS=[['auj','Aujourd\'hui'],['appels','Appels'],['outreach','DM & vidéos'],['contenu','Contenu'],['pipeline','Pipeline'],['clients','Clients'],['stats','Stats'],['scripts','Scripts'],['donnees','Données'],['aide','Explication']];
 function render(){
   const app=$('#app');
   if(DB.mode==='cloud'&&!S.user){loginHTML();return}
