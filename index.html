@@ -279,7 +279,7 @@ function callQueue(){
 }
 function callsOf(pid){return S.calls.filter(c=>c.prospectId===pid)}
 function todayStats(){const t=today();const L=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t);return{n:L.length,j:L.filter(c=>JOINT.includes(c.result)).length,r:L.filter(c=>c.result==='rdv').length}}
-function fillScript(txt,p){return String(txt||'').replace(/\{contact\}/g,p.dirigeant||'monsieur/madame').replace(/\{accroche\}/g,hookFor(p)).replace(/\{Accroche\}/g,(()=>{let h=hookFor(p);if(/je n'ai pas trouvé de site/.test(h))h=p.city?`j'ai découvert ${p.name} à ${p.city}`:`j'ai découvert ${p.name}`;return h.charAt(0).toUpperCase()+h.slice(1)})()).replace(/\{avis\}/g,p.reviews||'?').replace(/\{note\}/g,p.rating||'?').replace(/\{nom\}/g,p.name||'').replace(/\{ville\}/g,p.city||'').replace(/\{jour\}/g,'demain')}
+function fillScript(txt,p){return String(txt||'').replace(/\{contact\}/g,p.dirigeant||'monsieur/madame').replace(/\{accroche\}/g,hookFor(p)).replace(/\{Valeur\}/g,valueFor(p)).replace(/\{Accroche\}/g,(()=>{let h=hookFor(p);if(/je n'ai pas trouvé de site/.test(h))h=p.city?`j'ai découvert ${p.name} à ${p.city}`:`j'ai découvert ${p.name}`;return h.charAt(0).toUpperCase()+h.slice(1)})()).replace(/\{avis\}/g,p.reviews||'?').replace(/\{note\}/g,p.rating||'?').replace(/\{nom\}/g,p.name||'').replace(/\{ville\}/g,p.city||'').replace(/\{jour\}/g,'demain')}
 
 function dueBanner(){
   const t=today();const items=S.clients.filter(c=>c.status!=='fini'&&c.checklist&&c.checklist.launch&&!c.checklist.j14).map(c=>({c,d:addDays(c.checklist.launch,14)}));
@@ -303,7 +303,7 @@ function rdvCard(){
   const ph=normPhone(p.phone),enc=encodeURIComponent(msg);
   const wa=ph?'https://wa.me/'+(ph.startsWith('0')?'33'+ph.slice(1):ph.replace('+',''))+'?text='+enc:'';
   return `<div class="card" style="border:2px solid var(--ok,#2a7)"><b>RDV pris : ${esc(p.name)}, ${esc(quand)}.</b> Confirme-le en 2 clics :<div class="row" style="margin-top:8px;flex-wrap:wrap"><a class="btn primary" href="${gcal}" target="_blank" rel="noopener">1. Créer l'invitation Google (ajoute Meet)</a>${wa?`<a class="btn" href="${wa}" target="_blank" rel="noopener">2. WhatsApp</a>`:''}${p.email?`<a class="btn" href="mailto:${esc(p.email)}?subject=${encodeURIComponent('Notre échange')}&body=${enc}">2. Email</a>`:''}<button class="btn sm" data-act="rdvdone">OK, fait</button></div><p class="muted sm" style="margin-top:6px">Dans Google Agenda, clique « Ajouter Google Meet », enregistre, puis remplace [lien Meet] dans le message.</p></div>`}
-const NR_SMS="Bonjour {contact}, c'est Kissima, j'ai essayé de vous joindre. {Accroche}, et cela m'a donné envie de faire votre connaissance. Auriez-vous 5 minutes cette semaine pour échanger sur votre activité ? Dites-moi simplement le moment qui vous arrange le mieux. Au plaisir d'avoir votre retour. Très cordialement, Kissima";
+const NR_SMS="Bonjour {contact}, c'est Kissima, j'ai essayé de vous joindre. {Accroche}.{Valeur} Cela m'a donné envie de faire votre connaissance. Auriez-vous 5 minutes cette semaine pour échanger sur votre activité ? Dites-moi simplement le moment qui vous arrange le mieux. Au plaisir d'avoir votre retour. Très cordialement, Kissima";
 function nrCard(){
   const p=S.lastNR?byId(S.lastNR):null;if(!p)return '';
   const msg=fillScript(settings().nrText||NR_SMS,p).replace('monsieur/madame','').replace('Bonjour ,','Bonjour,');
@@ -387,6 +387,13 @@ function hookFor(p){
   if(p.instagram)return `j'ai vu votre compte Instagram, ${n} montre de vrais chantiers`;
   if(!p.website)return `je n'ai pas trouvé de site pour ${n} à ${v}`;
   return `je suis tombé sur ${n} à ${v}`;
+}
+function valueFor(p){
+  // Un atout réel et vérifiable, jamais inventé ; vide s'il n'y en a pas
+  const yr=p.created_co?+String(p.created_co).slice(0,4):0,y=new Date().getFullYear();
+  if(yr&&yr<=y-10)return ` Une entreprise présente depuis ${yr}, ça force le respect.`;
+  if(+p.reviews>=10&&+p.reviews<30&&+p.rating>=4.7)return ` Vos clients vous notent ${String(p.rating).replace('.',',')}/5 sur Google, c'est un vrai atout.`;
+  return '';
 }
 function socialUrl(h,kind){h=String(h||'').trim();if(!h)return '';if(/^https?:/i.test(h))return h;h=h.replace(/^@/,'');return (kind==='facebook'?'https://facebook.com/':'https://instagram.com/')+h}
 function fillOut(txt,p){return fillScript(txt,p).replace(/\{nom_court\}/g,(p.name||'').split(/\s+/).slice(0,2).join(' '))}

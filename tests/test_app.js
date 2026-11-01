@@ -53,6 +53,8 @@ const fs = require('fs');
   ok(await pg.locator('text=Plus personne à appeler').count() === 1, 'Pas de réponse reprogrammé au lendemain');
   ok(/Relance en 1 clic/.test(await pg.textContent('main')) && await pg.locator('a[href^="sms:"]').count()===1, 'carte relance SMS après pas de réponse');
   { const sms=decodeURIComponent((await pg.getAttribute('a[href^="sms:"]','href'))||''); ok(/c'est Kissima, j'ai essayé de vous joindre\. (J'ai vu|Je suis)/.test(sms)&&/5 minutes cette semaine/.test(sms)&&/Très cordialement, Kissima/.test(sms)&&!/\{/.test(sms), 'SMS de relance : chaleureux, fait sur l\'entreprise, question de disponibilité, formule de politesse'); console.log(sms); }
+  { const v=await pg.evaluate(()=>[valueFor({}),valueFor({created_co:'2009-03-01'}),valueFor({reviews:12,rating:4.8}),valueFor({reviews:40,rating:4.9}),valueFor({created_co:'2025-01-01'})]);
+    ok(v[0]===''&&/depuis 2009/.test(v[1])&&/4,8\/5/.test(v[2])&&v[3]===''&&v[4]==='', 'atout valorisant seulement s\'il est réel (sinon rien)'); console.log(v); }
 
   // outreach : file DM
   await pg.click('[data-v=outreach]');
