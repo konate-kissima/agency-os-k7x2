@@ -7,7 +7,7 @@ const fs = require('fs');
   const pg = await ctx.newPage();
   const errs = [];
   pg.on('pageerror', e => errs.push('pageerror: ' + e.message));
-  pg.on('console', m => { if (m.type() === 'error') errs.push('console: ' + m.text()); });
+  pg.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errs.push('console: ' + m.text()); });
   const tmp = fs.mkdtempSync('/tmp/aos-');
   fs.copyFileSync(path.resolve(__dirname, '../index.html'), tmp + '/index.html');
   fs.writeFileSync(tmp + '/config.js', 'window.AOS_CONFIG={url:"",key:""};');

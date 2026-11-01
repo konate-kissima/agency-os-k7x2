@@ -1,0 +1,27 @@
+name: Ajouter des plombiers (Google Places)
+on:
+  workflow_dispatch:
+    inputs:
+      max_requests:
+        description: "Plafond de recherches Google (coût borné)"
+        default: "120"
+      new_limit:
+        description: "Nouvelles fiches maximum"
+        default: "150"
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - run: python scripts/source_places.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_KEY }}
+          MAX_REQUESTS: ${{ github.event.inputs.max_requests || '120' }}
+          NEW_LIMIT: ${{ github.event.inputs.new_limit || '150' }}

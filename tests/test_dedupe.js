@@ -20,7 +20,7 @@ const { chromium } = require('playwright'); const path=require('path'); const fs
   await pg.click('[data-v=donnees]'); await pg.selectOption('#osmscope','cor'); await pg.click('#rgebtn'); await wait(/RGE ajoutées/);
   ok(await pg.evaluate(()=>S.prospects.length)===1,'relance : toujours 1 fiche');
   // doublon existant -> nettoyage
-  await pg.evaluate(async()=>{const a=[['x1',{name:'Dupont Chauffage',city:'Poissy',phone:'',stage:'a_contacter',created:'2026-10-30'}],['x2',{name:'Autre',city:'Paris',phone:'01 39 11 22 33',stage:'a_contacter',created:'2026-10-31'}]];await DB.setMany('prospects',a);a.forEach(([id,d])=>S.prospects.push({id,...d}))});
+  await pg.evaluate(async()=>{const a=[['x1',{name:'Dupont Chauffage',city:'Poissy',phone:'',stage:'a_contacter',created:'2099-01-01'}],['x2',{name:'Autre',city:'Paris',phone:'01 39 11 22 33',stage:'a_contacter',created:'2099-01-02'}]];await DB.setMany('prospects',a);a.forEach(([id,d])=>S.prospects.push({id,...d}))});
   await pg.click('[data-v=donnees]'); await pg.click('[data-act=dedupe]'); await pg.waitForTimeout(300);
   const st=await pg.evaluate(()=>S.prospects.filter(p=>p.stage==='perdu'&&p.lostReason==='Doublon').map(p=>p.id));
   ok(st.length===2&&st.includes('x1')&&st.includes('x2'),'nettoyage : '+st);
