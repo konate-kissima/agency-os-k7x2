@@ -136,6 +136,11 @@ def main():
                      "address": p.get("formattedAddress", ""), "rating": p.get("rating"), "reviews": p.get("userRatingCount") or 0,
                      "maps_url": p.get("googleMapsUri", ""), "place_id": p["id"], "score": score(p, phone), "stage": "a_contacter",
                      "created": today, "source": "places", "enrich": "todo"}
+                w = (p.get("websiteUri") or "").lower()
+                if "facebook.com/" in w and not re.search(r"facebook\.com/(sharer|share|login|pages/?$)", w):
+                    d["facebook"] = p["websiteUri"]
+                elif "instagram.com/" in w:
+                    d["instagram"] = p["websiteUri"]
                 ks = dup_keys(d)
                 if pid in ids or any(k in keys for k in ks):
                     continue

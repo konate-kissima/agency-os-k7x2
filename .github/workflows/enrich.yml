@@ -5,6 +5,9 @@ on:
       limit:
         description: "Nombre de fiches à traiter"
         default: "100"
+      social_limit:
+        description: "Fiches à repasser pour trouver Facebook / Instagram"
+        default: "300"
   schedule:
     - cron: "17 3 * * *"
 jobs:
@@ -23,3 +26,11 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_KEY }}
           LIMIT: ${{ github.event.inputs.limit || '100' }}
+      - run: python scripts/enrich.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_KEY }}
+          MODE: social
+          LIMIT: ${{ github.event.inputs.social_limit || '300' }}
+          PAUSE: "0.5"
