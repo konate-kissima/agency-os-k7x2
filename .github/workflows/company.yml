@@ -1,0 +1,24 @@
+name: Dirigeants, année de création, secteur (annuaire officiel)
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Fiches à compléter"
+        default: "2000"
+jobs:
+  company:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - run: python scripts/enrich.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          MODE: company
+          LIMIT: ${{ github.event.inputs.limit || '2000' }}
+          PAUSE: "0.3"
