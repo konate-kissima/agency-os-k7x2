@@ -166,7 +166,49 @@ const STAGES=[['a_contacter','À contacter'],['contacte','Contacté / à rappele
 const RES=[['rdv','RDV pris','primary','Il a accepté un rendez-vous (renseigne la date et l\'heure).'],['rap','À rappeler','','Tu lui as parlé, il demande qu\'on le rappelle à une date précise (choisis « Rappel le »).'],['nr','Pas de réponse','','Ça sonne dans le vide, personne ne décroche, ou occupé. Tu retenteras à un autre moment.'],['rep','Répondeur','','Tu tombes sur la messagerie vocale. Tu retenteras à un autre moment.'],['hu','Raccroché au nez','','Quelqu\'un décroche puis raccroche tout de suite, sans échange. 1re fois : on rappelle dans 3 jours ouvrés. 2e fois : fiche classée perdue.'],['no','Pas intéressé','','Tu lui as parlé et il refuse. Note l\'objection. La fiche est classée perdue.'],['bad','Mauvais numéro','','Le numéro ne marche pas ou n\'est pas celui de l\'entreprise.'],['stop','Ne plus appeler','danger','Il demande à ne plus être appelé : la fiche est bloquée pour toujours.']];
 const RES_L=Object.fromEntries(RES.map(r=>[r[0],r[1]]));
 const JOINT=['rdv','rap','no','stop'];
-const OBJ=['—','Pas le temps','Déjà une agence','Le bouche-à-oreille suffit','Pas de budget / trop cher','Déjà trop de travail','Doit en parler (associé, conjoint)','A déjà essayé les pubs (sans résultat)','Pas le décideur','Méfiance','Autre'];
+const DEF_RDV=`RENDEZ-VOUS DE VENTE EN 6 TEMPS (tu parles 20 % du temps, lui 80 %)
+
+1. INTRO
+Présente-toi en une phrase, assieds-toi à hauteur. Ton calme, pas de précipitation.
+
+2. BRISE-GLACE (2 à 3 minutes)
+Demande-lui de te parler de son dernier beau chantier ou de la façon dont il a démarré. Un patron méfiant se détend quand il parle de son métier.
+
+3. CADRAGE
+« Je vous propose de faire ça en deux temps : d'abord je vous écoute pour comprendre votre situation, ensuite je vous dis honnêtement si je peux vous aider. À la fin, on décide ensemble, oui ou non. Ça vous va ? »
+
+4. DÉCOUVERTE (écoute, note ses mots exacts)
+• Aujourd'hui, vos nouveaux clients viennent d'où ?
+• Combien de demandes de devis par mois ? Vous en signez combien ?
+• Un chantier moyen, ça représente combien ? Lequel vous voudriez en plus ?
+• Combien de chantiers de plus pourriez-vous absorber ?
+• Vous avez déjà essayé de la pub, une plateforme (type Habitatpresto), une agence ? Qu'est-ce qui n'a pas marché ?
+• Qui décide ? Vous voyez ça avec quelqu'un d'autre ?
+• Si je vous amenais le double de demandes, ça changerait quoi pour vous ?
+Signal chaud : s'il demande « combien ça coûte un client / un lead », il est presque convaincu. Passe au pitch.
+
+5. PITCH (reprends SES mots, pas un texte appris)
+« Si j'ai bien compris : vous voulez {ses mots}. Voilà ce que je propose : je mets en place et je pilote vos publicités Facebook et Instagram pour générer des demandes de devis. La publicité tourne sur votre compte, vous payez Meta directement. Je livre des demandes, je ne promets pas de chantiers signés : c'est vous qui les transformez en devis. Je démarre cette offre, donc c'est un pilote. »
+Chiffre-le avec lui : nombre de chantiers × panier moyen qu'il t'a donné = ce que ça peut représenter.
+
+6. PRIX ET CLOSING
+« Le programme pilote, c'est {prix_pilote} € pour 90 jours : 50 % à la signature pour tout mettre en place, 50 % quand vous aurez reçu 20 demandes de devis. »
+Ensuite tais-toi et laisse-le répondre.
+S'il a déjà été arnaqué : ne cite pas de faux client. Dis la vérité : « Je n'ai pas encore de client à vous citer, c'est pour ça que c'est un pilote. Vous payez en deux fois, et la deuxième partie seulement quand les demandes sont arrivées. »
+Si c'est un service compta qui paie : fixe un 2e rendez-vous pour lancer, paiement à ce moment-là.
+
+FIN : fixe le prochain pas avec une date et une heure précises, et note-les dans la fiche.`;
+const DEF_OFFER=`MON OFFRE (une seule phrase à savoir dire sans réfléchir)
+
+Pour qui : plombiers et chauffagistes qui veulent plus de chantiers
+Le besoin : plus de demandes de devis régulières, sans dépendre du bouche-à-oreille
+Le résultat chiffré : 20 demandes de devis en 90 jours (pas de chantiers signés promis)
+Le délai : 90 jours
+Le prix : {prix_pilote} € (50 % à la signature, 50 % à 20 demandes), publicité payée directement à Meta
+La garantie : À DÉCIDER PAR TOI, par exemple « si je n'ai pas livré les 20 demandes en 90 jours, je continue à travailler gratuitement jusqu'à les livrer ». Ne promets que ce que tu peux tenir.
+
+La phrase : « Je vous amène 20 demandes de devis en 90 jours sur Facebook et Instagram ; vous payez Meta directement, et la deuxième moitié de mon tarif n'est due que quand elles sont arrivées. »`;
+const OBJ=['—','Pas le temps','Déjà une agence','Le bouche-à-oreille suffit','Pas de budget / trop cher','Déjà trop de travail','Doit en parler (associé, conjoint)','A déjà essayé les pubs (sans résultat)','Pas le décideur','Méfiance','🔥 Signal chaud : demande le coût d\'un client','Autre'];
 const MAX_TRIES=5;
 const DEF_SCRIPTS={
  H:{name:'H · Script Hamza (tel quel)',text:`1. OUVERTURE
@@ -253,7 +295,23 @@ HONNÊTETÉ
 « Je démarre cette offre : c'est pour ça que c'est un pilote. Je m'engage sur le nombre de demandes livrées, pas sur les chantiers signés. »
 
 RDV
-« On se voit 15 minutes en visio {jour} ? »`}
+« On se voit 15 minutes en visio {jour} ? »`},
+ D:{name:'D · Visite terrain (B2B, en personne)',text:`RÈGLES : uniquement des professionnels (atelier, bureau, camion, chantier), jamais chez un particulier. Tu ne vends rien sur place : tu vises un rendez-vous de 15 à 20 minutes avec un créneau précis (pas le jour même).
+
+INTRO (sourire, voix posée, 2 minutes max)
+« Bonjour, Kissima. Je ne vous retiens pas : je suis passé car je travaille avec des artisans plombiers/chauffagistes de la région sur leur recherche de nouveaux chantiers. Vous êtes le gérant ? »
+
+QUESTION D'ACCROCHE
+« Est-ce que vous avez de la place dans votre planning pour quelques chantiers de plus ces prochains mois ? »
+
+SI OUI
+« Je monte un programme pilote : je vous amène des demandes de devis par Facebook et Instagram. Vous payez la publicité directement à Meta, et je ne promets pas de chantiers signés, je livre des demandes. Je préfère vous l'expliquer 15 minutes au calme, vous n'êtes pas là pour ça maintenant. »
+
+SI IL EST OCCUPÉ
+« Aucun souci, je vous laisse travailler. Je vous rappelle {jour} à 14h ? » (heure précise, note-la dans la fiche : le pop-up te le rappellera)
+
+RDV
+« Je repasse ou on s'appelle : {jour} à 17h30, ça vous va ? »`}
 };
 const DEF_SETTINGS={angle:'H',pilotPrice:3000,normalPrice:4000,budgetDay:30,minMonths:3,recordText:'Cet appel peut être enregistré pour ma formation. Dites-le-moi si vous préférez que non.',scripts:DEF_SCRIPTS};
 const CHECK=[['contrat','Contrat signé + 1er paiement'],['page','Page Facebook du client prête'],['bm','Accès partenaire au Business Manager / compte pub du client'],['pay','Moyen de paiement du client sur le compte pub'],['form','Formulaire de leads (3 questions de qualification)'],['crea','Créatives (3 variantes) validées par le client'],['alerte','Alerte lead (SMS/WhatsApp au client) + rappel du lead en moins de 5 min'],['launch','Campagne lancée (date = début des 14 jours sans toucher)'],['j14','Revue à J+14'],['cas','Accord écrit pour le cas d\'étude']];
@@ -488,6 +546,7 @@ function sectorOf(p){
 function ageYears(p){const y=p.created_co?+String(p.created_co).slice(0,4):0;return y?new Date().getFullYear()-y:null}
 function ageBucket(p){const a=ageYears(p);return a===null?'Année inconnue':a<2?'Moins de 2 ans':a<5?'2 à 5 ans':a<10?'5 à 10 ans':a<20?'10 à 20 ans':'20 ans et plus'}
 function reviewBucket(p){const r=+p.reviews||0;return r===0?'Aucun avis':r<10?'1 à 9 avis':r<50?'10 à 49 avis':r<200?'50 à 199 avis':'200 avis et plus'}
+const rdvFill=t=>String(t||'').replace(/\{prix_pilote\}/g,settings().pilotPrice);
 function companyLine(p){
   const a=ageYears(p),parts=[];
   if(a!==null)parts.push(`<b>créée en ${esc(String(p.created_co).slice(0,4))}</b> (${a<1?'moins d\'un an':a+' an'+(a>1?'s':'')})`);
@@ -607,6 +666,7 @@ function openProspect(id){
   const cli=S.clients.find(c=>c.prospectId===id);
   d.innerHTML=`<h2>${esc(p.name)}</h2><div class="muted sm">${esc(p.address||'')} ${p.mapsUrl?`· <a href="${esc(p.mapsUrl)}" target="_blank" rel="noopener">Google</a>`:''} ${p.website?`· <a href="${esc(p.website)}" target="_blank" rel="noopener">site</a>`:''}</div>
   <div class="row"><div><label class="f">Téléphone</label><input id="fp-phone" value="${esc(p.phone||'')}"></div><div><label class="f">Étape</label><select id="fp-stage">${STAGES.map(([k,l])=>`<option value="${k}"${(p.stage||'a_contacter')===k?' selected':''}>${l}</option>`).join('')}</select></div><div><label class="f">Rappel</label><input type="date" id="fp-next" value="${esc(p.nextDate||'')}"></div><div><label class="f">Heure</label><input type="time" id="fp-nt" value="${esc(p.nextTime||'')}"></div><div><label class="f">RDV</label><input type="datetime-local" id="fp-rdv" value="${esc(p.rdvAt||'')}"></div></div>
+  ${p.stage==='rdv'?`<details class="card" style="margin:10px 0"><summary><b>Préparer le rendez-vous</b> (trame en 6 temps + offre)</summary><div class="script" style="white-space:pre-wrap;font-size:13px;margin-top:8px">${esc(rdvFill(settings().rdvText||DEF_RDV))}\n\n${esc(rdvFill(settings().offerText||DEF_OFFER))}</div></details>`:''}
   <label class="f">Email</label><input id="fp-email" style="width:100%" value="${esc(p.email||'')}">
   <label class="f">Notes</label><textarea id="fp-notes" rows="5">${esc(p.notes||'')}</textarea>
   <h3 style="margin-top:12px">Appels (${cs.length})</h3>${cs.length?`<div class="sm">${cs.map(c=>`<div>${fdate(c.t)} · ${esc(CH_L[c.channel||'appel'])} · ${esc(ALL_RES_L[c.result]||c.result)} · angle ${esc(c.angle||'')}${c.obj?' · '+esc(c.obj):''}${c.note?' — '+esc(c.note):''}${c.audio?` · <a href="${esc(c.audio)}" target="_blank" rel="noopener">audio</a>`:''}</div>`).join('')}</div>`:'<p class="muted sm">Aucun appel.</p>'}
@@ -763,6 +823,8 @@ function scriptsHTML(){
   const sc=settings();
   return `<div class="card"><h2>Réglages offre</h2><div class="row"><div><label class="f">Prix pilote (€ total 90 jours : 50 % signature, 50 % à 20 leads)</label><input type="number" id="s-pp" value="${esc(sc.pilotPrice)}" style="width:100px"></div><div><label class="f">Prix normal (€ total 90 jours)</label><input type="number" id="s-np" value="${esc(sc.normalPrice)}" style="width:100px"></div><div><label class="f">Budget pub / jour (€)</label><input type="number" id="s-bd" value="${esc(sc.budgetDay)}" style="width:100px"></div><div><label class="f">Durée (mois)</label><input type="number" id="s-mm" value="${esc(sc.minMonths)}" style="width:80px"></div></div>
   <label class="f">Phrase d'information d'enregistrement (dite en début d'appel)</label><textarea id="s-rec" rows="2">${esc(sc.recordText)}</textarea></div>
+  <div class="card"><h3>Rendez-vous de vente (6 temps)</h3><label class="f">Trame du rendez-vous (variable : {prix_pilote})</label><textarea id="s-rdv" rows="16" style="width:100%">${esc(sc.rdvText||DEF_RDV)}</textarea></div>
+  <div class="card"><h3>Mon offre</h3><label class="f">Offre en une page (variable : {prix_pilote})</label><textarea id="s-offer" rows="11" style="width:100%">${esc(sc.offerText||DEF_OFFER)}</textarea></div>
   ${Object.entries(sc.scripts).map(([k,v])=>`<div class="card"><h3>Angle ${esc(k)}</h3><label class="f">Nom</label><input id="sn-${esc(k)}" style="width:100%" value="${esc(v.name)}"><label class="f">Texte (variables : {avis} {note} {nom} {ville} {jour})</label><textarea id="st-${esc(k)}" rows="12">${esc(v.text)}</textarea></div>`).join('')}
   ${Object.entries(sc.outScripts).map(([k,v])=>`<div class="card"><h3>Message ${esc(k)}</h3><label class="f">Nom</label><input id="on-${esc(k)}" style="width:100%" value="${esc(v.name)}"><label class="f">Texte (variables : {avis} {note} {nom} {nom_court} {ville})</label><textarea id="ot-${esc(k)}" rows="8">${esc(v.text)}</textarea></div>`).join('')}
   <button class="btn primary" data-act="set-save">Enregistrer</button> <span class="muted sm">Quand tu modifies un script, crée un nouvel angle plutôt que d'écraser : sinon les statistiques mélangent deux versions.</span>`;
@@ -771,7 +833,7 @@ async function saveSettings(){
   const sc=settings();const scripts={};
   Object.keys(sc.scripts).forEach(k=>{scripts[k]={name:$('#sn-'+k).value,text:$('#st-'+k).value}});
   const outScripts={};Object.keys(sc.outScripts).forEach(k=>{outScripts[k]={name:$('#on-'+k).value,text:$('#ot-'+k).value}});
-  const patch={outScripts,pilotPrice:+$('#s-pp').value||0,normalPrice:+$('#s-np').value||0,budgetDay:+$('#s-bd').value||0,minMonths:+$('#s-mm').value||3,recordText:$('#s-rec').value,scripts};
+  const patch={outScripts,pilotPrice:+$('#s-pp').value||0,normalPrice:+$('#s-np').value||0,budgetDay:+$('#s-bd').value||0,minMonths:+$('#s-mm').value||3,recordText:$('#s-rec').value,rdvText:($('#s-rdv')||{}).value||'',offerText:($('#s-offer')||{}).value||'',scripts};
   if(await guard(()=>DB.update('settings','main',patch))){Object.assign(S.settings,patch);toast('Réglages enregistrés.')}
 }
 async function addAngle(){
