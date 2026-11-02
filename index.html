@@ -556,13 +556,14 @@ async function addMetric(cid){
 
 /* ================= statistiques ================= */
 function statsHTML(){
-  const days=S.st.days;const from=days>0?addDays(today(),-(days-1)):'0000-00-00';
-  const L=S.calls.filter(c=>String(c.t).slice(0,10)>=from);
+  const days=S.st.days;let from,to='9999-99-99';
+  if(days==='w')from=weekStart(today());else if(days==='m')from=today().slice(0,8)+'01';else if(days==='c'){from=S.st.from||'0000-00-00';to=S.st.to||'9999-99-99'}else from=days>0?addDays(today(),-(days-1)):'0000-00-00';
+  const L=S.calls.filter(c=>{const d=String(c.t).slice(0,10);return d>=from&&d<=to});
   const LA=L,LC=L.filter(isCall);L.length;const j=LC.filter(c=>c.joint),rdv=LA.filter(c=>c.result==='rdv');
   const pct=(a,b)=>b?Math.round(1000*a/b)/10+' %':'—';
   const done=S.prospects.filter(p=>['rdv_fait','pilote','signe'].includes(p.stage)).length;
   const signed=S.prospects.filter(p=>p.stage==='signe').length;
-  const sel=`<div class="row" style="margin-bottom:12px"><select id="stdays">${[[7,'7 jours'],[14,'14 jours'],[30,'30 jours'],[0,'Depuis le début']].map(([v,l])=>`<option value="${v}"${days===v?' selected':''}>${l}</option>`).join('')}</select><button class="btn sm" data-act="exp-calls">Exporter les appels (CSV)</button></div>`;
+  const sel=`<div class="row" style="margin-bottom:12px"><select id="stdays">${[[1,'Aujourd\'hui'],['w','Cette semaine'],['m','Ce mois-ci'],[7,'7 jours'],[14,'14 jours'],[30,'30 jours'],[0,'Depuis le début'],['c','Période choisie…']].map(([v,l])=>`<option value="${v}"${days===v?' selected':''}>${l}</option>`).join('')}</select>${days==='c'?`<input type="date" id="stfrom" value="${S.st.from||''}"> → <input type="date" id="stto" value="${S.st.to||''}">`:''}<button class="btn sm" data-act="exp-calls">Exporter les appels (CSV)</button></div>`;
   const kp=`<div class="kpis"><div class="kpi"><b>${LC.length}</b><span>appels</span></div><div class="kpi"><b>${j.length}</b><span>conversations (${pct(j.length,LC.length)})</span></div><div class="kpi"><b>${L.length-LC.length}</b><span>DM / vidéos / emails</span></div><div class="kpi"><b>${rdv.length}</b><span>RDV (tous canaux)</span></div><div class="kpi"><b>${done}</b><span>RDV faits ou plus loin (total)</span></div><div class="kpi"><b>${signed}</b><span>signés (total)</span></div></div>`;
   const grp=(keyFn,title,minJ=30,src=LC)=>{const m={};src.forEach(c=>{const k=keyFn(c)||'—';(m[k]=m[k]||{n:0,j:0,r:0});m[k].n++;if(c.joint)m[k].j++;if(c.result==='rdv')m[k].r++});
     const rows=Object.entries(m).sort((a,b)=>b[1].n-a[1].n).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="r">${v.n}</td><td class="r">${v.j}</td><td class="r">${v.r}</td><td class="r"><b>${pct(v.r,v.j)}</b>${v.j<minJ?` <span class="muted sm">(${v.j} conv. : trop peu pour conclure)</span>`:''}</td></tr>`).join('');
@@ -573,8 +574,42 @@ function statsHTML(){
   const dayB=[];for(let i=13;i>=0;i--){const d=addDays(today(),-i);const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);dayB.push({d,n:cs.length,r:cs.filter(c=>c.result==='rdv').length})}
   const mx=Math.max(1,...dayB.map(x=>x.n));
   const chart=`<section class="card"><h3>14 derniers jours (appels, RDV en doré)</h3><div class="bar">${dayB.map(x=>`<div title="${fdate(x.d)} : ${x.n} appels, ${x.r} RDV" style="height:${Math.max(2,Math.round(90*x.n/mx))}px"><span class="b2" style="display:block;position:absolute;bottom:0;left:0;right:0;background:var(--brass);height:${x.n?Math.round(100*x.r/x.n):0}%"></span></div>`).join('')}</div></section>`;
-  return sel+kp+chart+`${grp(c=>CH_L[c.channel||'appel'],'Par canal (appels, DM, vidéos, emails)',30,L)}<div class="grid2">${grp(c=>(sc.scripts[c.angle]||{}).name||c.angle,'Appels : par angle de script')}${grp(c=>c.hour!=null?pad(c.hour)+'h':'','Appels : par heure',20)}</div><div class="grid2">${grp(c=>c.dept,'Appels : par département')}<section class="card"><h3>Objections</h3><table class="t"><tbody>${objT||'<tr><td class="muted">Aucune objection saisie.</td></tr>'}</tbody></table></section></div>
+  return sel+recordsHTML()+kp+chart+`${grp(c=>CH_L[c.channel||'appel'],'Par canal (appels, DM, vidéos, emails)',30,L)}<div class="grid2">${grp(c=>(sc.scripts[c.angle]||{}).name||c.angle,'Appels : par angle de script')}${grp(c=>c.hour!=null?pad(c.hour)+'h':'','Appels : par heure',20)}</div><div class="grid2">${grp(c=>c.dept,'Appels : par département')}<section class="card"><h3>Objections</h3><table class="t"><tbody>${objT||'<tr><td class="muted">Aucune objection saisie.</td></tr>'}</tbody></table></section></div>
   <p class="muted sm">Règle : on ne compare pas deux angles avant 30 conversations chacun. Un taux sur 10 conversations ne veut rien dire.</p>`;
+}
+
+
+/* ================= records : la référence à battre ================= */
+function weekStart(d){const x=new Date(d+'T12:00:00');return addDays(d,-((x.getDay()+6)%7))}
+function periodAgg(){
+  const A={D:{},W:{},M:{}};
+  S.calls.forEach(c=>{if(!isCall(c))return;const d=String(c.t).slice(0,10);
+    [['D',d],['W',weekStart(d)],['M',d.slice(0,7)]].forEach(([p,k])=>{const x=A[p][k]=A[p][k]||{n:0,j:0,r:0};x.n++;if(c.joint)x.j++;if(c.result==='rdv')x.r++})});
+  return A;
+}
+function recordsHTML(){
+  const A=periodAgg(),t=today();
+  const cur={D:t,W:weekStart(t),M:t.slice(0,7)};
+  const lab={D:'Jour',W:'Semaine',M:'Mois'};
+  const lbl=(p,k)=>p==='D'?fdate(k):p==='W'?'sem. du '+fdate(k):new Date(k+'-15T12:00:00').toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  const rows=['D','W','M'].map(p=>{
+    const all=A[p],c=all[cur[p]]||{n:0,j:0,r:0};
+    const others=Object.entries(all).filter(([k])=>k!==cur[p]);
+    const best=(f)=>others.reduce((m,[k,v])=>v[f]>m.v?{v:v[f],k}:m,{v:0,k:''});
+    const bn=best('n'),bj=best('j'),br=best('r');
+    const isRec=c.n>0&&c.n>bn.v;
+    const msg=isRec?`🏆 <b>Nouveau record !</b> Ancien : ${bn.v}${bn.k?' ('+esc(lbl(p,bn.k))+')':''}`:bn.v?`Record à battre : <b>${bn.v}</b> appels (${esc(lbl(p,bn.k))}). Encore <b>${bn.v-c.n+1}</b> pour le dépasser.`:'Pas encore de référence : ce que tu fais maintenant devient le record.';
+    const cell=(v,b)=>`<td class="r"><b>${v}</b> <span class="muted sm">/ ${Math.max(b,v)}</span></td>`;
+    const pct=bn.v?Math.min(100,Math.round(100*c.n/bn.v)):(c.n?100:0);
+    return `<tr><td><b>${lab[p]}</b></td>${cell(c.n,bn.v)}${cell(c.j,bj.v)}${cell(c.r,br.v)}</tr><tr><td colspan="4" class="sm">${msg}<div style="background:var(--line,#ddd);border-radius:6px;height:8px;overflow:hidden;margin-top:4px"><div style="width:${pct}%;height:100%;background:${isRec?'var(--accent2,#e0a63a)':'var(--accent,#a8bd3c)'}"></div></div></td></tr>`}).join('');
+  return `<section class="card"><h3>Ta référence à battre</h3><div class="scroll-x"><table class="t"><thead><tr><th></th><th class="r">Appels</th><th class="r">Conversations</th><th class="r">RDV</th></tr></thead><tbody>${rows}</tbody></table></div><p class="muted sm">Chiffre en gras = en cours. Le total après « / » = ton meilleur score (jour, semaine du lundi, ou mois).</p></section>`;
+}
+function bilanHTML(){
+  const n=todayCounts(),A=periodAgg(),t=today();
+  const others=Object.entries(A.D).filter(([k])=>k!==t),best=others.reduce((m,[k,v])=>v.n>m.n?{n:v.n,k}:m,{n:0,k:''});
+  const isRec=n.calls>0&&n.calls>best.n;
+  const l=isRec?`🏆 Record battu : ${n.calls} appels (ancien : ${best.n}). Remets ça demain.`:best.n?`Aujourd'hui : ${n.calls} appels. Ton record : ${best.n} (${fdate(best.k)}). ${n.calls>=best.n?'Égalé.':'Il t\'en manque '+(best.n-n.calls+1)+' pour le battre.'}`:`Aujourd'hui : ${n.calls} appels. Ce sera ta première référence.`;
+  return `<div class="card"><h3>Bilan de la journée</h3><p>${l}</p><p class="sm muted">${n.conv} conversations · ${n.rdv} RDV. Le détail jour / semaine / mois est dans l'onglet Stats.</p><button class="btn sm" data-act="tab" data-v="stats">Voir mes stats</button></div>`;
 }
 
 /* ================= scripts & réglages ================= */
@@ -876,7 +911,7 @@ function aujourdhuiHTML(){
   const chOK=DAILY_CHECKS.every(([k])=>done[k]);
   const kp=`<div class="kpis"><div class="kpi"><b>${n.conv}</b><span>conversations</span></div><div class="kpi"><b>${n.rdv}</b><span>RDV pris</span></div><div class="kpi"><b>${outQueue().length}</b><span>à contacter</span></div><div class="kpi"><b>${callQueue().length}</b><span>à appeler</span></div></div>`;
   const gi=Object.keys(DEF_GOALS).map(k=>`<label class="sm">${k==='calls'?'Appels':k==='dm'?'Messages':k==='videos'?'Vidéos':'Contenus'} <input type="number" min="0" style="width:60px" id="g-${k}-0" value="${g[k][0]}"> minimum <input type="number" min="0" style="width:60px" id="g-${k}-1" value="${g[k][1]}"> reach</label>`).join('<br>');
-  return heroHTML()+`<div class="card"><h2>Aujourd'hui · ${t}</h2><p class="muted sm">Minimum = non négociable (BAM). Reach = ce que tu vises. Les compteurs se remplissent tout seuls quand tu enregistres un résultat. Pas besoin de réfléchir : fais le bouton du bas.</p>${lines}${nxt}<p style="margin-top:12px"><b>${minOK&&chOK?'✅ Journée validée.':minOK?'Minimums faits : reste la checklist.':'Journée pas encore validée.'}</b></p></div>${kp}
+  return heroHTML()+`<div class="card"><h2>Aujourd'hui · ${t}</h2><p class="muted sm">Minimum = non négociable (BAM). Reach = ce que tu vises. Les compteurs se remplissent tout seuls quand tu enregistres un résultat. Pas besoin de réfléchir : fais le bouton du bas.</p>${lines}${nxt}<p style="margin-top:12px"><b>${minOK&&chOK?'✅ Journée validée.':minOK?'Minimums faits : reste la checklist.':'Journée pas encore validée.'}</b></p></div>${kp}${bilanHTML()}
   <div class="card"><h3>Checklist du jour</h3>${ch}</div>
   <details class="card"><summary><b>Modifier les objectifs</b></summary><p>${gi}</p><button class="btn sm" data-act="goals-save">Enregistrer les objectifs</button></details>`;
 }
@@ -947,7 +982,8 @@ document.addEventListener('change',e=>{
   if(t.id==='cang'){S.call.angle=t.value;const keep={note:$('#cn')?$('#cn').value:'',obj:$('#co')?$('#co').value:'—',audio:$('#ca')?$('#ca').value:'',informed:$('#ci')?$('#ci').checked:false};Object.assign(S.call,keep);render()}
   else if(t.dataset&&t.dataset.act==='mobsel'){S.call.mob=t.value;S.call.pid='';render()}
   else if(t.id==='och'||t.id==='ovar'){S.out.note=$('#on')?$('#on').value:S.out.note;S.out.handle='';if(t.id==='och')S.out.ch=t.value;else S.out.variant=t.value;render()}
-  else if(t.id==='stdays'){S.st.days=+t.value;render()}
+  else if(t.id==='stdays'){S.st.days=isNaN(+t.value)?t.value:+t.value;render()}
+  else if(t.id==='stfrom'||t.id==='stto'){S.st[t.id==='stfrom'?'from':'to']=t.value;render()}
   else if(t.id==='pdept'){S.pf.dept=t.value;render()}
   else if(t.dataset&&t.dataset.act==='tchk')toggleDaily(t.dataset.k,t.checked);
   else if(t.dataset&&t.dataset.act==='chk')toggleCheck(t.dataset.id,t.dataset.k,t.checked);
