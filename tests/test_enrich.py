@@ -1,6 +1,6 @@
 import json, os, subprocess, sys, threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
-DB = {"a1": {"name": "Dupont Chauffage", "city": "Poissy", "phone": "01 39 11 22 33", "website": "", "stage": "a_contacter", "score": 50},
+DB = {"a1": {"name": "Dupont Chauffage", "city": "Poissy", "address": "5 rue A 78300", "dept": "78", "phone": "01 39 11 22 33", "website": "", "stage": "a_contacter", "score": 50},
       "a2": {"name": "Martin Sarl", "city": "Triel", "phone": "", "website": "http://127.0.0.1:PORT/site", "stage": "a_contacter", "score": 60},
       "a3": {"name": "Perdu", "stage": "perdu"},
       "a4": {"name": "Zzz Annuaire", "city": "Paris", "phone": "01", "website": "https://www.qualit-enr.org/entreprises/x", "stage": "a_contacter", "score": 10}}
@@ -20,8 +20,8 @@ class H(BaseHTTPRequestHandler):
     def do_POST(self):
         n = int(self.headers.get("Content-Length", 0)); q = json.loads(self.rfile.read(n))
         if q["textQuery"].startswith("Dupont"):
-            return self._send(200, {"places": [{"id": "P1", "displayName": {"text": "Dupont Chauffage"}, "rating": 4.8, "userRatingCount": 52, "websiteUri": f"http://127.0.0.1:{PORT}/site"}]})
-        self._send(200, {"places": [{"id": "P9", "displayName": {"text": "Boulangerie Totalement Autre"}, "rating": 3.0, "userRatingCount": 2}]})
+            return self._send(200, {"places": [{"id": "P1", "displayName": {"text": "Dupont Chauffage"}, "formattedAddress": "5 rue A, 78300 Poissy, France", "rating": 4.8, "userRatingCount": 52, "websiteUri": f"http://127.0.0.1:{PORT}/site"}]})
+        self._send(200, {"places": [{"id": "P9", "displayName": {"text": "Boulangerie Totalement Autre"}, "formattedAddress": "1 rue B, 78300 Poissy", "rating": 3.0, "userRatingCount": 2}]})
     def do_PATCH(self):
         n = int(self.headers.get("Content-Length", 0)); body = json.loads(self.rfile.read(n))
         pid = self.path.split("eq.")[1]; DB[pid] = body["data"]; self._send(204, "")

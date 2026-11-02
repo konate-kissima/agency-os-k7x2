@@ -13,7 +13,7 @@ class H(BaseHTTPRequestHandler):
             return self._send(200, [{"id": k, "data": v} for k, v in DB.items() if "companyAt" not in v])
         if self.path.startswith("/search"):
             if "Climtech" in self.path:
-                return self._send(200, {"results": [{"siren": "123456789", "nom_complet": "CLIMTECH", "date_creation": "2014-05-02", "activite_principale": "43.22B", "tranche_effectif_salarie": "03", "nature_juridique": "5499", "siege": {"libelle_commune": "POISSY"}, "dirigeants": [{"prenoms": "JEAN, PAUL", "nom": "DURAND"}]}]})
+                return self._send(200, {"results": [{"siren": "123456789", "nom_complet": "CLIMTECH", "date_creation": "2014-05-02", "activite_principale": "43.22B", "tranche_effectif_salarie": "03", "nature_juridique": "5499", "siege": {"libelle_commune": "POISSY", "adresse": "3 rue X", "code_postal": "78300"}, "dirigeants": [{"prenoms": "JEAN, PAUL", "nom": "DURAND"}]}]})
             return self._send(200, {"results": [{"siren": "9", "nom_complet": "BOULANGERIE AUTRE", "date_creation": "2000-01-01"}]})
         self._send(404, {})
     def do_PATCH(self):

@@ -40,6 +40,63 @@ def tokens(s):
     return {t for t in re.findall(r"[a-z0-9]{3,}", (s or "").lower()) if t not in stop}
 
 
+# Mots trop courants pour prouver qu'on parle de la même entreprise (« Climtech Concept » ≠ « Air Concept »)
+GENERIC = {"concept", "energie", "energies", "energy", "thermo", "therm", "thermique", "thermiques", "clim", "climatisation", "climatique", "chauffage", "chauffagiste",
+           "plomberie", "plombier", "services", "service", "confort", "eco", "habitat", "renov", "renovation", "batiment", "bat", "froid", "gaz", "electricite", "elec",
+           "solaire", "pac", "groupe", "france", "global", "air", "isolation", "environnement", "maintenance", "installation", "installations", "artisan", "artisans",
+           "pro", "sanitaire", "couverture", "fluides", "technique", "tech", "habitat", "solution", "solutions", "systeme", "systemes", "ingenierie", "construction",
+           "travaux", "idf", "paris", "expert", "plus", "home", "genie", "enr", "energetique", "fumisterie", "cheminees", "poele", "poeles", "ramonage", "multi", "services"}
+
+
+def sig(name):
+    return {t for t in tokens(name) if t not in GENERIC}
+
+
+def postcode(addr):
+    m = re.search(r"\b(\d{5})\b", addr or "")
+    return m.group(1) if m else ""
+
+
+def digits(s):
+    return re.sub(r"\D", "", s or "")[-9:]
+
+
+def same_business(d, name, addr="", phone=""):
+    """Rapprochement strict : même téléphone => ok ; sinon mots distinctifs du nom TOUS présents (ou nom identique) ET même code postal/département."""
+    if phone and d.get("phone") and digits(phone) == digits(d["phone"]) and len(digits(phone)) >= 9:
+        return True
+    a, b = sig(d.get("name")), sig(name)
+    if a:
+        if not a <= b:
+            return False
+    elif norm(d.get("name")) != norm(name):
+        return False
+    pc, dp = postcode(d.get("address")), str(d.get("dept") or "")
+    if addr:
+        gp = postcode(addr)
+        if pc and gp:
+            return pc == gp
+        if dp and gp:
+            return gp.startswith(dp) or (dp in ("2A", "2B") and gp.startswith("20"))
+    return False
+
+
+def best_dirigeant(dirs):
+    """Personne physique, de préférence Gérant > Président > Directeur général ; renvoie (« Prénom Nom », rôle)."""
+    pri = ["gérant", "gerant", "président", "president", "directeur général", "directeur general", "dirigeant", "entrepreneur", "associé", "associe"]
+    best, bs = None, 99
+    for z in dirs:
+        if not (z.get("prenoms") and z.get("nom")):
+            continue
+        q = str(z.get("qualite") or "").lower()
+        rank = next((i for i, k in enumerate(pri) if k in q), 50)
+        if rank < bs:
+            best, bs = z, rank
+    if not best:
+        return "", ""
+    return (str(best["prenoms"]).split()[0].split(",")[0].title() + " " + str(best["nom"]).title(), str(best.get("qualite") or ""))
+
+
 def get_todo():
     if MODE == "company":
         rows, off = [], 0
@@ -81,13 +138,11 @@ def places_lookup(d):
     text = f'{d.get("name","")} {d.get("city","")}'.strip()
     r = requests.post(PLACES + "/v1/places:searchText", timeout=20, json={"textQuery": text, "languageCode": "fr", "regionCode": "FR", "maxResultCount": 3},
                       headers={"X-Goog-Api-Key": GK, "Content-Type": "application/json",
-                               "X-Goog-FieldMask": "places.id,places.displayName,places.rating,places.userRatingCount,places.nationalPhoneNumber,places.websiteUri,places.googleMapsUri"})
+                               "X-Goog-FieldMask": "places.id,places.displayName,places.rating,places.userRatingCount,places.nationalPhoneNumber,places.websiteUri,places.googleMapsUri,places.formattedAddress"})
     if r.status_code != 200:
         print("  Places HTTP", r.status_code, r.text[:120]); return {}
-    want = tokens(d.get("name"))
     for p in r.json().get("places", []):
-        got = tokens((p.get("displayName") or {}).get("text"))
-        if want and got and len(want & got) / max(1, min(len(want), len(got))) >= 0.5:
+        if same_business(d, (p.get("displayName") or {}).get("text"), p.get("formattedAddress"), p.get("nationalPhoneNumber")):
             return {"rating": p.get("rating"), "reviews": p.get("userRatingCount"), "gphone": p.get("nationalPhoneNumber"),
                     "gsite": p.get("websiteUri"), "maps_url": p.get("googleMapsUri"), "place_id": p.get("id")}
     return {}
@@ -209,17 +264,15 @@ def company_lookup(d):
             if str(x.get("siren")) != str(d["siren"]):
                 continue
         else:
-            got = tokens(x.get("nom_complet")) | tokens(x.get("nom_raison_sociale"))
             sg = x.get("siege") or {}
-            if not (want and got and len(want & got) / max(1, min(len(want), len(got))) >= 0.5):
-                continue
-            if city and norm(sg.get("libelle_commune")) != city and not params.get("departement") and not params.get("code_postal"):
+            addr = f'{sg.get("adresse") or ""} {sg.get("code_postal") or ""}'
+            if not (same_business(d, x.get("nom_complet"), addr) or same_business(d, x.get("nom_raison_sociale"), addr)):
                 continue
         out = {"siren": str(x.get("siren") or ""), "created_co": x.get("date_creation") or "", "naf": x.get("activite_principale") or "",
                "effectif": x.get("tranche_effectif_salarie") or "", "legal": str(x.get("nature_juridique") or "")}
-        dirs = [z for z in (x.get("dirigeants") or []) if z.get("prenoms") and z.get("nom")]
-        if dirs:
-            out["dirigeant"] = (str(dirs[0]["prenoms"]).split()[0].split(",")[0].title() + " " + str(dirs[0]["nom"]).title())
+        nm, role = best_dirigeant(x.get("dirigeants") or [])
+        if nm:
+            out["dirigeant"], out["dirigeant_role"] = nm, role
         return {k: v for k, v in out.items() if v}
     return {}
 

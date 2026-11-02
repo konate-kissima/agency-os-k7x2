@@ -1,0 +1,27 @@
+name: Audit des fiches (retire les données qui ne correspondent pas)
+on:
+  workflow_dispatch:
+    inputs:
+      dry:
+        description: "1 = rapport seulement, 0 = corriger"
+        default: "1"
+      recheck:
+        description: "1 = relire gérant/président dans l'annuaire officiel"
+        default: "0"
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - run: python scripts/audit.py
+        working-directory: scripts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DRY: ${{ github.event.inputs.dry || '1' }}
+          RECHECK: ${{ github.event.inputs.recheck || '0' }}
