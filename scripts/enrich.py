@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Enrichit les fiches Agency OS : avis/téléphone/site (Google Places) puis Instagram/Facebook/email (site de l'entreprise).
-Variables : SUPABASE_URL, SUPABASE_SERVICE_KEY, GOOGLE_PLACES_KEY (facultative), LIMIT (défaut 100), MODE=social (repasse sur les fiches sans Instagram/Facebook).
+Variables : SUPABASE_URL, SUPABASE_SERVICE_KEY, GOOGLE_PLACES_KEY (facultative), LIMIT (défaut 100), MODE=social (repasse sur les fiches sans Instagram/Facebook), MODE=company (année de création, secteur NAF, effectif via l'annuaire officiel).
 Ne contourne aucune protection : respecte robots.txt, 1 requête à la fois, délai entre sites."""
 import os, re, sys, time, json, urllib.parse, urllib.robotparser
 import requests
@@ -11,6 +11,7 @@ GK = os.environ.get("GOOGLE_PLACES_KEY", "")
 PLACES = os.environ.get("PLACES_BASE", "https://places.googleapis.com").rstrip("/")
 LIMIT = int(os.environ.get("LIMIT", "100"))
 MODE = os.environ.get("MODE", "")  # "social" : repasse sur les fiches sans Instagram ni Facebook pour chercher leurs réseaux
+GOUV = os.environ.get("GOUV_BASE", "https://recherche-entreprises.api.gouv.fr").rstrip("/")
 PAUSE = float(os.environ.get("PAUSE", "1.0"))
 H = {"apikey": SK, "Authorization": "Bearer " + SK, "Content-Type": "application/json"}
 UA = "Mozilla/5.0 (compatible; AgencyOSBot/1.0; +enrichissement de fiches B2B)"
@@ -40,6 +41,19 @@ def tokens(s):
 
 
 def get_todo():
+    if MODE == "company":
+        rows, off = [], 0
+        while True:
+            q = {"select": "id,data", "limit": "1000", "offset": str(off), "order": "id", "data->>companyAt": "is.null", "data->>optout": "is.null"}
+            r = requests.get(SB + "/rest/v1/prospects", headers=H, params=q, timeout=40)
+            r.raise_for_status()
+            page = r.json()
+            rows += [x for x in page if x["data"].get("stage") not in ("perdu", "stop") and not (x["data"].get("created_co") and x["data"].get("naf"))]
+            if len(page) < 1000:
+                break
+            off += 1000
+        rows.sort(key=lambda x: -(x["data"].get("score") or 0))
+        return rows[:LIMIT]
     if MODE == "social":
         rows, off = [], 0
         while True:
@@ -174,7 +188,74 @@ def crawl(site):
     return out
 
 
+def company_lookup(d):
+    """Annuaire officiel (gratuit) : année de création, activité (NAF), effectif. Rapprochement par SIREN, sinon par nom + ville/département."""
+    params = {"per_page": "5", "etat_administratif": "A"}
+    if d.get("siren"):
+        params["q"] = d["siren"]
+    else:
+        params["q"] = d.get("name") or ""
+        cp = re.search(r"\b(\d{5})\b", d.get("address") or "")
+        if cp:
+            params["code_postal"] = cp.group(1)
+        elif d.get("dept"):
+            params["departement"] = str(d["dept"])
+    r = requests.get(GOUV + "/search", params=params, headers={"User-Agent": UA}, timeout=20)
+    if r.status_code != 200:
+        print("  Annuaire HTTP", r.status_code); return None
+    want, city = tokens(d.get("name")), norm(d.get("city"))
+    for x in r.json().get("results", []):
+        if d.get("siren"):
+            if str(x.get("siren")) != str(d["siren"]):
+                continue
+        else:
+            got = tokens(x.get("nom_complet")) | tokens(x.get("nom_raison_sociale"))
+            sg = x.get("siege") or {}
+            if not (want and got and len(want & got) / max(1, min(len(want), len(got))) >= 0.5):
+                continue
+            if city and norm(sg.get("libelle_commune")) != city and not params.get("departement") and not params.get("code_postal"):
+                continue
+        out = {"siren": str(x.get("siren") or ""), "created_co": x.get("date_creation") or "", "naf": x.get("activite_principale") or "",
+               "effectif": x.get("tranche_effectif_salarie") or "", "legal": str(x.get("nature_juridique") or "")}
+        dirs = [z for z in (x.get("dirigeants") or []) if z.get("prenoms") and z.get("nom")]
+        if dirs:
+            out["dirigeant"] = (str(dirs[0]["prenoms"]).split()[0].split(",")[0].title() + " " + str(dirs[0]["nom"]).title())
+        return {k: v for k, v in out.items() if v}
+    return {}
+
+
+def main_company():
+    rows = get_todo()
+    print(len(rows), "fiches à compléter (annuaire officiel)")
+    done = 0
+    for x in rows:
+        d, pid = x["data"], x["id"]
+        try:
+            c = company_lookup(d)
+        except Exception as e:
+            print("  erreur", d.get("name"), str(e)[:80]); continue
+        if c is None:
+            continue
+        patch = {k: v for k, v in c.items() if v and not d.get(k)}
+        patch["companyAt"] = time.strftime("%Y-%m-%d")
+        patch["companyFound"] = bool(c)
+        merged = {**d, **patch}
+        yr = int(str(patch.get("created_co") or "0")[:4] or 0)
+        if yr and yr >= int(time.strftime("%Y")) - 2 and not d.get("created_co"):
+            merged["score"] = (d.get("score") or 40) + 10
+        r = requests.patch(SB + "/rest/v1/prospects", headers={**H, "Prefer": "return=minimal"}, params={"id": "eq." + pid},
+                           data=json.dumps({"data": merged}), timeout=30)
+        if r.status_code >= 300:
+            print("  échec écriture", pid, r.status_code, r.text[:120]); continue
+        done += 1
+        print(f'ok {d.get("name")}: ' + (", ".join(k for k in patch if k not in ("companyAt", "companyFound")) or "introuvable"))
+        time.sleep(PAUSE)
+    print(done, "fiches complétées")
+
+
 def main():
+    if MODE == "company":
+        return main_company()
     rows = get_todo()
     print(len(rows), "fiches à enrichir")
     done = 0

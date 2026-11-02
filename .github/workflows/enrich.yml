@@ -8,6 +8,9 @@ on:
       social_limit:
         description: "Fiches à repasser pour trouver Facebook / Instagram"
         default: "300"
+      company_limit:
+        description: "Fiches à compléter (année de création, secteur, effectif)"
+        default: "400"
   schedule:
     - cron: "17 3 * * *"
 jobs:
@@ -34,3 +37,10 @@ jobs:
           MODE: social
           LIMIT: ${{ github.event.inputs.social_limit || '300' }}
           PAUSE: "0.5"
+      - run: python scripts/enrich.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          MODE: company
+          LIMIT: ${{ github.event.inputs.company_limit || '400' }}
+          PAUSE: "0.3"

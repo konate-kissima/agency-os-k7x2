@@ -327,6 +327,7 @@ function appelsHTML(){
   const left=`<div class="card"><div class="muted sm">${cur.stage==='contacte'?'<span class="chip warn">'+((cur.cycle||1)>=2?'Rappel de réserve':'Rappel')+'</span>':'<span class="chip hot">Premier appel</span>'}${cur.stage==='contacte'&&cur.slots&&cur.slots.length&&cur.slots.length<3?'<span class="chip" title="Les artisans sont souvent sur chantier : on varie le moment de l\'appel">Mieux : '+cur.slots.map(x=>SLOT_L[x]).join(' ou ')+'</span>':''}${mob?'<span class="chip bad" title="Mobile : le régime consommateur peut s\'appliquer aux indépendants, à vérifier">Mobile</span>':''}${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}${cur.touches?' · '+cur.touches+' tentative(s)':''}</div>
    <h2 style="margin-top:4px">${esc(cur.name)}</h2>
    <div class="sm muted">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a>`:''}${cur.score?' · score '+esc(cur.score):''}</div>
+   ${companyLine(cur)}
    <a class="callnum" href="tel:${esc(normPhone(cur.phone))}">${esc(fmtPhone(cur.phone))}</a>
    ${hist.length?`<div class="sm muted" style="margin-bottom:6px"><b>Historique</b><br>${hist.map(h=>`${fdate(h.t)} · ${esc(CH_L[h.channel||'appel'])} · ${esc(ALL_RES_L[h.result]||h.result)}${h.note?' — '+esc(h.note):''}`).join('<br>')}</div>`:''}
    ${cur.notes?`<div class="sm muted" style="white-space:pre-wrap">${esc(cur.notes)}</div>`:''}
@@ -376,6 +377,28 @@ function outQueue(){
   const t=today(),sk=S.out.skip;
   return S.prospects.filter(p=>!p.optout&&!p.outDone&&['a_contacter','contacte'].includes(p.stage||'a_contacter')&&!sk.includes(p.id)&&!(p.enrich==='todo'&&!(p.instagram||p.facebook||p.linkedin||p.email))&&(!p.outNext||p.outNext<=t))
    .sort((a,b)=>{const h=x=>(x.instagram||x.facebook||x.linkedin||x.email)?0:1;return h(a)-h(b)||(+b.score||0)-(+a.score||0)||(+b.reviews||0)-(+a.reviews||0)});
+}
+const EFF_L={'00':'0 salarié','01':'1-2 salariés','02':'3-5 salariés','03':'6-9 salariés','11':'10-19 salariés','12':'20-49 salariés','21':'50-99 salariés','22':'100-199 salariés'};
+const NAF_L={'43.22A':'Plomberie / eau / gaz','43.22B':'Chauffage / climatisation','43.21A':'Électricité','43.29A':'Isolation','43.29B':'Travaux d\'installation','33.12Z':'Maintenance d\'équipements','43.99C':'Maçonnerie / gros œuvre','47.52B':'Commerce de quincaillerie'};
+function sectorOf(p){
+  if(p.naf)return NAF_L[p.naf]||('NAF '+p.naf);
+  const n=p.name||'';
+  if(/chauff|chaudi|thermi|pompe|poêle|poele|énergie|energie/i.test(n))return 'Chauffage / énergie';
+  if(/clim|froid|frigo/i.test(n))return 'Climatisation / froid';
+  if(/plomb|sanitaire|salle de bain|fuite|canalis|dépann|depann/i.test(n))return 'Plomberie / dépannage';
+  if(/élec|elec/i.test(n))return 'Électricité';
+  return 'Non précisé';
+}
+function ageYears(p){const y=p.created_co?+String(p.created_co).slice(0,4):0;return y?new Date().getFullYear()-y:null}
+function ageBucket(p){const a=ageYears(p);return a===null?'Année inconnue':a<2?'Moins de 2 ans':a<5?'2 à 5 ans':a<10?'5 à 10 ans':a<20?'10 à 20 ans':'20 ans et plus'}
+function reviewBucket(p){const r=+p.reviews||0;return r===0?'Aucun avis':r<10?'1 à 9 avis':r<50?'10 à 49 avis':r<200?'50 à 199 avis':'200 avis et plus'}
+function companyLine(p){
+  const a=ageYears(p),parts=[];
+  if(a!==null)parts.push(`<b>créée en ${esc(String(p.created_co).slice(0,4))}</b> (${a<1?'moins d\'un an':a+' an'+(a>1?'s':'')})`);
+  parts.push(esc(sectorOf(p)));
+  if(p.effectif&&EFF_L[p.effectif])parts.push(esc(EFF_L[p.effectif]));
+  if(p.dirigeant)parts.push('dirigeant : '+esc(p.dirigeant));
+  return `<div class="sm" style="margin-top:2px">${parts.join(' · ')}${a===null?` <span class="muted">· année de création pas encore trouvée</span>`:''}</div>`;
 }
 function hookFor(p){
   const n=p.name||'votre entreprise',v=p.city||'votre secteur';
@@ -575,7 +598,8 @@ function statsHTML(){
   const dayB=[];for(let i=13;i>=0;i--){const d=addDays(today(),-i);const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);dayB.push({d,n:cs.length,r:cs.filter(c=>c.result==='rdv').length})}
   const mx=Math.max(1,...dayB.map(x=>x.n));
   const chart=`<section class="card"><h3>14 derniers jours (appels, RDV en doré)</h3><div class="bar">${dayB.map(x=>`<div title="${fdate(x.d)} : ${x.n} appels, ${x.r} RDV" style="height:${Math.max(2,Math.round(90*x.n/mx))}px"><span class="b2" style="display:block;position:absolute;bottom:0;left:0;right:0;background:var(--brass);height:${x.n?Math.round(100*x.r/x.n):0}%"></span></div>`).join('')}</div></section>`;
-  return sel+recordsHTML()+kp+chart+`${grp(c=>CH_L[c.channel||'appel'],'Par canal (appels, DM, vidéos, emails)',30,L)}<div class="grid2">${grp(c=>(sc.scripts[c.angle]||{}).name||c.angle,'Appels : par angle de script')}${grp(c=>c.hour!=null?pad(c.hour)+'h':'','Appels : par heure',20)}</div><div class="grid2">${grp(c=>c.dept,'Appels : par département')}<section class="card"><h3>Objections</h3><table class="t"><tbody>${objT||'<tr><td class="muted">Aucune objection saisie.</td></tr>'}</tbody></table></section></div>
+  return sel+recordsHTML()+kp+chart+`${grp(c=>CH_L[c.channel||'appel'],'Par canal (appels, DM, vidéos, emails)',30,L)}<div class="grid2">${grp(c=>(sc.scripts[c.angle]||{}).name||c.angle,'Appels : par angle de script')}${grp(c=>c.hour!=null?pad(c.hour)+'h':'','Appels : par heure',20)}</div><div class="grid2">${grp(c=>ageBucket(byId(c.prospectId)||{}),'Appels : par ancienneté de l\'entreprise',20)}${grp(c=>sectorOf(byId(c.prospectId)||{}),'Appels : par secteur d\'activité',20)}</div><div class="grid2">${grp(c=>reviewBucket(byId(c.prospectId)||{}),'Appels : par nombre d\'avis Google',20)}${grp(c=>(byId(c.prospectId)||{}).website?'Avec site':'Sans site','Appels : site internet',20)}</div><div class="grid2">${grp(c=>EFF_L[(byId(c.prospectId)||{}).effectif]||'Effectif inconnu','Appels : taille de l\'entreprise',20)}<span></span></div>
+  <div class="grid2">${grp(c=>c.dept,'Appels : par département')}<section class="card"><h3>Objections</h3><table class="t"><tbody>${objT||'<tr><td class="muted">Aucune objection saisie.</td></tr>'}</tbody></table></section></div>
   <p class="muted sm">Règle : on ne compare pas deux angles avant 30 conversations chacun. Un taux sur 10 conversations ne veut rien dire.</p>`;
 }
 

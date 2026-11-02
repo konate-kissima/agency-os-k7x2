@@ -53,6 +53,10 @@ const fs = require('fs');
   ok(await pg.locator('text=Plus personne à appeler').count() === 1, 'Pas de réponse reprogrammé au lendemain');
   ok(/Relance en 1 clic/.test(await pg.textContent('main')) && await pg.locator('a[href^="sms:"]').count()===1, 'carte relance SMS après pas de réponse');
   { const sms=decodeURIComponent((await pg.getAttribute('a[href^="sms:"]','href'))||''); ok(/c'est Kissima, j'ai essayé de vous joindre\. (J'ai vu|Je suis)/.test(sms)&&/5 minutes cette semaine/.test(sms)&&/Très cordialement, Kissima/.test(sms)&&!/\{/.test(sms), 'SMS de relance : chaleureux, fait sur l\'entreprise, question de disponibilité, formule de politesse'); console.log(sms); }
+  { const v=await pg.evaluate(()=>{const y=new Date().getFullYear();return [companyLine({name:'Climtech',created_co:(y-12)+'-05-02',naf:'43.22B',effectif:'03',dirigeant:'Jean Durand'}),companyLine({name:'Dupont Chauffage'}),ageBucket({created_co:(y-1)+'-01-01'}),ageBucket({}),sectorOf({name:'SOS Plomberie'}),reviewBucket({reviews:751})]});
+    ok(/créée en/.test(v[0])&&/12 ans/.test(v[0])&&/Chauffage \/ climatisation/.test(v[0])&&/6-9 salariés/.test(v[0])&&/Jean Durand/.test(v[0]),'fiche d\'appel : année de création, secteur, effectif, dirigeant');
+    ok(/pas encore trouvée/.test(v[1])&&/Chauffage/.test(v[1])&&v[2]==='Moins de 2 ans'&&v[3]==='Année inconnue'&&v[4]==='Plomberie / dépannage'&&v[5]==='200 avis et plus','valeurs de repli et tranches pour les stats');
+    await pg.evaluate(()=>{S.tab='stats';S.st.days=0;render()}); const stx=await pg.textContent('main'); ok(/par ancienneté/.test(stx)&&/par secteur d.activité/.test(stx)&&/nombre d.avis/.test(stx),'stats : ancienneté, secteur, avis, site, taille'); }
   { await pg.evaluate(()=>{S.chal=true;render()}); const ch=await pg.textContent('.chal');
     ok(/Ton record à battre/.test(ch)&&/Je relève le défi|C'est parti/.test(ch),'défi affiché à la connexion'); await pg.click('[data-act=chal-ok]'); ok(await pg.locator('.chal').count()===0,'défi fermé par le bouton'); }
   { await pg.evaluate(()=>{S.tab='stats';S.st.days='w';render()}); const tx=await pg.textContent('main');
