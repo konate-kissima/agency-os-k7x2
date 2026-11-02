@@ -20,6 +20,17 @@ nav.tabs button:hover{color:var(--ink);background:var(--surface2)}
 nav.tabs button[aria-selected=true]{background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--accent-ink);box-shadow:var(--glow)}
 main{padding:18px max(16px,env(safe-area-inset-left)) 40px max(16px,env(safe-area-inset-right));max-width:1180px;margin:0 auto}
 .chal{position:fixed;inset:0;z-index:60;background:rgba(5,9,6,.88);display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));overflow:auto}.chalbox{max-width:520px;width:100%;margin:0;border:2px solid var(--accent2)}
+
+.callbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}.callbar #cq{flex:1 1 260px;min-width:0;padding:8px 12px}.callbar select{padding:7px 8px}
+.pill{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 10px;font-size:13px;white-space:nowrap}.pill b{color:var(--accent);font-size:15px}
+.lastres{font-size:13px;margin:0 0 8px;padding:5px 10px;border-left:3px solid var(--accent);background:var(--surface2)}
+.callgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start}
+.callcard{padding:12px 14px;margin:0}.callcard .chips{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.cname{margin:4px 0 0;font-size:22px;line-height:1.15}
+.callcard .callnum{font-size:34px;margin:4px 0 2px}.cnote{width:100%;margin-top:6px;min-height:0}
+.cfields{display:grid;grid-template-columns:1.2fr 1fr 1.2fr;gap:8px;margin-top:6px}.cfields .f{margin:0 0 2px;font-size:11px}.cfields>div{min-width:0}.cfields select,.cfields input{width:100%;min-width:0;padding:6px 6px;font-size:13px}
+.callcard .cres{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}.cres .btn{padding:10px 6px;font-size:14px;text-align:center;white-space:normal;line-height:1.15}
+.scriptcard{margin:0;padding:12px 14px;position:sticky;top:8px;max-height:calc(100vh - 150px);overflow:auto}.scriptcard .script{font-size:14px;line-height:1.45;margin:8px 0}
+@media (max-width:820px){.callgrid{grid-template-columns:1fr}.scriptcard{position:static;max-height:none}.cres{grid-template-columns:repeat(2,1fr)}.cfields{grid-template-columns:1fr}}
 .card{background:linear-gradient(180deg,rgba(255,255,255,.03),transparent 40%),var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:16px;box-shadow:var(--shadow)}
 .grid2{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:16px}
 .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
@@ -319,49 +330,51 @@ function callSearch(q){
   if(q.length<2)return [];const ql=q.toLowerCase();
   return S.prospects.filter(p=>String(p.name||'').toLowerCase().includes(ql)||String(p.dirigeant||'').toLowerCase().includes(ql)||String(p.city||'').toLowerCase().includes(ql)).slice(0,6);
 }
-function callSearchHTML(){
+function callSearchHTML(extra){
   const q=S.call.q||'',R=callSearch(q);
   const STG={a_contacter:'jamais appelée',contacte:'déjà appelée',rdv:'RDV pris',perdu:'perdue',stop:'ne plus appeler'};
   const rows=R.map(p=>{const n=callsOf(p.id).filter(isCall).length,last=callsOf(p.id).filter(isCall).slice(-1)[0];
     return `<button class="btn" style="display:block;width:100%;text-align:left;margin-top:6px" data-act="callopen" data-id="${esc(p.id)}"><b>${esc(p.name)}</b> · ${esc(p.city||'')} · ${esc(fmtPhone(p.phone))}<br><span class="sm muted">${esc(STG[p.stage]||p.stage||'')}${n?' · '+n+' appel'+(n>1?'s':'')+(last?' · dernier : '+esc(RES_L[last.result]||last.result)+' le '+fdate(String(last.t).slice(0,10)):''):''}</span></button>`}).join('');
   const none=q&&!R.length&&(q.replace(/\D/g,'').length>=3||q.length>=2)?`<p class="sm muted" style="margin:6px 0 0">Aucune fiche pour « ${esc(q)} ». Numéro inconnu : ce n'est pas un de tes prospects.</p>`:'';
   const open=S.call.open&&byId(S.call.open)?`<p class="sm" style="margin:6px 0 0">Fiche ouverte : <b>${esc(byId(S.call.open).name)}</b> <button class="btn sm" data-act="callclose">Revenir à la file</button></p>`:'';
-  return `<div class="card" style="padding:12px"><input type="search" id="cq" style="width:100%" placeholder="Quelqu'un te rappelle ? Tape son numéro (ou son nom)" value="${esc(q)}" autocomplete="off" inputmode="search">${rows}${none}${open}</div>`;
+  return `<div class="callbar"><input type="search" id="cq" placeholder="Quelqu'un te rappelle ? Tape son numéro ou son nom" value="${esc(q)}" autocomplete="off" inputmode="search">${extra||''}</div>${rows||none||open?`<div class="card" style="padding:8px 12px">${rows}${none}${open}</div>`:''}`;
 }
 function appelsHTML(){
   const Q=callQueue(),st=todayStats(),sc=settings();
-  const nrc=callSearchHTML()+rdvCard()+nrCard()+(S.lastRes?`<div class="sm" style="margin:0 0 10px;padding:8px 12px;border-left:3px solid var(--accent);background:var(--surface2)">Dernier appel : ${S.lastRes}</div>`:'');
   const forced=S.call.open?byId(S.call.open):null;
   let cur=forced||(S.call.pid?byId(S.call.pid):null);
   if(!forced&&(!cur||!Q.some(x=>x.id===cur.id)))cur=Q[0]||null;
   if(cur&&S.call.pid!==cur.id){S.call.pid=cur.id;S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date=''}
   if(!cur)S.call.pid='';
   const ang=S.call.angle||sc.angle;
-  const kp=`<div class="kpis"><div class="kpi"><b>${st.n}</b><span>appels aujourd'hui</span></div><div class="kpi"><b>${st.j}</b><span>conversations</span></div><div class="kpi"><b>${st.r}</b><span>RDV pris</span></div><div class="kpi"><b>${Q.length}</b><span>à appeler</span></div></div>`;
-  const filt=`<div class="row sm" style="margin-bottom:10px"><span class="muted">Lignes :</span><select data-act="mobsel" aria-label="Type de ligne"><option value="all"${S.call.mob==='all'?' selected':''}>Toutes</option><option value="fixe"${S.call.mob==='fixe'?' selected':''}>Fixes / standards</option><option value="mobile"${S.call.mob==='mobile'?' selected':''}>Mobiles (06/07)</option></select></div>`;
-  if(!cur)return dueBanner()+nrc+kp+filt+`<div class="card"><b>Plus personne à appeler pour l'instant.</b><div class="muted sm">Importe une liste (onglet Données) ou attends les rappels programmés.</div></div>`;
+  const kp=`<span class="pill"><b>${st.n}</b> appels</span><span class="pill"><b>${st.j}</b> conv.</span><span class="pill"><b>${st.r}</b> RDV</span><span class="pill"><b>${Q.length}</b> à appeler</span>`;
+  const filt=`<select data-act="mobsel" aria-label="Type de ligne" class="sm"><option value="all"${S.call.mob==='all'?' selected':''}>Toutes lignes</option><option value="fixe"${S.call.mob==='fixe'?' selected':''}>Fixes</option><option value="mobile"${S.call.mob==='mobile'?' selected':''}>Mobiles</option></select>`;
+  const bar=callSearchHTML(kp+filt);
+  const above=dueBanner()+rdvCard()+nrCard()+(S.lastRes?`<div class="lastres">Dernier appel : ${S.lastRes}</div>`:'');
+  if(!cur)return above+bar+`<div class="card"><b>Plus personne à appeler pour l'instant.</b><div class="muted sm">Importe une liste (onglet Données) ou attends les rappels programmés.</div></div>`;
   const hist=callsOf(cur.id).slice(-4).reverse();
   const mob=isMobile(cur.phone);
-  const left=`<div class="card"><div class="muted sm"><span class="chip" title="Nombre de fois où tu as appelé cette fiche">${(cur.touches||0)===0?'1er appel':'Appel n°'+((cur.touches||0)+1)}</span>${cur.stage==='contacte'?'<span class="chip warn">'+((cur.cycle||1)>=2?'Rappel de réserve':'Rappel')+'</span>':'<span class="chip hot">Premier appel</span>'}${cur.stage==='contacte'&&cur.slots&&cur.slots.length&&cur.slots.length<3?'<span class="chip" title="Les artisans sont souvent sur chantier : on varie le moment de l\'appel">Mieux : '+cur.slots.map(x=>SLOT_L[x]).join(' ou ')+'</span>':''}${mob?'<span class="chip bad" title="Mobile : le régime consommateur peut s\'appliquer aux indépendants, à vérifier">Mobile</span>':''}${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}${cur.touches?' · '+cur.touches+' tentative(s)':''}</div>
-   <h2 style="margin-top:4px">${esc(cur.name)}</h2>
-   <div class="sm muted">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a>`:''}${cur.score?' · score '+esc(cur.score):''}</div>
+  const lastH=hist[0];
+  const left=`<div class="card callcard"><div class="chips"><span class="chip" title="Nombre de fois où tu as appelé cette fiche">${(cur.touches||0)===0?'1er appel':'Appel n°'+((cur.touches||0)+1)}</span>${cur.stage==='contacte'?'<span class="chip warn">'+((cur.cycle||1)>=2?'Rappel de réserve':'Rappel')+'</span>':'<span class="chip hot">Premier appel</span>'}${cur.stage==='contacte'&&cur.slots&&cur.slots.length&&cur.slots.length<3?'<span class="chip" title="Les artisans sont souvent sur chantier : on varie le moment de l\'appel">Mieux : '+cur.slots.map(x=>SLOT_L[x]).join(' ou ')+'</span>':''}${mob?'<span class="chip bad" title="Mobile : le régime consommateur peut s\'appliquer aux indépendants, à vérifier">Mobile</span>':''}<span class="muted sm">${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}</span><button class="btn sm" style="margin-left:auto" data-act="open" data-id="${esc(cur.id)}">Ouvrir la fiche</button></div>
+   <h2 class="cname">${esc(cur.name)}</h2>
+   <div class="sm muted">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a> · `:''}score ${esc(cur.score||'—')}</div>
    ${companyLine(cur)}
    <a class="callnum" href="tel:${esc(normPhone(cur.phone))}">${esc(fmtPhone(cur.phone))}</a>
-   ${hist.length?`<div class="sm muted" style="margin-bottom:6px"><b>Historique</b><br>${hist.map(h=>`${fdate(h.t)} · ${esc(CH_L[h.channel||'appel'])} · ${esc(ALL_RES_L[h.result]||h.result)}${h.note?' — '+esc(h.note):''}`).join('<br>')}</div>`:''}
-   ${cur.notes?`<div class="sm muted" style="white-space:pre-wrap">${esc(cur.notes)}</div>`:''}
-   <label class="f" for="cn">Note de l'appel (interlocuteur, objection exacte, volume de chantiers, outils utilisés…)</label>
-   <textarea id="cn" rows="5" placeholder="Ce que tu as appris">${esc(S.call.note)}</textarea>
-   <div class="row"><div><label class="f" for="co">Objection principale</label><select id="co">${OBJ.map(o=>`<option${S.call.obj===o?' selected':''}>${esc(o)}</option>`).join('')}</select></div>
+   ${lastH?`<div class="sm muted">Dernier : ${fdate(lastH.t)} · ${esc(ALL_RES_L[lastH.result]||lastH.result)}${lastH.note?' — '+esc(lastH.note):''}</div>`:''}
+   <textarea id="cn" rows="2" class="cnote" placeholder="Note : ce que tu as appris (interlocuteur, objection, chantiers…)">${esc(S.call.note)}</textarea>
+   <div class="cfields"><div><label class="f" for="co">Objection</label><select id="co">${OBJ.map(o=>`<option${S.call.obj===o?' selected':''}>${esc(o)}</option>`).join('')}</select></div>
    <div><label class="f" for="cd">Rappel le</label><input type="date" id="cd" value="${esc(S.call.date||workday(2))}"></div>
    <div><label class="f" for="cr">RDV (si pris)</label><input type="datetime-local" id="cr" value="${esc(S.call.rdvAt)}"></div></div>
-   <label class="f" for="ca">Lien de l'enregistrement (Drive), si enregistré</label><input id="ca" style="width:100%" placeholder="https://drive.google.com/…" value="${esc(S.call.audio)}">
-   <label class="ck sm"><input type="checkbox" id="ci"${S.call.informed?' checked':''}> J'ai informé l'interlocuteur de l'enregistrement</label>
-   <div class="res">${RES.map(([k,l,c])=>`<button class="btn ${c}" data-act="callres" data-r="${k}">${l}</button>`).join('')}<button class="btn" data-act="callskip">Passer</button></div>
-   <div style="margin-top:8px"><button class="btn sm" data-act="open" data-id="${esc(cur.id)}">Ouvrir la fiche</button></div></div>`;
-  const right=`<div class="card"><label class="f" for="cang">Angle de script (sert aux statistiques)</label><select id="cang">${Object.entries(sc.scripts).map(([k,v])=>`<option value="${esc(k)}"${k===ang?' selected':''}>${esc(v.name)}</option>`).join('')}</select>
+   <div class="res cres">${RES.map(([k,l,c])=>`<button class="btn ${c}" data-act="callres" data-r="${k}">${l}</button>`).join('')}<button class="btn" data-act="callskip">Passer</button></div>
+   <details class="sm" style="margin-top:6px"><summary class="muted">Historique, notes, enregistrement</summary>
+    ${hist.length?`<div class="sm muted" style="margin:6px 0"><b>Historique</b><br>${hist.map(h=>`${fdate(h.t)} · ${esc(CH_L[h.channel||'appel'])} · ${esc(ALL_RES_L[h.result]||h.result)}${h.note?' — '+esc(h.note):''}`).join('<br>')}</div>`:''}
+    ${cur.notes?`<div class="sm muted" style="white-space:pre-wrap">${esc(cur.notes)}</div>`:''}
+    <label class="f" for="ca">Lien de l'enregistrement (Drive), si enregistré</label><input id="ca" style="width:100%" placeholder="https://drive.google.com/…" value="${esc(S.call.audio)}">
+    <label class="ck sm"><input type="checkbox" id="ci"${S.call.informed?' checked':''}> J'ai informé l'interlocuteur de l'enregistrement</label></details></div>`;
+  const right=`<div class="card scriptcard"><div class="row" style="flex-wrap:nowrap"><select id="cang" aria-label="Angle de script (sert aux statistiques)">${Object.entries(sc.scripts).map(([k,v])=>`<option value="${esc(k)}"${k===ang?' selected':''}>${esc(v.name)}</option>`).join('')}</select></div>
    <div class="script">${esc(fillScript((sc.scripts[ang]||{}).text,cur))}</div>
    <div class="sm muted"><b>Information d'enregistrement</b><br>${esc(sc.recordText)}</div></div>`;
-  return dueBanner()+nrc+kp+filt+`<div class="grid2">${left}${right}</div>`;
+  return above+bar+`<div class="callgrid">${left}${right}</div>`;
 }
 
 async function callResult(r){
