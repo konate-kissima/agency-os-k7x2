@@ -30,6 +30,37 @@ def site_matches(d):
     return (len(core) >= 4 and (core in nm or nm in core)) or (len(nm) >= 4 and nm in core)
 
 
+def verify_site(d):
+    """Le nom de domaine ne ressemble pas au nom : on lit le site (accueil, contact, mentions légales) et on cherche le SIREN, le téléphone ou un mot distinctif du nom."""
+    site = d.get("website") or ""
+    base = site if re.match(r"https?://", site) else "https://" + site
+    base = base.rstrip("/")
+    siren, tel = re.sub(r"\D", "", d.get("siren") or ""), E.digits(d.get("phone"))
+    toks = [t for t in E.sig(d.get("name")) if len(t) >= 4]
+    nm = E.norm(d.get("name"))
+    for path in ("", "/contact", "/mentions-legales", "/mentions-legales/"):
+        url = base + path
+        try:
+            if not E.allowed(url):
+                continue
+            r = requests.get(url, headers={"User-Agent": E.UA}, timeout=8)
+            if r.status_code != 200 or "text" not in r.headers.get("content-type", ""):
+                continue
+            txt = r.text[:400000].lower()
+        except Exception:
+            continue
+        dg = re.sub(r"\D", "", txt)
+        if (len(siren) == 9 and siren in dg) or (len(tel) >= 9 and tel in dg):
+            return True
+        flat = re.sub(r"[^a-z0-9]", "", txt)
+        if toks and any(t in flat for t in toks):
+            return True
+        if not toks and len(nm) >= 8 and nm in flat:
+            return True
+        time.sleep(0.3)
+    return False
+
+
 def all_rows():
     rows, off = [], 0
     while True:
@@ -72,7 +103,7 @@ def main():
             new["annuaire_url"] = site; new["website"] = ""; st["annuaire"] += 1
             site = ""
         bad = ""
-        if site and not site_matches(d):
+        if site and not site_matches(d) and not verify_site(d):
             bad = "site_faux"
         elif d.get("place_id") and len(by_place.get(d["place_id"], ())) > 1:
             bad = "place_partagee"
