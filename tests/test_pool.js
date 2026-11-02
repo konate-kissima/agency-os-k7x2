@@ -8,7 +8,7 @@ const path = require('path'), fs = require('fs');
   const tmp = fs.mkdtempSync('/tmp/aos-');
   fs.copyFileSync(path.resolve(__dirname, '../index.html'), tmp + '/index.html');
   fs.writeFileSync(tmp + '/config.js', 'window.AOS_CONFIG={url:"",key:""};');
-  await pg.goto('file://' + tmp + '/index.html');
+  await pg.goto('file://' + tmp + '/index.html'); await pg.waitForSelector('.chal'); await pg.evaluate(()=>{S.chal=false;render()});
   await pg.waitForSelector('nav.tabs');
   const ok = (c, m) => { if (!c) { console.log('FAIL', m); process.exitCode = 1; } else console.log('ok  ', m); };
   const r = await pg.evaluate(async () => {

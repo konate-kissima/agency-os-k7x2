@@ -7,7 +7,7 @@ const { chromium } = require('playwright'); const path=require('path'); const fs
     {siren:'111111111',nom_complet:'DUPONT PLOMBERIE (DUPONT P)',date_creation:'2025-03-01',tranche_effectif_salarie:'NN',siege:{libelle_commune:'POISSY',adresse:'1 RUE X 78300 POISSY'},dirigeants:[{prenoms:'JEAN PIERRE',nom:'DUPONT'}]},
     {siren:'222222222',nom_complet:'SARL MARTIN CHAUFFAGE',date_creation:'2005-01-01',siege:{libelle_commune:'TRIEL SUR SEINE'},dirigeants:[]}]})})});
   await pg.addInitScript(()=>{window.__noSleep=true});
-  await pg.goto('file://'+tmp+'/index.html'); await pg.waitForSelector('nav.tabs');
+  await pg.goto('file://'+tmp+'/index.html'); await pg.waitForSelector('.chal'); await pg.evaluate(()=>{S.chal=false;render()});
   const ok=(c,m)=>{console.log(c?'ok  ':'FAIL',m); if(!c) process.exitCode=1};
   await pg.click('[data-v=donnees]'); await pg.click('#govbtn');
   await pg.waitForFunction(()=>/annuaire officiel/.test(document.querySelector('#toast').textContent),null,{timeout:30000});

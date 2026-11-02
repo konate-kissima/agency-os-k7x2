@@ -19,6 +19,7 @@ nav.tabs button{border:0;background:transparent;color:var(--muted);padding:8px 1
 nav.tabs button:hover{color:var(--ink);background:var(--surface2)}
 nav.tabs button[aria-selected=true]{background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--accent-ink);box-shadow:var(--glow)}
 main{padding:18px max(16px,env(safe-area-inset-left)) 40px max(16px,env(safe-area-inset-right));max-width:1180px;margin:0 auto}
+.chal{position:fixed;inset:0;z-index:60;background:rgba(5,9,6,.88);display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));overflow:auto}.chalbox{max-width:520px;width:100%;margin:0;border:2px solid var(--accent2)}
 .card{background:linear-gradient(180deg,rgba(255,255,255,.03),transparent 40%),var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:16px;box-shadow:var(--shadow)}
 .grid2{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:16px}
 .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
@@ -581,28 +582,53 @@ function statsHTML(){
 
 /* ================= records : la référence à battre ================= */
 function weekStart(d){const x=new Date(d+'T12:00:00');return addDays(d,-((x.getDay()+6)%7))}
+const REC_M=[['n','Appels'],['j','Conversations'],['r','RDV'],['dm','Messages (DM, mail)'],['v','Vidéos'],['ct','Contenus']];
 function periodAgg(){
   const A={D:{},W:{},M:{}};
-  S.calls.forEach(c=>{if(!isCall(c))return;const d=String(c.t).slice(0,10);
-    [['D',d],['W',weekStart(d)],['M',d.slice(0,7)]].forEach(([p,k])=>{const x=A[p][k]=A[p][k]||{n:0,j:0,r:0};x.n++;if(c.joint)x.j++;if(c.result==='rdv')x.r++})});
+  const add=(d,f)=>[['D',d],['W',weekStart(d)],['M',d.slice(0,7)]].forEach(([p,k])=>{const x=A[p][k]=A[p][k]||{n:0,j:0,r:0,dm:0,v:0,ct:0};x[f]++});
+  S.calls.forEach(c=>{const d=String(c.t).slice(0,10);if(isCall(c)){add(d,'n');if(c.joint)add(d,'j')}else if(c.result==='sent')add(d,c.channel==='video'?'v':'dm');if(c.result==='rdv')add(d,'r')});
+  S.content.forEach(c=>{if(c.d)add(String(c.d).slice(0,10),'ct')});
   return A;
 }
+function recInfo(A,p,f){
+  const t=today(),ck=p==='D'?t:p==='W'?weekStart(t):t.slice(0,7);
+  const cur=(A[p][ck]||{})[f]||0;
+  let best=0,bk='';Object.entries(A[p]).forEach(([k,v])=>{if(k!==ck&&(v[f]||0)>best){best=v[f];bk=k}});
+  const isRec=cur>0&&cur>best;
+  const end=!bk?'':p==='D'?bk:p==='W'?addDays(bk,6):toISO(new Date(+bk.slice(0,4),+bk.slice(5,7),0,12));
+  const since=end?Math.max(0,Math.round((new Date(t+'T12:00:00')-new Date(end+'T12:00:00'))/864e5)):0;
+  return {cur,best,bk,isRec,since};
+}
+const sinceTxt=n=>n===0?'égalé aujourd\'hui':n===1?'depuis hier':'il y a '+n+' jours';
 function recordsHTML(){
-  const A=periodAgg(),t=today();
-  const cur={D:t,W:weekStart(t),M:t.slice(0,7)};
-  const lab={D:'Jour',W:'Semaine',M:'Mois'};
+  const A=periodAgg();
   const lbl=(p,k)=>p==='D'?fdate(k):p==='W'?'sem. du '+fdate(k):new Date(k+'-15T12:00:00').toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
-  const rows=['D','W','M'].map(p=>{
-    const all=A[p],c=all[cur[p]]||{n:0,j:0,r:0};
-    const others=Object.entries(all).filter(([k])=>k!==cur[p]);
-    const best=(f)=>others.reduce((m,[k,v])=>v[f]>m.v?{v:v[f],k}:m,{v:0,k:''});
-    const bn=best('n'),bj=best('j'),br=best('r');
-    const isRec=c.n>0&&c.n>bn.v;
-    const msg=isRec?`🏆 <b>Nouveau record !</b> Ancien : ${bn.v}${bn.k?' ('+esc(lbl(p,bn.k))+')':''}`:bn.v?`Record à battre : <b>${bn.v}</b> appels (${esc(lbl(p,bn.k))}). Encore <b>${bn.v-c.n+1}</b> pour le dépasser.`:'Pas encore de référence : ce que tu fais maintenant devient le record.';
-    const cell=(v,b)=>`<td class="r"><b>${v}</b> <span class="muted sm">/ ${Math.max(b,v)}</span></td>`;
-    const pct=bn.v?Math.min(100,Math.round(100*c.n/bn.v)):(c.n?100:0);
-    return `<tr><td><b>${lab[p]}</b></td>${cell(c.n,bn.v)}${cell(c.j,bj.v)}${cell(c.r,br.v)}</tr><tr><td colspan="4" class="sm">${msg}<div style="background:var(--line,#ddd);border-radius:6px;height:8px;overflow:hidden;margin-top:4px"><div style="width:${pct}%;height:100%;background:${isRec?'var(--accent2,#e0a63a)':'var(--accent,#a8bd3c)'}"></div></div></td></tr>`}).join('');
-  return `<section class="card"><h3>Ta référence à battre</h3><div class="scroll-x"><table class="t"><thead><tr><th></th><th class="r">Appels</th><th class="r">Conversations</th><th class="r">RDV</th></tr></thead><tbody>${rows}</tbody></table></div><p class="muted sm">Chiffre en gras = en cours. Le total après « / » = ton meilleur score (jour, semaine du lundi, ou mois).</p></section>`;
+  const cell=(p,f)=>{const r=recInfo(A,p,f);return `<td class="r"><b>${r.cur}</b> <span class="muted sm">/ ${Math.max(r.best,r.cur)}</span><div class="sm ${r.isRec?'':'muted'}">${r.isRec?'🏆 record battu':r.best?'record '+sinceTxt(r.since)+' · '+esc(lbl(p,r.bk)):'—'}</div></td>`};
+  const rows=REC_M.map(([f,l])=>`<tr><td><b>${l}</b></td>${cell('D',f)}${cell('W',f)}${cell('M',f)}</tr>`).join('');
+  return `<section class="card"><h3>Tes records à battre</h3><div class="scroll-x"><table class="t"><thead><tr><th></th><th class="r">Jour</th><th class="r">Semaine</th><th class="r">Mois</th></tr></thead><tbody>${rows}</tbody></table></div><p class="muted sm">En gras : ton score en cours. Après « / » : ton meilleur score. Dessous : depuis combien de temps tu ne l'as pas battu. Semaine = du lundi au dimanche.</p></section>`;
+}
+const EGO=[
+  (r,y)=>`Le record est à ${r}. Hier : ${y}. Tu t'en contentes ?`,
+  r=>`Personne ne va faire ces appels à ta place. Vise ${r+1}.`,
+  r=>`Un record qui dure, c'est une limite que tu t'es fixée toi-même. ${r+1} aujourd'hui.`,
+  r=>`Les autres s'arrêtent à ${Math.round(r*.6)}. Toi, tu fais ${r+1}.`,
+  (r,y)=>y<r?`Hier tu as fait ${y}. Aujourd'hui tu fais mieux, point.`:`Tu as déjà prouvé que tu peux. Fais-le encore.`,
+  r=>`Ton futur toi te remercie de ${r+1} appels.`,
+  r=>`${r+1}. Pas ${r}. Le record, on le dépasse.`
+];
+function challengeHTML(){
+  const A=periodAgg(),t=today(),y=(A.D[addDays(t,-1)]||{}).n||0;
+  const d=recInfo(A,'D','n'),w=recInfo(A,'W','n'),m=recInfo(A,'M','n');
+  const seed=Math.floor(new Date()/864e5);
+  const first=!d.best&&!d.cur;
+  const head=first?`<p style="font-size:1.1em">Aucun record pour l'instant. Aujourd'hui, tu poses la première référence. Fais-la grande.</p>`
+    :`<p style="font-size:1.1em">Record d'appels sur une journée : <b style="font-size:1.6em">${Math.max(d.best,d.cur)}</b>${d.isRec?'':` (${fdate(d.bk)})`}</p><p>${d.isRec?'🏆 Tu l\'as battu aujourd\'hui. Repousse-le.':'Tu ne l\'as pas battu '+sinceTxt(d.since)+'.'} <b>Aujourd'hui : ${d.cur}</b>.</p>`;
+  const line=(l,r)=>r.best||r.cur?`<div class="row" style="justify-content:space-between"><span>${l}</span><span><b>${r.cur}</b> / ${Math.max(r.best,r.cur)} · ${r.isRec?'🏆 record battu':sinceTxt(r.since)}</span></div>`:'';
+  const others=REC_M.filter(([f])=>f!=='n').map(([f,l])=>{const r=recInfo(A,'D',f);return r.best||r.cur?`<div class="row" style="justify-content:space-between"><span>${l}</span><span><b>${r.cur}</b> / ${Math.max(r.best,r.cur)} · ${r.isRec?'🏆':sinceTxt(r.since)}</span></div>`:''}).join('');
+  const goal=Math.max(d.best,d.cur)+(d.isRec?1:1);
+  return `<div class="chal" role="dialog" aria-modal="true"><div class="card chalbox"><h2>🔥 Ton record à battre</h2>${head}${first?'':`<p style="font-weight:600">${esc(EGO[seed%EGO.length](Math.max(d.best,d.cur),y))}</p>`}
+  <div class="sm" style="display:grid;gap:6px;margin:12px 0">${line('Appels · semaine',w)}${line('Appels · mois',m)}${others}</div>
+  <button class="btn primary" style="width:100%;font-size:1.15em;padding:14px" data-act="chal-ok">${first?'C\'est parti':'Je relève le défi : '+goal+' appels'}</button></div></div>`;
 }
 function bilanHTML(){
   const n=todayCounts(),A=periodAgg(),t=today();
@@ -934,7 +960,9 @@ function render(){
   if(!S.loaded)body='<div class="card">Chargement…</div>';
   else if(S.err)body=`<div class="banner">Erreur de données : ${esc(S.err)}</div>`;
   else body={auj:aujourdhuiHTML,appels:appelsHTML,outreach:outreachHTML,contenu:contenuHTML,pipeline:pipelineHTML,clients:clientsHTML,stats:statsHTML,scripts:scriptsHTML,donnees:donneesHTML,aide:aideHTML}[S.tab]();
+  document.querySelectorAll('.chal').forEach(x=>x.remove());
   app.innerHTML=`<header class="top"><span class="brand"><i class="logo" aria-hidden="true">↗</i><span>AGENCY<b>OS</b></span></span><nav class="tabs" role="tablist">${TABS.map(([k,l])=>`<button role="tab" aria-selected="${S.tab===k}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</nav>${DB.mode==='cloud'?'<button class="btn sm" data-act="logout">Déconnexion</button>':'<span class="chip">Mode local</span>'}</header><main>${body}</main>`;
+  if(S.chal&&S.loaded&&!S.err)document.body.insertAdjacentHTML('beforeend',challengeHTML());
   if(S.tab==='scripts'&&S.loaded){const m=$('main');m.insertAdjacentHTML('beforeend','<p><button class="btn sm" data-act="addangle">+ Nouvel angle de script</button></p>')}
   if(active&&$('#'+active)&&['cn','pq','on','oh'].includes(active)){const el=$('#'+active);el.focus();try{el.setSelectionRange(el.value.length,el.value.length)}catch(e){}}
 }
@@ -945,7 +973,8 @@ function loginHTML(){
 /* ================= événements ================= */
 document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b||b.tagName==='SELECT')return;const a=b.dataset.act;
-  if(a==='tab'){S.tab=b.dataset.v;render()}
+  if(a==='chal-ok'){S.chal=false;S.tab='appels';render()}
+  else if(a==='tab'){S.tab=b.dataset.v;render()}
   else if(a==='callres')callResult(b.dataset.r);
   else if(a==='outres')outResult(b.dataset.r);
   else if(a==='outskip'){if(S.out.pid)S.out.skip.push(S.out.pid);S.out.pid='';render()}
@@ -1003,6 +1032,7 @@ async function start(){
     if(!S.settings||!Object.keys(S.settings).length){/* réglages par défaut en mémoire, écrits à la première sauvegarde */}
     ['prospects','calls','clients','settings','content'].forEach(c=>DB.watch(c,refresh));
   }catch(e){S.err=String(e.message||e);S.loaded=true}
+  S.chal=true;
   render();
 }
 (async function boot(){

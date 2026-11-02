@@ -11,7 +11,7 @@ const fs = require('fs');
   const tmp = fs.mkdtempSync('/tmp/aos-');
   fs.copyFileSync(path.resolve(__dirname, '../index.html'), tmp + '/index.html');
   fs.writeFileSync(tmp + '/config.js', 'window.AOS_CONFIG={url:"",key:""};');
-  await pg.goto('file://' + tmp + '/index.html');
+  await pg.goto('file://' + tmp + '/index.html'); await pg.waitForSelector('.chal'); await pg.evaluate(()=>{S.chal=false;render()});
   const ok = (c, m) => { if (!c) { console.log('FAIL', m); process.exitCode = 1; } else console.log('ok  ', m); };
 
   await pg.waitForSelector('nav.tabs');
@@ -53,8 +53,10 @@ const fs = require('fs');
   ok(await pg.locator('text=Plus personne à appeler').count() === 1, 'Pas de réponse reprogrammé au lendemain');
   ok(/Relance en 1 clic/.test(await pg.textContent('main')) && await pg.locator('a[href^="sms:"]').count()===1, 'carte relance SMS après pas de réponse');
   { const sms=decodeURIComponent((await pg.getAttribute('a[href^="sms:"]','href'))||''); ok(/c'est Kissima, j'ai essayé de vous joindre\. (J'ai vu|Je suis)/.test(sms)&&/5 minutes cette semaine/.test(sms)&&/Très cordialement, Kissima/.test(sms)&&!/\{/.test(sms), 'SMS de relance : chaleureux, fait sur l\'entreprise, question de disponibilité, formule de politesse'); console.log(sms); }
+  { await pg.evaluate(()=>{S.chal=true;render()}); const ch=await pg.textContent('.chal');
+    ok(/Ton record à battre/.test(ch)&&/Je relève le défi|C'est parti/.test(ch),'défi affiché à la connexion'); await pg.click('[data-act=chal-ok]'); ok(await pg.locator('.chal').count()===0,'défi fermé par le bouton'); }
   { await pg.evaluate(()=>{S.tab='stats';S.st.days='w';render()}); const tx=await pg.textContent('main');
-    ok(/Ta référence à battre/.test(tx)&&/Jour/.test(tx)&&/Semaine/.test(tx)&&/Mois/.test(tx), 'stats : bloc référence à battre (jour, semaine, mois)');
+    ok(/Tes records à battre/.test(tx)&&/Jour/.test(tx)&&/Semaine/.test(tx)&&/Mois/.test(tx), 'stats : bloc référence à battre (jour, semaine, mois)');
     const r=await pg.evaluate(()=>{const A=periodAgg();return [Object.keys(A.D).length,weekStart('2026-11-01'),weekStart('2026-11-02')]});
     ok(r[1]==='2026-10-26'&&r[2]==='2026-11-02','semaine du lundi'); 
     await pg.evaluate(()=>{S.st.days='c';S.st.from='2026-01-01';S.st.to='2026-12-31';render()}); ok(await pg.locator('#stfrom').count()===1,'période choisie : champs dates');
@@ -123,7 +125,7 @@ const fs = require('fs');
   ok(content.includes('Dupont Plomberie') && content.includes('DM Instagram'), 'export CSV des appels');
 
   // persistance
-  await pg.reload(); await pg.waitForSelector('nav.tabs'); await pg.click('[data-v=clients]');
+  await pg.reload(); await pg.waitForSelector('.chal'); await pg.evaluate(()=>{S.chal=false;render()}); await pg.click('[data-v=clients]');
   ok(await pg.locator('h3:has-text("Dupont Plomberie")').count() === 1, 'persistance après rechargement');
 
   console.log(errs.length ? 'ERRORS:\n' + errs.join('\n') : 'aucune erreur JS');

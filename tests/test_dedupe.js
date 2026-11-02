@@ -8,7 +8,7 @@ const { chromium } = require('playwright'); const path=require('path'); const fs
     {siret:'11111111100029',nom_entreprise:'DUPONT CHAUFFAGE AGENCE 2',telephone:'01 39 99 99 99',commune:'ACHERES',code_postal:'78260',domaine:'Chaudière bois'},
     {siret:'33333333300033',nom_entreprise:'MARTIN SARL',telephone:'01 39 11 22 33',commune:'TRIEL',code_postal:'78510',domaine:'Poêle ou insert bois'}]})}));
   await pg.addInitScript(()=>{window.__noSleep=true});
-  await pg.goto('file://'+tmp+'/index.html'); await pg.waitForSelector('nav.tabs');
+  await pg.goto('file://'+tmp+'/index.html'); await pg.waitForSelector('.chal'); await pg.evaluate(()=>{S.chal=false;render()});
   const ok=(c,m)=>{console.log(c?'ok  ':'FAIL',m); if(!c) process.exitCode=1};
   const wait=async re=>pg.waitForFunction(r=>new RegExp(r).test(document.querySelector('#toast').textContent),re.source,{timeout:30000});
   await pg.click('[data-v=donnees]');

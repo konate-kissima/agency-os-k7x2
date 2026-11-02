@@ -9,7 +9,7 @@ const { chromium } = require('playwright'); const path=require('path'); const fs
     {siret:'22222222200022',nom_entreprise:'ISOL SA',telephone:'01 39 00 00 01',domaine:'Isolation des combles perdus',code_postal:'78300'},
     {siret:'33333333300033',nom_entreprise:'MARTIN SARL',telephone:'06 12 34 56 78',domaine:'Poêle ou insert bois',code_postal:'92100'}]})})});
   await pg.addInitScript(()=>{window.__noSleep=true});
-  await pg.goto('file://'+tmp+'/index.html'); await pg.waitForSelector('nav.tabs');
+  await pg.goto('file://'+tmp+'/index.html'); await pg.waitForSelector('.chal'); await pg.evaluate(()=>{S.chal=false;render()});
   const ok=(c,m)=>{console.log(c?'ok  ':'FAIL',m); if(!c) process.exitCode=1};
   await pg.click('[data-v=donnees]'); await pg.click('#rgebtn');
   await pg.waitForFunction(()=>/RGE ajoutées/.test(document.querySelector('#toast').textContent),null,{timeout:30000});

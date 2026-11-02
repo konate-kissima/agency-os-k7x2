@@ -11,7 +11,7 @@ const path = require('path'); const fs = require('fs');
     {type:'node',id:3,tags:{name:'Sans contact'}},
     {type:'node',id:4,tags:{name:'Doublon',phone:'0130000001'}} ]}) }));
   await pg.addInitScript(()=>{window.__noSleep=true});
-  await pg.goto('file://'+tmp+'/index.html'); await pg.waitForSelector('nav.tabs');
+  await pg.goto('file://'+tmp+'/index.html'); await pg.waitForSelector('.chal'); await pg.evaluate(()=>{S.chal=false;render()});
   const ok=(c,m)=>{console.log(c?'ok  ':'FAIL',m); if(!c) process.exitCode=1};
   await pg.click('[data-v=donnees]'); await pg.click('#osmbtn'); await pg.waitForFunction(()=>/OpenStreetMap ajoutées|ajoutées/.test(document.querySelector('#toast').textContent),null,{timeout:30000}); await pg.waitForTimeout(300);
   const t = await pg.textContent('#toast'); ok(/2 fiches OpenStreetMap ajoutées/.test(t), 'osm : '+t);
