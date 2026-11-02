@@ -21,6 +21,7 @@ nav.tabs button[aria-selected=true]{background:linear-gradient(135deg,var(--acce
 main{padding:18px max(16px,env(safe-area-inset-left)) 40px max(16px,env(safe-area-inset-right));max-width:1180px;margin:0 auto}
 .chal{position:fixed;inset:0;z-index:60;background:rgba(5,9,6,.88);display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));overflow:auto}.chalbox{max-width:520px;width:100%;margin:0;border:2px solid var(--accent2)}
 
+.numrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.numrow .callnum{background:none;border:0;padding:0;cursor:pointer;text-align:left}.numrow .callnum:active{transform:scale(.98)}.numact{display:flex;gap:6px}
 .callbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}.callbar #cq{flex:1 1 260px;min-width:0;padding:8px 12px}.callbar select{padding:7px 8px}
 .pill{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 10px;font-size:13px;white-space:nowrap}.pill b{color:var(--accent);font-size:15px}
 .lastres{font-size:13px;margin:0 0 8px;padding:5px 10px;border-left:3px solid var(--accent);background:var(--surface2)}
@@ -410,7 +411,7 @@ function appelsHTML(){
    <h2 class="cname">${esc(cur.name)}</h2>
    <div class="sm muted">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a> · `:''}score ${esc(cur.score||'—')}</div>
    ${companyLine(cur)}
-   <a class="callnum" href="tel:${esc(normPhone(cur.phone))}">${esc(fmtPhone(cur.phone))}</a>
+   <div class="numrow"><button type="button" class="callnum" data-act="copynum" data-n="${esc(normPhone(cur.phone))}" title="Clique pour copier le numéro, puis colle-le dans ton application d'appel (Onoff…)">${esc(fmtPhone(cur.phone))}</button><span class="numact"><a class="btn sm" href="tel:${esc(normPhone(cur.phone))}" title="Ouvre l'app téléphone du Mac (FaceTime) ou de l'iPhone">Appel Mac</a></span></div>
    ${lastH?`<div class="sm muted">Dernier : ${fdate(lastH.t)} · ${esc(ALL_RES_L[lastH.result]||lastH.result)}${lastH.note?' — '+esc(lastH.note):''}</div>`:''}
    <textarea id="cn" rows="2" class="cnote" placeholder="Note : ce que tu as appris (interlocuteur, objection, chantiers…)">${esc(S.call.note)}</textarea>
    <div class="cfields"><div><label class="f" for="co">Objection</label><select id="co">${OBJ.map(o=>`<option${S.call.obj===o?' selected':''}>${esc(o)}</option>`).join('')}</select></div>
@@ -1093,7 +1094,8 @@ function loginHTML(){
 /* ================= événements ================= */
 document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b||b.tagName==='SELECT')return;const a=b.dataset.act;
-  if(a==='callopen'){S.call.open=b.dataset.id;S.call.pid=b.dataset.id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';render();window.scrollTo(0,0)}
+  if(a==='copynum'){const n=b.dataset.n||'';const done=()=>toast('Numéro copié : '+n+'. Colle-le dans ton application d\'appel.');try{navigator.clipboard.writeText(n).then(done,()=>{const t=document.createElement('textarea');t.value=n;document.body.appendChild(t);t.select();try{document.execCommand('copy')}catch(e){}t.remove();done()})}catch(e){done()}}
+  else if(a==='callopen'){S.call.open=b.dataset.id;S.call.pid=b.dataset.id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';render();window.scrollTo(0,0)}
   else if(a==='callclose'){S.call.open='';S.call.pid='';render()}
   else if(a==='chal-ok'){S.chal=false;S.tab='appels';render()}
   else if(a==='tab'){S.tab=b.dataset.v;render()}
