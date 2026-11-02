@@ -79,7 +79,7 @@ ul.plain{margin:6px 0;padding-left:18px}
 .hero .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;position:relative;z-index:1}
 .hero .st{background:color-mix(in srgb,var(--bg) 55%,transparent);border:1px solid var(--line);border-radius:14px;padding:11px 13px}
 .hero .st b{display:block;font:700 26px/1.1 var(--f-disp);font-variant-numeric:tabular-nums}.hero .st span{font-size:11.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
-.hero .goal{grid-column:1/-1}.hero .goal .track{height:9px;border-radius:99px;background:var(--surface2);overflow:hidden;margin-top:7px}.hero .goal .track i{display:block;height:100%;background:var(--ok);border-radius:99px;min-width:4px}
+.card .track{height:9px;border-radius:99px;background:var(--surface2);overflow:hidden;margin:7px 0 10px}.card .track i{display:block;height:100%;background:var(--ok);border-radius:99px;min-width:4px}.hero .goal{grid-column:1/-1}.hero .goal .track{height:9px;border-radius:99px;background:var(--surface2);overflow:hidden;margin-top:7px}.hero .goal .track i{display:block;height:100%;background:var(--ok);border-radius:99px;min-width:4px}
 @media (max-width:820px){.hero{grid-template-columns:1fr;padding:18px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 /* ===== habillage v2 : ivoire & kaki, boutons nets, cartes légères ===== */
@@ -1116,6 +1116,35 @@ function heroHTML(){
   <div class="stats"><div class="st"><b>${n.calls}<small class="muted" style="font-size:15px"> / ${g.calls[0]}</small></b><span>Appels du jour</span></div><div class="st"><b>${n.rdv}</b><span>RDV pris</span></div>
   <div class="st goal"><div class="row" style="justify-content:space-between"><span>CA mensuel moyen</span><span><b style="display:inline;font-size:15px">${esc(money(mrr))}</b> <span>/ 10 000 €</span></span></div><div class="track"><i style="width:${pct}%"></i></div></div></div></section>`;
 }
+/* ================= objectif décembre : 8 000 à 10 000 € encaissés ================= */
+const GOAL={cash:[8000,10000],end:'2026-12-31',steps:[['2026-11-13',1],['2026-11-27',3],['2026-12-11',4],['2026-12-18',5]],rate:{sign:0.18,rdvConv:0.10,convCall:0.15}};
+function workDaysLeft(to){let n=0,d=today();while(d<=to){if(new Date(d+'T12:00:00').getDay()!==0)n++;d=addDays(d,1)}return n}
+function goalCalc(){
+  const t=today();
+  const signed=Math.max(S.clients.length,S.prospects.filter(p=>p.stage==='signe').length);
+  const cash=S.clients.reduce((s,c)=>{const k=cliKpi(c);return s+(c.signedAt&&c.signedAt<=t?(+c.price||0)/2:0)+(k.qu>=20?(+c.price||0)/2:0)},0);
+  const step=GOAL.steps.find(([d,n])=>signed<n);
+  const LC=S.calls.filter(isCall),conv=LC.filter(c=>c.joint).length,rdvAll=S.calls.filter(c=>c.result==='rdv').length;
+  const own={sign:rdvAll>=10&&signed?signed/rdvAll:0,rdvConv:conv>=30?rdvAll/conv:0,convCall:LC.length>=100?conv/LC.length:0};
+  const r={sign:own.sign||GOAL.rate.sign,rdvConv:own.rdvConv||GOAL.rate.rdvConv,convCall:own.convCall||GOAL.rate.convCall};
+  const hyp=!(own.sign&&own.rdvConv&&own.convCall);
+  const pending=S.prospects.filter(p=>p.stage==='rdv').length;
+  let need=null;
+  if(step){const [d,n]=step,rem=n-signed,rdvNeed=Math.max(0,Math.ceil(rem/r.sign)-pending),calls=Math.ceil(rdvNeed/(r.rdvConv*r.convCall)),days=Math.max(1,workDaysLeft(d));
+    need={d,n,rem,rdvNeed,calls,days,perDay:Math.ceil(calls/days),late:d<t}}
+  return {signed,cash,need,pending,hyp,r}
+}
+function goalHTML(){
+  const g=goalCalc(),[lo,hi]=GOAL.cash;const pct=Math.min(100,Math.round(100*g.cash/lo));
+  const left=Math.max(0,Math.ceil((new Date(GOAL.end+'T23:59:00')-new Date())/864e5));
+  let body;
+  if(!g.need)body=`<p><b>✅ Tous les jalons sont tenus (${g.signed} signatures).</b> Il reste à livrer les 20 leads qualifiés de chaque client pour encaisser le 2ᵉ paiement.</p>`;
+  else{const n=g.need;body=`<p style="margin:6px 0"><b>Prochain jalon : ${n.n} signature${n.n>1?'s':''} avant le ${fdate(n.d)}</b> · tu en as ${g.signed} · il t'en reste <b>${n.rem}</b>${n.late?' · <span style="color:var(--bad)"><b>en retard</b></span>':''}</p>
+  <p class="sm" style="margin:4px 0">Pour tenir : <b>${n.rdvNeed}</b> rendez-vous à prendre en plus des ${g.pending} déjà prévus, soit environ <b>${n.calls}</b> appels, soit <b>${n.perDay} appels par jour</b> jusqu'au ${fdate(n.d)} (${n.days} jours d'appel, dimanche exclu).</p>`}
+  return `<section class="card"><h3>🎯 Objectif ${lo.toLocaleString('fr-FR')} à ${hi.toLocaleString('fr-FR')} € encaissés d'ici le 31 décembre · J-${left}</h3>
+  <div class="row" style="justify-content:space-between"><span class="sm">Encaissé estimé (acompte + 2ᵉ paiement à 20 leads qualifiés)</span><span><b>${money(g.cash)}</b> <span class="muted sm">/ ${lo.toLocaleString('fr-FR')} €</span></span></div><div class="track"><i style="width:${pct}%"></i></div>${body}
+  <p class="muted sm" style="margin:6px 0 0">Jalons : 1 signature le 13 nov. · 3 le 27 nov. · 4 le 11 déc. · 5 le 18 déc. ${g.hyp?'Le calcul utilise des taux de départ (hypothèses) : 18 % de signatures par rendez-vous, 10 % de rendez-vous par conversation, 15 % de conversations par appel. Ils passent à tes vrais taux dès que tu as assez d\'appels.':'Le calcul utilise tes vrais taux.'}</p></section>`;
+}
 function aujourdhuiHTML(){
   const g=goals(),n=todayCounts(),t=today();const done=((S.settings.checks||{})[t])||{};
   const rows=[['calls','Appels','appels','Appeler'],['dm','Messages envoyés (DM, mail)','outreach','Envoyer'],['videos','Vidéos personnalisées','outreach','Envoyer'],['content','Contenus publiés','contenu','Publier']];
@@ -1128,7 +1157,7 @@ function aujourdhuiHTML(){
   const chOK=DAILY_CHECKS.every(([k])=>done[k]);
   const kp=`<div class="kpis"><div class="kpi"><b>${n.conv}</b><span>conversations</span></div><div class="kpi"><b>${n.rdv}</b><span>RDV pris</span></div><div class="kpi"><b>${outQueue().length}</b><span>à contacter</span></div><div class="kpi"><b>${callQueue().length}</b><span>à appeler</span></div></div>`;
   const gi=Object.keys(DEF_GOALS).map(k=>`<label class="sm">${k==='calls'?'Appels':k==='dm'?'Messages':k==='videos'?'Vidéos':'Contenus'} <input type="number" min="0" style="width:60px" id="g-${k}-0" value="${g[k][0]}"> minimum <input type="number" min="0" style="width:60px" id="g-${k}-1" value="${g[k][1]}"> reach</label>`).join('<br>');
-  return heroHTML()+`<div class="card"><h2>Aujourd'hui · ${t}</h2><p class="muted sm">Minimum = non négociable (BAM). Reach = ce que tu vises. Les compteurs se remplissent tout seuls quand tu enregistres un résultat. Pas besoin de réfléchir : fais le bouton du bas.</p>${lines}${nxt}<p style="margin-top:12px"><b>${minOK&&chOK?'✅ Journée validée.':minOK?'Minimums faits : reste la checklist.':'Journée pas encore validée.'}</b></p></div>${kp}${bilanHTML()}
+  return heroHTML()+goalHTML()+`<div class="card"><h2>Aujourd'hui · ${t}</h2><p class="muted sm">Minimum = non négociable (BAM). Reach = ce que tu vises. Les compteurs se remplissent tout seuls quand tu enregistres un résultat. Pas besoin de réfléchir : fais le bouton du bas.</p>${lines}${nxt}<p style="margin-top:12px"><b>${minOK&&chOK?'✅ Journée validée.':minOK?'Minimums faits : reste la checklist.':'Journée pas encore validée.'}</b></p></div>${kp}${bilanHTML()}
   <div class="card"><h3>Checklist du jour</h3>${ch}</div>
   <details class="card"><summary><b>Modifier les objectifs</b></summary><p>${gi}</p><button class="btn sm" data-act="goals-save">Enregistrer les objectifs</button></details>`;
 }
