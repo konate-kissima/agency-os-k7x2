@@ -118,6 +118,8 @@ def main():
                 if float(d.get("rating") or 0) >= 4.5: lost += 5
             except Exception:
                 pass
+            if site:
+                new["site_douteux"] = site
             for k in PLACE:
                 new.pop(k, None)
             for k in ("enrichedAt", "enrich", "socialAt"):
@@ -129,6 +131,8 @@ def main():
             except Exception:
                 pass
             new["audit"] = bad
+        if "(démo)" in str(d.get("name")) and d.get("stage") not in ("perdu", "stop"):
+            new["stage"] = "perdu"; new["lostReason"] = "Fiche de démonstration"
         dg = new.get("dirigeant")
         if dg and re.search(r"\s*\([^)]*\)\s*$", dg):
             new["dirigeant"] = re.sub(r"\s*\([^)]*\)\s*$", "", dg).strip(); st["dir_nettoye"] += 1
