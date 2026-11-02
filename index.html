@@ -133,6 +133,12 @@ table.t th{color:var(--muted)}table.t tr:hover td{background:color-mix(in srgb,v
 #toast{background:var(--ink);color:var(--bg);border-radius:14px}
 .chalbox{border:1px solid color-mix(in srgb,var(--accent2) 60%,var(--line));box-shadow:0 30px 70px -20px rgba(0,0,0,.6)}
 details>summary{border-radius:8px}
+#alarm{position:fixed;inset:0;z-index:99999;background:rgba(3,6,10,.7);display:flex;align-items:center;justify-content:center;padding:16px}
+#alarm .abox{background:var(--surface);color:var(--ink);border:2px solid var(--accent,#7a8b3a);border-radius:18px;max-width:560px;width:100%;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+#alarm h2{margin:0 0 6px}
+#alarm .arow{border-top:1px solid var(--line);padding:10px 0;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+#alarm .arow .who{min-width:0}
+#alarm .arow .btns{display:flex;gap:6px;flex-wrap:wrap}
 </style></head><body>
 <div id="app"></div><div id="toast" role="status"></div><dialog id="dlg"></dialog>
 <script src="config.js"></script>
@@ -396,7 +402,7 @@ function appelsHTML(){
   const forced=S.call.open?byId(S.call.open):null;
   let cur=forced||(S.call.pid?byId(S.call.pid):null);
   if(!forced&&(!cur||!Q.some(x=>x.id===cur.id)))cur=Q[0]||null;
-  if(cur&&S.call.pid!==cur.id){S.call.pid=cur.id;S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date=''}
+  if(cur&&S.call.pid!==cur.id){S.call.pid=cur.id;S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time=''}
   if(!cur)S.call.pid='';
   const ang=S.call.angle||sc.angle;
   const kp=`<span class="pill"><b>${st.n}</b> appels</span><span class="pill"><b>${st.j}</b> conv.</span><span class="pill"><b>${st.r}</b> RDV</span><span class="pill"><b>${Q.length}</b> à appeler</span>`;
@@ -416,6 +422,7 @@ function appelsHTML(){
    <textarea id="cn" rows="2" class="cnote" placeholder="Note : ce que tu as appris (interlocuteur, objection, chantiers…)">${esc(S.call.note)}</textarea>
    <div class="cfields"><div><label class="f" for="co">Objection</label><select id="co">${OBJ.map(o=>`<option${S.call.obj===o?' selected':''}>${esc(o)}</option>`).join('')}</select></div>
    <div><label class="f" for="cd">Rappel le</label><input type="date" id="cd" value="${esc(S.call.date||workday(2))}"></div>
+   <div><label class="f" for="ct">à</label><input type="time" id="ct" value="${esc(S.call.time||'10:00')}" title="Heure du rappel : un pop-up te relance tant que tu n'as pas appelé"></div>
    <div><label class="f" for="cr">RDV (si pris)</label><input type="datetime-local" id="cr" value="${esc(S.call.rdvAt)}"></div></div>
    <div class="res cres">${RES.map(([k,l,c,t])=>`<button class="btn ${c}" data-act="callres" data-r="${k}" title="${esc(t||'')}">${l}</button>`).join('')}</div>
    <div class="row" style="justify-content:space-between;margin-top:6px;flex-wrap:nowrap"><details class="sm" style="flex:1;min-width:0"><summary class="muted">Historique, notes, enregistrement</summary>
@@ -433,7 +440,7 @@ async function callResult(r){
   const p=byId(S.call.pid);if(!p)return;
   const sc=settings();
   const note=($('#cn')||{}).value||'',obj=($('#co')||{}).value||'—',audio=($('#ca')||{}).value||'',informed=!!($('#ci')||{}).checked;
-  const date=($('#cd')||{}).value||workday(2),rdvAt=($('#cr')||{}).value||'';
+  const date=($('#cd')||{}).value||workday(2),ntime=($('#ct')||{}).value||'10:00',rdvAt=($('#cr')||{}).value||'';
   if(r==='rdv'&&!rdvAt){toast('Renseigne la date et l\'heure du RDV.');return}
   const now=new Date();
   const call={channel:'appel',prospectId:p.id,prospectName:p.name,t:now.toISOString(),hour:now.getHours(),result:r,angle:S.call.angle||sc.angle,obj:obj==='—'?'':obj,note,audio,informed,dept:p.dept||'',joint:JOINT.includes(r)};
@@ -451,12 +458,13 @@ async function callResult(r){
   else if(r==='no')patch={...base,stage:'perdu',lostReason:call.obj||'Pas intéressé'};
   else if(r==='bad')patch={...base,phone:'',badPhone:true};
   else patch={...base,stage:'stop',optout:true};
+  patch.nextTime=(r==='rap')?ntime:'';
   const ok=await guard(async()=>{await DB.set('calls',id,call);await DB.update('prospects',p.id,patch)});
   if(ok){S.calls.push({id,...call});Object.assign(p,patch);S.call.pid='';S.call.open='';S.call.q='';if(r==='nr')S.lastNR=p.id;if(r==='rdv')S.lastRDV=p.id;
     const nth=touches===1?'1er appel':touches+'e appel',tr=callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).length;
     const nxt=patch.stage==='perdu'?'fiche classée perdue':patch.stage==='stop'?'ne plus appeler':patch.stage==='rdv'?'RDV pris':patch.nextDate?'prochain essai le '+fdate(patch.nextDate):'';
     S.lastRes=`<b>${esc(p.name)}</b> : ${esc(RES_L[r])} · ${nth}${(r==='nr'||r==='rep')&&!callsOf(p.id).some(c=>c.joint)?' ('+tr+'/'+MAX_TRIES+' dans cette série)':''}${nxt?' · '+nxt:''}`;
-    toast(RES_L[r]+' enregistré · '+nth+(nxt?' · '+nxt:''));render()}
+    toast(RES_L[r]+' enregistré · '+nth+(nxt?' · '+nxt:''));render();alarmCheck()}
 }
 
 /* ================= outreach (DM, vidéo, email) ================= */
@@ -553,7 +561,7 @@ async function outResult(r){
   let patch;
   if(r==='sent'){const tries=outTries(p)+1;patch={...base,stage:p.stage==='a_contacter'?'contacte':p.stage,outNext:workday(3)};if(tries>=MAX_OUT)patch.outDone=true;
     if(p.stage==='a_contacter')patch.nextDate=workday(2)}
-  else if(r==='reply')patch={...base,stage:'contacte',nextDate:today(),outNext:workday(7)};
+  else if(r==='reply')patch={...base,stage:'contacte',nextDate:today(),nextTime:'',outNext:workday(7)};
   else if(r==='rdv')patch={...base,stage:'rdv',rdvAt,nextDate:''};
   else if(r==='no')patch={...base,stage:'perdu',lostReason:'Pas intéressé ('+CH_L[ch]+')'};
   else patch={...base,stage:'stop',optout:true};
@@ -598,7 +606,7 @@ function openProspect(id){
   const cs=callsOf(id).slice().reverse();
   const cli=S.clients.find(c=>c.prospectId===id);
   d.innerHTML=`<h2>${esc(p.name)}</h2><div class="muted sm">${esc(p.address||'')} ${p.mapsUrl?`· <a href="${esc(p.mapsUrl)}" target="_blank" rel="noopener">Google</a>`:''} ${p.website?`· <a href="${esc(p.website)}" target="_blank" rel="noopener">site</a>`:''}</div>
-  <div class="row"><div><label class="f">Téléphone</label><input id="fp-phone" value="${esc(p.phone||'')}"></div><div><label class="f">Étape</label><select id="fp-stage">${STAGES.map(([k,l])=>`<option value="${k}"${(p.stage||'a_contacter')===k?' selected':''}>${l}</option>`).join('')}</select></div><div><label class="f">Rappel</label><input type="date" id="fp-next" value="${esc(p.nextDate||'')}"></div><div><label class="f">RDV</label><input type="datetime-local" id="fp-rdv" value="${esc(p.rdvAt||'')}"></div></div>
+  <div class="row"><div><label class="f">Téléphone</label><input id="fp-phone" value="${esc(p.phone||'')}"></div><div><label class="f">Étape</label><select id="fp-stage">${STAGES.map(([k,l])=>`<option value="${k}"${(p.stage||'a_contacter')===k?' selected':''}>${l}</option>`).join('')}</select></div><div><label class="f">Rappel</label><input type="date" id="fp-next" value="${esc(p.nextDate||'')}"></div><div><label class="f">Heure</label><input type="time" id="fp-nt" value="${esc(p.nextTime||'')}"></div><div><label class="f">RDV</label><input type="datetime-local" id="fp-rdv" value="${esc(p.rdvAt||'')}"></div></div>
   <label class="f">Email</label><input id="fp-email" style="width:100%" value="${esc(p.email||'')}">
   <label class="f">Notes</label><textarea id="fp-notes" rows="5">${esc(p.notes||'')}</textarea>
   <h3 style="margin-top:12px">Appels (${cs.length})</h3>${cs.length?`<div class="sm">${cs.map(c=>`<div>${fdate(c.t)} · ${esc(CH_L[c.channel||'appel'])} · ${esc(ALL_RES_L[c.result]||c.result)} · angle ${esc(c.angle||'')}${c.obj?' · '+esc(c.obj):''}${c.note?' — '+esc(c.note):''}${c.audio?` · <a href="${esc(c.audio)}" target="_blank" rel="noopener">audio</a>`:''}</div>`).join('')}</div>`:'<p class="muted sm">Aucun appel.</p>'}
@@ -607,7 +615,7 @@ function openProspect(id){
 }
 async function saveProspectDlg(id){
   const p=byId(id);const stage=$('#fp-stage').value;
-  const patch={phone:$('#fp-phone').value.trim(),email:$('#fp-email').value.trim(),notes:$('#fp-notes').value,nextDate:$('#fp-next').value,rdvAt:$('#fp-rdv').value,stage};
+  const patch={phone:$('#fp-phone').value.trim(),email:$('#fp-email').value.trim(),notes:$('#fp-notes').value,nextDate:$('#fp-next').value,nextTime:($('#fp-nt')||{}).value||'',rdvAt:$('#fp-rdv').value,stage};
   if(stage==='stop')patch.optout=true;
   if(await saveP(id,patch)){if(stage==='signe')toast('Signé ! Crée le client depuis la fiche.');$('#dlg').close();render()}
 }
@@ -1091,12 +1099,34 @@ function loginHTML(){
   $('#app').innerHTML=`<div class="login card"><div class="brand"><i class="logo" aria-hidden="true">↗</i><span>AGENCY<b>OS</b></span></div><h2>Ton poste de commande</h2><label class="f" for="lgm">Email</label><input id="lgm" type="email" style="width:100%" autocomplete="username"><label class="f" for="lgp">Mot de passe</label><input id="lgp" type="password" style="width:100%" autocomplete="current-password"><div style="margin-top:12px"><button class="btn primary" data-act="login">Connexion</button></div><p id="lge" class="sm" style="color:var(--bad)"></p></div>`;
 }
 
+/* ================= rappels horaires (pop-up qui revient) ================= */
+S.snooze={};
+function nowHM(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+function dueCallbacks(){const t=today(),hm=nowHM();
+  return (S.prospects||[]).filter(p=>p.stage==='contacte'&&!p.optout&&p.nextTime&&p.nextDate&&hasPhone(p.phone)&&(p.nextDate<t||(p.nextDate===t&&p.nextTime<=hm))&&!((S.snooze[p.id]||0)>Date.now()))
+    .sort((a,b)=>(a.nextDate+a.nextTime).localeCompare(b.nextDate+b.nextTime))}
+let titleT,baseTitle=document.title;
+function beep(){try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;const c=new C(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.value=.15;o.start();setTimeout(()=>{o.stop();c.close()},350)}catch(e){}}
+function alarmCheck(){
+  if(!S.loaded||S.err)return;
+  const L=dueCallbacks();let el=document.getElementById('alarm');
+  if(!L.length){if(el)el.remove();if(titleT){clearInterval(titleT);titleT=null;document.title=baseTitle}return}
+  const key=L.map(p=>p.id).join(',');
+  const html=`<div class="abox" role="alertdialog" aria-modal="true"><h2>⏰ Tu dois rappeler</h2><p class="muted sm" style="margin:0 0 8px">As-tu appelé ? Enregistre le résultat dans la fiche : ce pop-up s'arrête. Sinon il revient.</p>${L.map(p=>`<div class="arow"><div class="who"><b>${esc(p.name)}</b><div class="sm muted">prévu ${p.nextDate<today()?fdate(p.nextDate)+' ':''}à ${esc(p.nextTime)} · ${esc(fmtPhone(p.phone))}</div></div><div class="btns"><button class="btn primary" data-act="al-open" data-id="${esc(p.id)}">Ouvrir la fiche</button><button class="btn" data-act="al-snooze" data-id="${esc(p.id)}">Pas encore (5 min)</button></div></div>`).join('')}</div>`;
+  if(!el){el=document.createElement('div');el.id='alarm';document.body.appendChild(el)}
+  if(el.dataset.k!==key){el.innerHTML=html;el.dataset.k=key;beep()}
+  if(!titleT){let on=0;titleT=setInterval(()=>{document.title=(on=!on)?'⏰ RAPPELER !':baseTitle},1000)}
+}
+setInterval(alarmCheck,15000);
+
 /* ================= événements ================= */
 document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b||b.tagName==='SELECT')return;const a=b.dataset.act;
+  if(a==='al-snooze'){S.snooze[b.dataset.id]=Date.now()+5*60000;alarmCheck();return}
+  if(a==='al-open'){const id=b.dataset.id;S.snooze[id]=Date.now()+10*60000;S.tab='appels';S.call.open=id;S.call.pid=id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';alarmCheck();render();window.scrollTo(0,0);return}
   if(a==='copysms'){const t=b.dataset.m||'';const done=()=>toast('SMS copié. Colle-le dans Onoff (iPhone).');try{navigator.clipboard.writeText(t).then(done,()=>toast('Copie impossible.'))}catch(e){toast('Copie impossible.')}}
   if(a==='copynum'){const n=b.dataset.n||'';const done=()=>toast('Numéro copié : '+n+'. Colle-le dans ton application d\'appel.');try{navigator.clipboard.writeText(n).then(done,()=>{const t=document.createElement('textarea');t.value=n;document.body.appendChild(t);t.select();try{document.execCommand('copy')}catch(e){}t.remove();done()})}catch(e){done()}}
-  else if(a==='callopen'){S.call.open=b.dataset.id;S.call.pid=b.dataset.id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';render();window.scrollTo(0,0)}
+  else if(a==='callopen'){S.call.open=b.dataset.id;S.call.pid=b.dataset.id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';render();window.scrollTo(0,0)}
   else if(a==='callclose'){S.call.open='';S.call.pid='';render()}
   else if(a==='chal-ok'){S.chal=false;S.tab='appels';render()}
   else if(a==='tab'){S.tab=b.dataset.v;render()}
@@ -1169,6 +1199,6 @@ async function start(){
       const {data}=await sb.auth.getSession();S.user=data.session?data.session.user:null;if(!S.user){render();return}}
     else DB=localBackend();
   }else DB=localBackend();
-  await start();
+  await start();alarmCheck();
 })();
 </script></body></html>
