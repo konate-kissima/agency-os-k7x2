@@ -373,7 +373,7 @@ function nrCard(){
   const msg=fillScript(settings().nrText||NR_SMS,p).replace('monsieur/madame','').replace('Bonjour ,','Bonjour,');
   const ph=normPhone(p.phone),e=encodeURIComponent(msg);
   const wa=ph?'https://wa.me/'+(ph.startsWith('0')?'33'+ph.slice(1):ph.replace('+',''))+'?text='+e:'';
-  return `<div class="card" style="border:2px solid var(--ok,#2a7)"><b>Pas de réponse : ${esc(p.name)}.</b> Relance en 1 clic :<div class="row" style="margin-top:8px;flex-wrap:wrap">${ph?`<a class="btn primary" href="sms:${esc(ph)}?&body=${e}" data-act="nrdone">SMS</a><a class="btn" href="${wa}" target="_blank" rel="noopener" data-act="nrdone">WhatsApp</a>`:''}${p.email?`<a class="btn" href="mailto:${esc(p.email)}?subject=${encodeURIComponent('Suite à mon appel')}&body=${e}" data-act="nrdone">Email</a>`:''}<button class="btn sm" data-act="nrdone">Ignorer</button></div><p class="muted sm" style="margin-top:6px">${esc(msg)}</p></div>`}
+  return `<div class="card" style="border:2px solid var(--ok,#2a7)"><b>Pas de réponse : ${esc(p.name)}.</b> Relance en 1 clic :<div class="row" style="margin-top:8px;flex-wrap:wrap"><button type="button" class="btn primary" data-act="copysms" data-m="${esc(msg)}" title="Copie le SMS, puis colle-le dans Onoff (Presse-papiers universel Mac → iPhone)">Copier le SMS</button>${ph?`<a class="btn" href="sms:${esc(ph)}?&body=${e}" data-act="nrdone" title="Ouvre Messages (ton numéro perso, pas Onoff)">SMS Mac</a><a class="btn" href="${wa}" target="_blank" rel="noopener" data-act="nrdone">WhatsApp</a>`:''}${p.email?`<a class="btn" href="mailto:${esc(p.email)}?subject=${encodeURIComponent('Suite à mon appel')}&body=${e}" data-act="nrdone">Email</a>`:''}<button class="btn sm" data-act="nrdone">Ignorer</button></div><p class="muted sm" style="margin-top:6px">${esc(msg)}</p></div>`}
 function phoneKey(v){let d=String(v||'').replace(/\D/g,'');if(d.startsWith('0033'))d=d.slice(4);else if(d.startsWith('33')&&d.length>9)d=d.slice(2);return d.replace(/^0/,'')}
 function callSearch(q){
   q=String(q||'').trim();if(!q)return [];
@@ -1094,6 +1094,7 @@ function loginHTML(){
 /* ================= événements ================= */
 document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b||b.tagName==='SELECT')return;const a=b.dataset.act;
+  if(a==='copysms'){const t=b.dataset.m||'';const done=()=>toast('SMS copié. Colle-le dans Onoff (iPhone).');try{navigator.clipboard.writeText(t).then(done,()=>toast('Copie impossible.'))}catch(e){toast('Copie impossible.')}}
   if(a==='copynum'){const n=b.dataset.n||'';const done=()=>toast('Numéro copié : '+n+'. Colle-le dans ton application d\'appel.');try{navigator.clipboard.writeText(n).then(done,()=>{const t=document.createElement('textarea');t.value=n;document.body.appendChild(t);t.select();try{document.execCommand('copy')}catch(e){}t.remove();done()})}catch(e){done()}}
   else if(a==='callopen'){S.call.open=b.dataset.id;S.call.pid=b.dataset.id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';render();window.scrollTo(0,0)}
   else if(a==='callclose'){S.call.open='';S.call.pid='';render()}
