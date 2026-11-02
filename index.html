@@ -311,11 +311,29 @@ function nrCard(){
   const ph=normPhone(p.phone),e=encodeURIComponent(msg);
   const wa=ph?'https://wa.me/'+(ph.startsWith('0')?'33'+ph.slice(1):ph.replace('+',''))+'?text='+e:'';
   return `<div class="card" style="border:2px solid var(--ok,#2a7)"><b>Pas de réponse : ${esc(p.name)}.</b> Relance en 1 clic :<div class="row" style="margin-top:8px;flex-wrap:wrap">${ph?`<a class="btn primary" href="sms:${esc(ph)}?&body=${e}" data-act="nrdone">SMS</a><a class="btn" href="${wa}" target="_blank" rel="noopener" data-act="nrdone">WhatsApp</a>`:''}${p.email?`<a class="btn" href="mailto:${esc(p.email)}?subject=${encodeURIComponent('Suite à mon appel')}&body=${e}" data-act="nrdone">Email</a>`:''}<button class="btn sm" data-act="nrdone">Ignorer</button></div><p class="muted sm" style="margin-top:6px">${esc(msg)}</p></div>`}
+function phoneKey(v){let d=String(v||'').replace(/\D/g,'');if(d.startsWith('0033'))d=d.slice(4);else if(d.startsWith('33')&&d.length>9)d=d.slice(2);return d.replace(/^0/,'')}
+function callSearch(q){
+  q=String(q||'').trim();if(!q)return [];
+  const pk=phoneKey(q),isNum=/^[\d\s+().-]+$/.test(q);
+  if(isNum){if(pk.length<3)return [];return S.prospects.filter(p=>phoneKey(p.phone).includes(pk)).slice(0,6)}
+  if(q.length<2)return [];const ql=q.toLowerCase();
+  return S.prospects.filter(p=>String(p.name||'').toLowerCase().includes(ql)||String(p.dirigeant||'').toLowerCase().includes(ql)||String(p.city||'').toLowerCase().includes(ql)).slice(0,6);
+}
+function callSearchHTML(){
+  const q=S.call.q||'',R=callSearch(q);
+  const STG={a_contacter:'jamais appelée',contacte:'déjà appelée',rdv:'RDV pris',perdu:'perdue',stop:'ne plus appeler'};
+  const rows=R.map(p=>{const n=callsOf(p.id).filter(isCall).length,last=callsOf(p.id).filter(isCall).slice(-1)[0];
+    return `<button class="btn" style="display:block;width:100%;text-align:left;margin-top:6px" data-act="callopen" data-id="${esc(p.id)}"><b>${esc(p.name)}</b> · ${esc(p.city||'')} · ${esc(fmtPhone(p.phone))}<br><span class="sm muted">${esc(STG[p.stage]||p.stage||'')}${n?' · '+n+' appel'+(n>1?'s':'')+(last?' · dernier : '+esc(RES_L[last.result]||last.result)+' le '+fdate(String(last.t).slice(0,10)):''):''}</span></button>`}).join('');
+  const none=q&&!R.length&&(q.replace(/\D/g,'').length>=3||q.length>=2)?`<p class="sm muted" style="margin:6px 0 0">Aucune fiche pour « ${esc(q)} ». Numéro inconnu : ce n'est pas un de tes prospects.</p>`:'';
+  const open=S.call.open&&byId(S.call.open)?`<p class="sm" style="margin:6px 0 0">Fiche ouverte : <b>${esc(byId(S.call.open).name)}</b> <button class="btn sm" data-act="callclose">Revenir à la file</button></p>`:'';
+  return `<div class="card" style="padding:12px"><input type="search" id="cq" style="width:100%" placeholder="Quelqu'un te rappelle ? Tape son numéro (ou son nom)" value="${esc(q)}" autocomplete="off" inputmode="search">${rows}${none}${open}</div>`;
+}
 function appelsHTML(){
   const Q=callQueue(),st=todayStats(),sc=settings();
-  const nrc=rdvCard()+nrCard()+(S.lastRes?`<div class="sm" style="margin:0 0 10px;padding:8px 12px;border-left:3px solid var(--accent);background:var(--surface2)">Dernier appel : ${S.lastRes}</div>`:'');
-  let cur=S.call.pid?byId(S.call.pid):null;
-  if(!cur||!Q.some(x=>x.id===cur.id))cur=Q[0]||null;
+  const nrc=callSearchHTML()+rdvCard()+nrCard()+(S.lastRes?`<div class="sm" style="margin:0 0 10px;padding:8px 12px;border-left:3px solid var(--accent);background:var(--surface2)">Dernier appel : ${S.lastRes}</div>`:'');
+  const forced=S.call.open?byId(S.call.open):null;
+  let cur=forced||(S.call.pid?byId(S.call.pid):null);
+  if(!forced&&(!cur||!Q.some(x=>x.id===cur.id)))cur=Q[0]||null;
   if(cur&&S.call.pid!==cur.id){S.call.pid=cur.id;S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date=''}
   if(!cur)S.call.pid='';
   const ang=S.call.angle||sc.angle;
@@ -368,7 +386,7 @@ async function callResult(r){
   else if(r==='bad')patch={...base,phone:'',badPhone:true};
   else patch={...base,stage:'stop',optout:true};
   const ok=await guard(async()=>{await DB.set('calls',id,call);await DB.update('prospects',p.id,patch)});
-  if(ok){S.calls.push({id,...call});Object.assign(p,patch);S.call.pid='';if(r==='nr')S.lastNR=p.id;if(r==='rdv')S.lastRDV=p.id;
+  if(ok){S.calls.push({id,...call});Object.assign(p,patch);S.call.pid='';S.call.open='';S.call.q='';if(r==='nr')S.lastNR=p.id;if(r==='rdv')S.lastRDV=p.id;
     const nth=touches===1?'1er appel':touches+'e appel',tr=callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).length;
     const nxt=patch.stage==='perdu'?'fiche classée perdue':patch.stage==='stop'?'ne plus appeler':patch.stage==='rdv'?'RDV pris':patch.nextDate?'prochain essai le '+fdate(patch.nextDate):'';
     S.lastRes=`<b>${esc(p.name)}</b> : ${esc(RES_L[r])} · ${nth}${(r==='nr'||r==='rep')&&!callsOf(p.id).some(c=>c.joint)?' ('+tr+'/'+MAX_TRIES+' dans cette série)':''}${nxt?' · '+nxt:''}`;
@@ -992,7 +1010,7 @@ function render(){
   app.innerHTML=`<header class="top"><span class="brand"><i class="logo" aria-hidden="true">↗</i><span>AGENCY<b>OS</b></span></span><nav class="tabs" role="tablist">${TABS.map(([k,l])=>`<button role="tab" aria-selected="${S.tab===k}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</nav>${DB.mode==='cloud'?'<button class="btn sm" data-act="logout">Déconnexion</button>':'<span class="chip">Mode local</span>'}</header><main>${body}</main>`;
   if(S.chal&&S.loaded&&!S.err)document.body.insertAdjacentHTML('beforeend',challengeHTML());
   if(S.tab==='scripts'&&S.loaded){const m=$('main');m.insertAdjacentHTML('beforeend','<p><button class="btn sm" data-act="addangle">+ Nouvel angle de script</button></p>')}
-  if(active&&$('#'+active)&&['cn','pq','on','oh'].includes(active)){const el=$('#'+active);el.focus();try{el.setSelectionRange(el.value.length,el.value.length)}catch(e){}}
+  if(active&&$('#'+active)&&['cn','pq','on','oh','cq'].includes(active)){const el=$('#'+active);el.focus();try{el.setSelectionRange(el.value.length,el.value.length)}catch(e){}}
 }
 function loginHTML(){
   $('#app').innerHTML=`<div class="login card"><div class="brand"><i class="logo" aria-hidden="true">↗</i><span>AGENCY<b>OS</b></span></div><h2>Ton poste de commande</h2><label class="f" for="lgm">Email</label><input id="lgm" type="email" style="width:100%" autocomplete="username"><label class="f" for="lgp">Mot de passe</label><input id="lgp" type="password" style="width:100%" autocomplete="current-password"><div style="margin-top:12px"><button class="btn primary" data-act="login">Connexion</button></div><p id="lge" class="sm" style="color:var(--bad)"></p></div>`;
@@ -1001,14 +1019,16 @@ function loginHTML(){
 /* ================= événements ================= */
 document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b||b.tagName==='SELECT')return;const a=b.dataset.act;
-  if(a==='chal-ok'){S.chal=false;S.tab='appels';render()}
+  if(a==='callopen'){S.call.open=b.dataset.id;S.call.pid=b.dataset.id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';render();window.scrollTo(0,0)}
+  else if(a==='callclose'){S.call.open='';S.call.pid='';render()}
+  else if(a==='chal-ok'){S.chal=false;S.tab='appels';render()}
   else if(a==='tab'){S.tab=b.dataset.v;render()}
   else if(a==='callres')callResult(b.dataset.r);
   else if(a==='outres')outResult(b.dataset.r);
   else if(a==='outskip'){if(S.out.pid)S.out.skip.push(S.out.pid);S.out.pid='';render()}
   else if(a==='copy'){const t=($('#otext')||{}).textContent||'';try{await navigator.clipboard.writeText(t);toast('Message copié.')}catch(e){toast('Copie impossible : sélectionne le texte.')}}
   else if(a==='ct-add')addContent();
-  else if(a==='callskip'){if(S.call.pid)S.call.skip.push(S.call.pid);S.call.pid='';render()}
+  else if(a==='callskip'){if(S.call.pid&&!S.call.open)S.call.skip.push(S.call.pid);S.call.pid='';S.call.open='';render()}
   else if(a==='open')openProspect(b.dataset.id);
   else if(a==='close')$('#dlg').close();
   else if(a==='savep')saveProspectDlg(b.dataset.id);
@@ -1050,6 +1070,7 @@ document.addEventListener('input',e=>{
   const t=e.target;
   if(t.id==='cn')S.call.note=t.value;else if(t.id==='ca')S.call.audio=t.value;else if(t.id==='on')S.out.note=t.value;else if(t.id==='oh')S.out.handle=t.value;
   else if(t.id==='pq'){S.pf.q=t.value;render()}
+  else if(t.id==='cq'){S.call.q=t.value;render()}
 });
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lgp'){$('[data-act=login]').click()}});
 
