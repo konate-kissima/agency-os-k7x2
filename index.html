@@ -106,8 +106,9 @@ h1,h2,h3,h4{letter-spacing:-.02em}
 .res .btn[data-r=rap]{background:color-mix(in srgb,var(--warn) 11%,var(--surface));border-color:color-mix(in srgb,var(--warn) 40%,var(--line));color:color-mix(in srgb,var(--warn) 85%,var(--ink))}
 .res .btn[data-r=nr],.res .btn[data-r=rep]{background:color-mix(in srgb,var(--accent) 8%,var(--surface));border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
 .res .btn[data-r=no],.res .btn[data-r=bad]{color:var(--muted);background:var(--surface2)}
+.res .btn[data-r=hu]{background:color-mix(in srgb,var(--bad) 6%,var(--surface));color:color-mix(in srgb,var(--bad) 70%,var(--ink));border-color:color-mix(in srgb,var(--bad) 25%,var(--line))}
 .res .btn[data-r=stop]{background:color-mix(in srgb,var(--bad) 8%,var(--surface));color:var(--bad);border-color:color-mix(in srgb,var(--bad) 38%,var(--line))}
-.callcard .cres .btn{border-radius:13px;padding:11px 6px;font-weight:700}
+.callcard .cres .btn{border-radius:13px;padding:10px 4px;font-weight:700;font-size:13.5px}
 .callcard .cres .btn[data-r=rdv]{font-size:15px}
 input,select,textarea{background:var(--surface);border:1px solid color-mix(in srgb,var(--line) 85%,var(--ink) 8%);border-radius:12px;padding:9px 12px;transition:border-color .15s,box-shadow .15s}
 .card input,.card select,.card textarea{background:var(--surface)}
@@ -155,7 +156,7 @@ let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.style.display
 
 /* ================= constantes métier ================= */
 const STAGES=[['a_contacter','À contacter'],['contacte','Contacté / à rappeler'],['rdv','RDV pris'],['rdv_fait','RDV fait'],['pilote','Pilote proposé'],['signe','Signé'],['perdu','Perdu'],['stop','Ne plus appeler']];
-const RES=[['rdv','RDV pris','primary'],['rap','À rappeler',''],['nr','Pas de réponse',''],['rep','Répondeur',''],['no','Pas intéressé',''],['bad','Mauvais numéro',''],['stop','Ne plus appeler','danger']];
+const RES=[['rdv','RDV pris','primary','Il a accepté un rendez-vous (renseigne la date et l\'heure).'],['rap','À rappeler','','Tu lui as parlé, il demande qu\'on le rappelle à une date précise (choisis « Rappel le »).'],['nr','Pas de réponse','','Ça sonne dans le vide, personne ne décroche, ou occupé. Tu retenteras à un autre moment.'],['rep','Répondeur','','Tu tombes sur la messagerie vocale. Tu retenteras à un autre moment.'],['hu','Raccroché au nez','','Quelqu\'un décroche puis raccroche tout de suite, sans échange. 1re fois : on rappelle dans 3 jours ouvrés. 2e fois : fiche classée perdue.'],['no','Pas intéressé','','Tu lui as parlé et il refuse. Note l\'objection. La fiche est classée perdue.'],['bad','Mauvais numéro','','Le numéro ne marche pas ou n\'est pas celui de l\'entreprise.'],['stop','Ne plus appeler','danger','Il demande à ne plus être appelé : la fiche est bloquée pour toujours.']];
 const RES_L=Object.fromEntries(RES.map(r=>[r[0],r[1]]));
 const JOINT=['rdv','rap','no','stop'];
 const OBJ=['—','Pas le temps','Déjà une agence','Le bouche-à-oreille suffit','Pas de budget / trop cher','Déjà trop de travail','Doit en parler (associé, conjoint)','A déjà essayé les pubs (sans résultat)','Pas le décideur','Méfiance','Autre'];
@@ -405,7 +406,7 @@ function appelsHTML(){
   const hist=callsOf(cur.id).slice(-4).reverse();
   const mob=isMobile(cur.phone);
   const lastH=hist[0];
-  const left=`<div class="card callcard"><div class="chips"><span class="chip" title="Nombre de fois où tu as appelé cette fiche">${(cur.touches||0)===0?'1er appel':'Appel n°'+((cur.touches||0)+1)}</span>${cur.stage==='contacte'?'<span class="chip warn">'+((cur.cycle||1)>=2?'Rappel de réserve':'Rappel')+'</span>':'<span class="chip hot">Premier appel</span>'}${cur.stage==='contacte'&&cur.slots&&cur.slots.length&&cur.slots.length<3?'<span class="chip" title="Les artisans sont souvent sur chantier : on varie le moment de l\'appel">Mieux : '+cur.slots.map(x=>SLOT_L[x]).join(' ou ')+'</span>':''}${mob?'<span class="chip bad" title="Mobile : le régime consommateur peut s\'appliquer aux indépendants, à vérifier">Mobile</span>':''}<span class="muted sm">${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}</span><button class="btn sm" style="margin-left:auto" data-act="open" data-id="${esc(cur.id)}">Ouvrir la fiche</button></div>
+  const left=`<div class="card callcard"><div class="chips"><span class="chip" title="Nombre de fois où tu as appelé cette fiche">${(cur.touches||0)===0?'1er appel':'Appel n°'+((cur.touches||0)+1)}</span>${cur.stage==='contacte'?'<span class="chip warn">'+((cur.cycle||1)>=2?'Rappel de réserve':'Rappel')+'</span>':'<span class="chip hot">Premier appel</span>'}${cur.stage==='contacte'&&cur.slots&&cur.slots.length&&cur.slots.length<3?'<span class="chip" title="Les artisans sont souvent sur chantier : on varie le moment de l\'appel">Mieux : '+cur.slots.map(x=>SLOT_L[x]).join(' ou ')+'</span>':''}${mob?'<span class="chip bad" title="Mobile : le régime consommateur peut s\'appliquer aux indépendants, à vérifier">Mobile</span>':''}<span class="muted sm">${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}</span></div>
    <h2 class="cname">${esc(cur.name)}</h2>
    <div class="sm muted">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a> · `:''}score ${esc(cur.score||'—')}</div>
    ${companyLine(cur)}
@@ -415,12 +416,12 @@ function appelsHTML(){
    <div class="cfields"><div><label class="f" for="co">Objection</label><select id="co">${OBJ.map(o=>`<option${S.call.obj===o?' selected':''}>${esc(o)}</option>`).join('')}</select></div>
    <div><label class="f" for="cd">Rappel le</label><input type="date" id="cd" value="${esc(S.call.date||workday(2))}"></div>
    <div><label class="f" for="cr">RDV (si pris)</label><input type="datetime-local" id="cr" value="${esc(S.call.rdvAt)}"></div></div>
-   <div class="res cres">${RES.map(([k,l,c])=>`<button class="btn ${c}" data-act="callres" data-r="${k}">${l}</button>`).join('')}<button class="btn" data-act="callskip">Passer</button></div>
-   <details class="sm" style="margin-top:6px"><summary class="muted">Historique, notes, enregistrement</summary>
+   <div class="res cres">${RES.map(([k,l,c,t])=>`<button class="btn ${c}" data-act="callres" data-r="${k}" title="${esc(t||'')}">${l}</button>`).join('')}</div>
+   <div class="row" style="justify-content:space-between;margin-top:6px;flex-wrap:nowrap"><details class="sm" style="flex:1;min-width:0"><summary class="muted">Historique, notes, enregistrement</summary>
     ${hist.length?`<div class="sm muted" style="margin:6px 0"><b>Historique</b><br>${hist.map(h=>`${fdate(h.t)} · ${esc(CH_L[h.channel||'appel'])} · ${esc(ALL_RES_L[h.result]||h.result)}${h.note?' — '+esc(h.note):''}`).join('<br>')}</div>`:''}
     ${cur.notes?`<div class="sm muted" style="white-space:pre-wrap">${esc(cur.notes)}</div>`:''}
     <label class="f" for="ca">Lien de l'enregistrement (Drive), si enregistré</label><input id="ca" style="width:100%" placeholder="https://drive.google.com/…" value="${esc(S.call.audio)}">
-    <label class="ck sm"><input type="checkbox" id="ci"${S.call.informed?' checked':''}> J'ai informé l'interlocuteur de l'enregistrement</label></details></div>`;
+    <label class="ck sm"><input type="checkbox" id="ci"${S.call.informed?' checked':''}> J'ai informé l'interlocuteur de l'enregistrement</label></details><span style="display:flex;gap:6px"><button class="btn sm" data-act="callskip" title="Passer cette fiche sans rien enregistrer">Passer</button><button class="btn sm" data-act="open" data-id="${esc(cur.id)}">Ouvrir la fiche</button></span></div></div>`;
   const right=`<div class="card scriptcard"><div class="row" style="flex-wrap:nowrap"><select id="cang" aria-label="Angle de script (sert aux statistiques)">${Object.entries(sc.scripts).map(([k,v])=>`<option value="${esc(k)}"${k===ang?' selected':''}>${esc(v.name)}</option>`).join('')}</select></div>
    <div class="script">${esc(fillScript((sc.scripts[ang]||{}).text,cur))}</div>
    <div class="sm muted"><b>Information d'enregistrement</b><br>${esc(sc.recordText)}</div></div>`;
@@ -445,6 +446,7 @@ async function callResult(r){
     const slots=['m','d','s'].filter(x=>x!==slotOf(call.hour));
     if(ctries>=MAX_TRIES&&!joined){patch=(p.cycle||1)<2?{...base,stage:'contacte',nextDate:addDays(today(),30),slots:[],cycle:2,cycleStart:new Date(now.getTime()+1).toISOString()}:{...base,stage:'perdu',lostReason:'Injoignable (2 cycles de '+MAX_TRIES+' tentatives)'}}
     else patch={...base,stage:'contacte',nextDate:workday(r==='nr'?1:2),slots}}
+  else if(r==='hu'){const hus=callsOf(p.id).filter(c=>c.result==='hu').length+1;patch=hus>=2?{...base,stage:'perdu',lostReason:'A raccroché au nez (2 fois)'}:{...base,stage:'contacte',nextDate:workday(3),slots:['m','d','s'].filter(x=>x!==slotOf(call.hour))}}
   else if(r==='no')patch={...base,stage:'perdu',lostReason:call.obj||'Pas intéressé'};
   else if(r==='bad')patch={...base,phone:'',badPhone:true};
   else patch={...base,stage:'stop',optout:true};
@@ -952,6 +954,15 @@ function donneesHTML(){
 /* ================= aide ================= */
 function aideHTML(){return `<div class="card"><h2>Explication de l'outil</h2>
 <p class="muted sm">Pour toi et pour toute personne qui rejoint l'équipe : à quoi sert chaque onglet et comment le process se déroule de A à Z.</p>
+<details open><summary><b>Que choisir à la fin d'un appel ?</b></summary><table class="t sm"><thead><tr><th>Bouton</th><th>Quand</th><th>Ce qui se passe ensuite</th></tr></thead><tbody>
+<tr><td><b>RDV pris</b></td><td>Il accepte un rendez-vous.</td><td>La fiche passe en RDV. Tu renseignes la date et l'heure.</td></tr>
+<tr><td><b>À rappeler</b></td><td>Tu lui as parlé, il demande à être rappelé.</td><td>Rappel à la date choisie. Compte comme une conversation.</td></tr>
+<tr><td><b>Pas de réponse</b></td><td>Ça sonne dans le vide ou c'est occupé.</td><td>Nouvel essai le lendemain ouvré, à un autre moment de la journée. Jusqu'à 5 essais. Un SMS de relance est proposé.</td></tr>
+<tr><td><b>Répondeur</b></td><td>Tu tombes sur la messagerie vocale.</td><td>Nouvel essai dans 2 jours ouvrés, à un autre moment de la journée. Compte dans les 5 essais.</td></tr>
+<tr><td><b>Raccroché au nez</b></td><td>Il décroche puis raccroche aussitôt.</td><td>1re fois : rappel dans 3 jours ouvrés. 2e fois : fiche classée perdue.</td></tr>
+<tr><td><b>Pas intéressé</b></td><td>Tu lui as parlé et il refuse.</td><td>Fiche classée perdue. Note l'objection pour les stats.</td></tr>
+<tr><td><b>Mauvais numéro</b></td><td>Le numéro ne marche pas ou n'est pas le bon.</td><td>Le numéro est retiré de la fiche.</td></tr>
+<tr><td><b>Ne plus appeler</b></td><td>Il demande à ne plus être contacté.</td><td>Fiche bloquée pour toujours.</td></tr></tbody></table><p class="muted sm">Les boutons « Pas de réponse », « Répondeur » et « Raccroché au nez » ne comptent pas comme une conversation. « RDV pris », « À rappeler », « Pas intéressé » et « Ne plus appeler » comptent.</p></details>
 <details><summary><b>La note (score) des fiches : sur quoi elle repose</b></summary>
 <p>Chaque fiche a une note de 0 à 100. Elle ne dit <b>pas</b> qui va signer : elle classe les fiches pour que tu appelles d'abord celles qui ont le plus de chances d'être de vraies entreprises actives et joignables. Elle sert à trier, rien d'autre.</p>
 <table class="t"><thead><tr><th>D'où vient la fiche</th><th>Calcul de la note</th></tr></thead><tbody>

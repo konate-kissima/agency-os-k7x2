@@ -51,6 +51,9 @@ const path = require('path'), fs = require('fs');
     await callResult('nr'); out.slots = byId('Sl').slots;
     out.res1 = S.lastRes; byId('Sl').nextDate = today(); S.call.pid = 'Sl'; S.tab = 'appels'; render(); out.chip2 = /Appel n°2/.test(document.body.innerText); out.dernier = /Dernier appel/.test(document.body.innerText);
     S.call.pid = 'Sl'; await callResult('rep'); out.res2 = S.lastRes;
+    S.prospects = [P('Hu', { phone: '01 30 12 12 12', stage: 'a_contacter' })]; S.calls = []; S.call.pid = 'Hu';
+    await callResult('hu'); out.hu1 = { stage: byId('Hu').stage, next: byId('Hu').nextDate, lbl: S.lastRes };
+    S.call.pid = 'Hu'; await callResult('hu'); out.hu2 = { stage: byId('Hu').stage, lost: byId('Hu').lostReason };
     // recherche d'un numéro qui rappelle : fiche hors file (rappel prévu plus tard) ouverte directement
     S.prospects = [P('Aaa', { name: 'Climtech', phone: '01 30 77 88 99', stage: 'contacte', nextDate: addDays(today(), 10), touches: 2 }), P('Bbb', { phone: '06 12 34 56 78', score: 99 })];
     S.calls = [{ id: 'q1', prospectId: 'Aaa', t: new Date().toISOString(), result: 'rep', channel: 'appel', hour: 10 }]; S.call.skip = []; S.call.pid = ''; S.call.open = ''; S.call.q = ''; S.tab = 'appels';
@@ -71,6 +74,7 @@ const path = require('path'), fs = require('fs');
   ok(r.chip2 && /2e appel/.test(r.res2) && /2\/5/.test(r.res2), 'la fiche suivante affiche « Appel n°2 », puis 2e appel 2/5 — ' + r.res2);
   ok(r.s1 === 'Aaa' && r.s2 === 'Aaa' && r.s3 === 'Aaa' && r.s4 === 0, 'recherche par numéro (+33, partiel), par nom; numéro inconnu = rien — ' + [r.s1, r.s2, r.s3, r.s4]);
   ok(r.box && r.opened === 'Aaa|Aaa' && /Climtech/.test(r.cardName), 'clic sur le résultat : la fiche s\'ouvre même hors file — ' + r.opened + ' ' + r.cardName);
+  ok(r.hu1.stage === 'contacte' && !!r.hu1.next && /Raccroché au nez/.test(r.hu1.lbl) && r.hu2.stage === 'perdu' && /raccroché/.test(r.hu2.lost), 'raccroché au nez : 1re fois rappel, 2e fois perdue — ' + JSON.stringify([r.hu1, r.hu2]));
   ok(errs.length === 0, 'aucune erreur JS ' + errs.join(' | '));
   await b.close();
 })();
