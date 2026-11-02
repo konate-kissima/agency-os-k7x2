@@ -83,13 +83,20 @@ def main():
             lost = 0
             if d.get("instagram"): lost += 15
             if d.get("facebook"): lost += 8
-            if (d.get("rating") or 0) >= 4.5: lost += 5
+            try:
+                if float(d.get("rating") or 0) >= 4.5: lost += 5
+            except Exception:
+                pass
             for k in PLACE:
                 new.pop(k, None)
             for k in ("enrichedAt", "enrich", "socialAt"):
                 new.pop(k, None)
-            if lost and d.get("score"):
-                new["score"] = max(0, d["score"] - lost)
+            try:
+                if lost and d.get("score"):
+                    new["score"] = max(0, float(d["score"]) - lost)
+                    new["score"] = int(new["score"]) if new["score"] == int(new["score"]) else new["score"]
+            except Exception:
+                pass
             new["audit"] = bad
         dg = new.get("dirigeant")
         if dg and re.search(r"\s*\([^)]*\)\s*$", dg):
