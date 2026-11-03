@@ -163,9 +163,9 @@ let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.style.display
 
 /* ================= constantes métier ================= */
 const STAGES=[['a_contacter','À contacter'],['contacte','Contacté / à rappeler'],['rdv','RDV pris'],['rdv_fait','RDV fait'],['pilote','Pilote proposé'],['signe','Signé'],['perdu','Perdu'],['stop','Ne plus appeler']];
-const RES=[['rdv','RDV pris','primary','Il a accepté un rendez-vous (renseigne la date et l\'heure).'],['rap','À rappeler','','Tu lui as parlé, il demande qu\'on le rappelle à une date précise (choisis « Rappel le »).'],['nr','Pas de réponse','','Ça sonne dans le vide, personne ne décroche, ou occupé. Tu retenteras à un autre moment.'],['rep','Répondeur','','Tu tombes sur la messagerie vocale. Tu retenteras à un autre moment.'],['hu','Raccroché au nez','','Quelqu\'un décroche puis raccroche tout de suite, sans échange. 1re fois : on rappelle dans 3 jours ouvrés. 2e fois : fiche classée perdue.'],['no','Pas intéressé','','Tu lui as parlé et il refuse. Note l\'objection. La fiche est classée perdue.'],['bad','Mauvais numéro','','Le numéro ne marche pas ou n\'est pas celui de l\'entreprise.'],['stop','Ne plus appeler','danger','Il demande à ne plus être appelé : la fiche est bloquée pour toujours.']];
+const RES=[['rdv','RDV pris','primary','Il a accepté un rendez-vous (renseigne la date et l\'heure).'],['rap','À rappeler','','Tu lui as parlé, il demande qu\'on le rappelle à une date précise (choisis « Rappel le »).'],['ans','A répondu, sans suite','','Tu as eu une vraie discussion mais ça n\'a pas abouti (mail à envoyer, il réfléchit, pas décideur…). La date « Rappel le » sert de relance (par défaut dans 3 jours ouvrés).'],['nr','Pas de réponse','','Ça sonne dans le vide, personne ne décroche, ou occupé. Tu retenteras à un autre moment.'],['rep','Répondeur','','Tu tombes sur la messagerie vocale. Tu retenteras à un autre moment.'],['hu','Raccroché au nez','','Quelqu\'un décroche puis raccroche tout de suite, sans échange. 1re fois : on rappelle dans 3 jours ouvrés. 2e fois : fiche classée perdue.'],['no','Pas intéressé','','Tu lui as parlé et il refuse. Note l\'objection. La fiche est classée perdue.'],['bad','Mauvais numéro','','Le numéro ne marche pas ou n\'est pas celui de l\'entreprise.'],['stop','Ne plus appeler','danger','Il demande à ne plus être appelé : la fiche est bloquée pour toujours.']];
 const RES_L=Object.fromEntries(RES.map(r=>[r[0],r[1]]));
-const JOINT=['rdv','rap','no','stop'];
+const JOINT=['rdv','rap','ans','no','stop'];
 const DEF_RDV=`RENDEZ-VOUS DE VENTE EN 6 TEMPS (tu parles 20 % du temps, lui 80 %)
 
 1. INTRO
@@ -479,7 +479,7 @@ function appelsHTML(){
    ${lastH?`<div class="sm muted">Dernier : ${fdate(lastH.t)} · ${esc(ALL_RES_L[lastH.result]||lastH.result)}${lastH.note?' — '+esc(lastH.note):''}</div>`:''}
    <textarea id="cn" rows="2" class="cnote" placeholder="Note : ce que tu as appris (interlocuteur, objection, chantiers…)">${esc(S.call.note)}</textarea>
    <div class="cfields"><div><label class="f" for="co">Objection</label><select id="co">${OBJ.map(o=>`<option${S.call.obj===o?' selected':''}>${esc(o)}</option>`).join('')}</select></div>
-   <div><label class="f" for="cd">Rappel le</label><input type="date" id="cd" value="${esc(S.call.date||workday(2))}"></div>
+   <div><label class="f" for="cd">Rappel le</label><input type="date" id="cd" value="${esc(S.call.date||'')}"></div>
    <div><label class="f" for="ct">à</label><input type="time" id="ct" value="${esc(S.call.time||'10:00')}" title="Heure du rappel : un pop-up te relance tant que tu n'as pas appelé"></div>
    <div><label class="f" for="cr">RDV (si pris)</label><input type="datetime-local" id="cr" value="${esc(S.call.rdvAt)}"></div></div>
    <div class="res cres">${RES.map(([k,l,c,t])=>`<button class="btn ${c}" data-act="callres" data-r="${k}" title="${esc(t||'')}">${l}</button>`).join('')}</div>
@@ -498,7 +498,8 @@ async function callResult(r){
   const p=byId(S.call.pid);if(!p)return;
   const sc=settings();
   const note=($('#cn')||{}).value||'',obj=($('#co')||{}).value||'—',audio=($('#ca')||{}).value||'',informed=!!($('#ci')||{}).checked;
-  const date=($('#cd')||{}).value||workday(2),ntime=($('#ct')||{}).value||'10:00',rdvAt=($('#cr')||{}).value||'';
+  const date=($('#cd')||{}).value||workday(r==='ans'?3:2),ntime=($('#ct')||{}).value||'10:00',rdvAt=($('#cr')||{}).value||'';
+  if(r==='rap'&&!(($('#cd')||{}).value)){toast('Choisis la date du rappel (champ « Rappel le »).');return}
   if(r==='rdv'&&!rdvAt){toast('Renseigne la date et l\'heure du RDV.');return}
   const now=new Date();
   const call={channel:'appel',prospectId:p.id,prospectName:p.name,t:now.toISOString(),hour:now.getHours(),result:r,angle:S.call.angle||sc.angle,obj:obj==='—'?'':obj,note,audio,informed,dept:p.dept||'',joint:JOINT.includes(r)};
@@ -507,7 +508,7 @@ async function callResult(r){
   const base={touches,lastCall:call.t,lastResult:r,notes:note?((p.notes?p.notes+'\n':'')+today()+' : '+note):(p.notes||'')};
   let patch;
   if(r==='rdv')patch={...base,stage:'rdv',rdvAt,nextDate:''};
-  else if(r==='rap')patch={...base,stage:'contacte',nextDate:date};
+  else if(r==='rap'||r==='ans')patch={...base,stage:'contacte',nextDate:date};
   else if(r==='nr'||r==='rep'){const joined=callsOf(p.id).some(c=>c.joint);const ctries=callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).length+1;
     const slots=['m','d','s'].filter(x=>x!==slotOf(call.hour));
     if(ctries>=MAX_TRIES&&!joined){patch=(p.cycle||1)<2?{...base,stage:'contacte',nextDate:addDays(today(),30),slots:[],cycle:2,cycleStart:new Date(now.getTime()+1).toISOString()}:{...base,stage:'perdu',lostReason:'Injoignable (2 cycles de '+MAX_TRIES+' tentatives)'}}
@@ -516,7 +517,7 @@ async function callResult(r){
   else if(r==='no')patch={...base,stage:'perdu',lostReason:call.obj||'Pas intéressé'};
   else if(r==='bad')patch={...base,phone:'',badPhone:true};
   else patch={...base,stage:'stop',optout:true};
-  patch.nextTime=(r==='rap')?ntime:'';
+  patch.nextTime=(r==='rap'||r==='ans')?ntime:'';
   const ok=await guard(async()=>{await DB.set('calls',id,call);await DB.update('prospects',p.id,patch)});
   if(ok){S.calls.push({id,...call});Object.assign(p,patch);S.call.pid='';S.call.open='';S.call.q='';if(r==='nr')S.lastNR=p.id;if(r==='rdv')S.lastRDV=p.id;
     const nth=touches===1?'1er appel':touches+'e appel',tr=callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).length;
@@ -1027,13 +1028,14 @@ function aideHTML(){return `<div class="card"><h2>Explication de l'outil</h2>
 <p class="muted sm">Pour toi et pour toute personne qui rejoint l'équipe : à quoi sert chaque onglet et comment le process se déroule de A à Z.</p>
 <details open><summary><b>Que choisir à la fin d'un appel ?</b></summary><table class="t sm"><thead><tr><th>Bouton</th><th>Quand</th><th>Ce qui se passe ensuite</th></tr></thead><tbody>
 <tr><td><b>RDV pris</b></td><td>Il accepte un rendez-vous.</td><td>La fiche passe en RDV. Tu renseignes la date et l'heure.</td></tr>
+<tr><td><b>A répondu, sans suite</b></td><td>Vraie discussion, mais ça n'a pas abouti (mail à envoyer, il réfléchit…).</td><td>La fiche reste en « Contacté » avec une relance à la date choisie (3 jours ouvrés par défaut). Compte comme une conversation.</td></tr>
 <tr><td><b>À rappeler</b></td><td>Tu lui as parlé, il demande à être rappelé.</td><td>Rappel à la date choisie. Compte comme une conversation.</td></tr>
 <tr><td><b>Pas de réponse</b></td><td>Ça sonne dans le vide ou c'est occupé.</td><td>Nouvel essai le lendemain ouvré, à un autre moment de la journée. Jusqu'à 5 essais. Un SMS de relance est proposé.</td></tr>
 <tr><td><b>Répondeur</b></td><td>Tu tombes sur la messagerie vocale.</td><td>Nouvel essai dans 2 jours ouvrés, à un autre moment de la journée. Compte dans les 5 essais.</td></tr>
 <tr><td><b>Raccroché au nez</b></td><td>Il décroche puis raccroche aussitôt.</td><td>1re fois : rappel dans 3 jours ouvrés. 2e fois : fiche classée perdue.</td></tr>
 <tr><td><b>Pas intéressé</b></td><td>Tu lui as parlé et il refuse.</td><td>Fiche classée perdue. Note l'objection pour les stats.</td></tr>
 <tr><td><b>Mauvais numéro</b></td><td>Le numéro ne marche pas ou n'est pas le bon.</td><td>Le numéro est retiré de la fiche.</td></tr>
-<tr><td><b>Ne plus appeler</b></td><td>Il demande à ne plus être contacté.</td><td>Fiche bloquée pour toujours.</td></tr></tbody></table><p class="muted sm">Les boutons « Pas de réponse », « Répondeur » et « Raccroché au nez » ne comptent pas comme une conversation. « RDV pris », « À rappeler », « Pas intéressé » et « Ne plus appeler » comptent.</p></details>
+<tr><td><b>Ne plus appeler</b></td><td>Il demande à ne plus être contacté.</td><td>Fiche bloquée pour toujours.</td></tr></tbody></table><p class="muted sm">Les boutons « Pas de réponse », « Répondeur » et « Raccroché au nez » ne comptent pas comme une conversation. « RDV pris », « À rappeler », « A répondu, sans suite », « Pas intéressé » et « Ne plus appeler » comptent.</p></details>
 <details><summary><b>La note (score) des fiches : sur quoi elle repose</b></summary>
 <p>Chaque fiche a une note de 0 à 100. Elle ne dit <b>pas</b> qui va signer : elle classe les fiches pour que tu appelles d'abord celles qui ont le plus de chances d'être de vraies entreprises actives et joignables. Elle sert à trier, rien d'autre.</p>
 <table class="t"><thead><tr><th>D'où vient la fiche</th><th>Calcul de la note</th></tr></thead><tbody>

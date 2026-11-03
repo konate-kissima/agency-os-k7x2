@@ -1,0 +1,26 @@
+const { chromium } = require('playwright');
+const path = require('path'), fs = require('fs');
+(async () => {
+  const b = await chromium.launch();
+  const pg = await (await b.newContext()).newPage();
+  const errs = [];
+  pg.on('pageerror', e => errs.push(e.message));
+  const tmp = fs.mkdtempSync('/tmp/aos-');
+  fs.copyFileSync(path.resolve(__dirname, '../index.html'), tmp + '/index.html');
+  fs.writeFileSync(tmp + '/config.js', 'window.AOS_CONFIG={url:"",key:""};');
+  await pg.goto('file://' + tmp + '/index.html'); await pg.waitForSelector('.chal'); await pg.evaluate(() => { S.chal = false; render() });
+  await pg.waitForSelector('nav.tabs');
+  const ok = (c, m) => { if (!c) { console.log('FAIL', m); process.exitCode = 1; } else console.log('ok  ', m); };
+  const setup = () => pg.evaluate(() => { S.prospects = [{ id: 'A1', name: 'SPC Batiment', phone: '01 30 00 00 05', stage: 'a_contacter', city: 'Poissy' }]; S.calls = []; S.tab = 'appels'; S.call.pid = ''; render() });
+  await setup();
+  ok(await pg.locator('button[data-r="ans"]').count() === 1, 'bouton « A répondu, sans suite » présent');
+  ok(await pg.locator('#cd').inputValue() === '', 'date de rappel vide par défaut');
+  await pg.locator('button[data-r="rap"]').click();
+  ok(await pg.evaluate(() => S.prospects[0].stage) === 'a_contacter', 'À rappeler sans date : refusé');
+  await pg.locator('button[data-r="ans"]').click();
+  await pg.waitForTimeout(300);
+  const r = await pg.evaluate(() => ({ st: S.prospects[0].stage, nd: S.prospects[0].nextDate, j: S.calls[0] && S.calls[0].joint, res: S.calls[0] && S.calls[0].result }));
+  ok(r.st === 'contacte' && !!r.nd && r.j === true && r.res === 'ans', 'A répondu : contacté, relance datée, compte comme conversation ' + JSON.stringify(r));
+  ok(errs.length === 0, 'aucune erreur JS ' + errs.join('|'));
+  await b.close();
+})();
