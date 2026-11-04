@@ -263,6 +263,36 @@ ADAPTE-TOI : le script n'est qu'une base. Écoute, rebondis sur ce qu'il dit, so
 « Je me note ça, je vous rappelle le matin même pour confirmer. Merci pour votre temps, belle journée. »
 
 ADAPTE-TOI : le script n'est qu'une base. Écoute, rebondis sur ce qu'il dit, sois humain. Un non est normal, enchaîne le suivant.`},
+ K:{name:'K · Court, sans « chantiers » (nouveau)',text:`1. OUVERTURE (une phrase)
+« Bonjour {contact}, Kissima à l'appareil, de l'agence Khysam. Comment allez-vous ? »
+
+2. COMPLIMENT (une seule phrase, avant l'appel regarde la fiche Google)
+« Je vois {avis} avis à {note}/5 sur votre fiche Google : bravo, ça montre que vous faites du bon travail. »
+
+3. LA QUESTION (on ne parle plus de « chantiers » : ça fait penser à du chiffre d'affaires garanti. On parle de nouveaux clients et de demandes de devis)
+« Je vous appelle pour une raison simple : est-ce que vous auriez de la place dans votre planning pour de nouveaux clients dans les prochaines semaines ? »
+Si oui : « Combien de demandes de devis de plus par mois vous pourriez traiter sans être débordé ? »
+
+4. LA PREUVE HONNÊTE (tu n'as pas encore de client : ne cite jamais de fausse référence)
+« Je monte en ce moment un programme pilote pour 3 artisans d'Île-de-France : je leur amène des demandes de devis par Facebook et Instagram. Vous avez le profil que je cherche. »
+
+OPTION si tu as vérifié la Bibliothèque publicitaire de Meta (dis seulement ce que tu as vu) :
+• Pas de pub vue : « Je n'ai pas vu de publicité de votre part en ce moment. Aujourd'hui, comment vous trouvez vos nouveaux clients ? »
+• Pub vue : « J'ai vu que vous faites déjà de la publicité sur Facebook et Instagram. Est-ce que ça vous amène des demandes de devis régulières ? »
+
+5. LA DEMANDE DE RDV
+« Le but serait de vous prendre 10 à 15 minutes la semaine prochaine pour voir ce que ça pourrait donner. »
+
+6. LE CRÉNEAU PRÉCIS
+« J'ai une dispo {jour} à 14h52. » (une heure précise, pas « l'après-midi »)
+
+7. LES COORDONNÉES
+« Je prends votre email et votre numéro, ça ne vous dérange pas ? C'est bien le numéro direct ? »
+
+8. CONFIRMATION ET CLÔTURE
+« Je me note ça, je vous rappelle le matin même pour confirmer. Merci pour votre temps, belle journée. »
+
+ADAPTE-TOI : le script n'est qu'une base. Écoute, rebondis sur ce qu'il dit, sois humain. Un non est normal, enchaîne le suivant.`},
  A:{name:'A · Capacité de chantiers',text:`INTRO
 « Bonjour, Kissima à l'appareil. Je regarde votre fiche Google : {avis} avis, {note}/5, bravo. Vous avez 30 secondes ? »
 
@@ -313,7 +343,7 @@ SI IL EST OCCUPÉ
 RDV
 « Je repasse ou on s'appelle : {jour} à 17h30, ça vous va ? »`}
 };
-const DEF_SETTINGS={angle:'H',pilotPrice:3000,normalPrice:4000,budgetDay:30,minMonths:3,recordText:'Cet appel peut être enregistré pour ma formation. Dites-le-moi si vous préférez que non.',scripts:DEF_SCRIPTS};
+const DEF_SETTINGS={angle:'K',pilotPrice:3000,normalPrice:4000,budgetDay:30,minMonths:3,recordText:'Cet appel peut être enregistré pour ma formation. Dites-le-moi si vous préférez que non.',scripts:DEF_SCRIPTS};
 const CHECK=[['contrat','Contrat signé + 1er paiement'],['page','Page Facebook du client prête'],['bm','Accès partenaire au Business Manager / compte pub du client'],['pay','Moyen de paiement du client sur le compte pub'],['form','Formulaire de leads (3 questions de qualification)'],['crea','Créatives (3 variantes) validées par le client'],['alerte','Alerte lead (SMS/WhatsApp au client) + rappel du lead en moins de 5 min'],['launch','Campagne lancée (date = début des 14 jours sans toucher)'],['j14','Revue à J+14'],['cas','Accord écrit pour le cas d\'étude']];
 const OUT_CH=[['dm_insta','DM Instagram'],['dm_fb','DM Facebook'],['dm_lin','DM LinkedIn'],['video','Vidéo personnalisée (Loom, 45 s)'],['email','Email']];
 const OUT_RES=[['sent','Envoyé','primary'],['reply','A répondu',''],['rdv','RDV pris','primary'],['no','Pas intéressé',''],['stop','Ne plus contacter','danger']];

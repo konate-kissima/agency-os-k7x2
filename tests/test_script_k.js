@@ -1,0 +1,21 @@
+const { chromium } = require('playwright');
+const path = require('path'), fs = require('fs');
+(async () => {
+  const b = await chromium.launch(); const pg = await (await b.newContext()).newPage();
+  const errs = []; pg.on('pageerror', e => errs.push(e.message));
+  const tmp = fs.mkdtempSync('/tmp/aos-');
+  fs.copyFileSync(path.resolve(__dirname, '../index.html'), tmp + '/index.html');
+  fs.writeFileSync(tmp + '/config.js', 'window.AOS_CONFIG={url:"",key:""};');
+  await pg.goto('file://' + tmp + '/index.html'); await pg.waitForSelector('.chal'); await pg.evaluate(() => { S.chal = false; render() }); await pg.waitForSelector('nav.tabs');
+  const ok = (c, m) => { if (!c) { console.log('FAIL', m); process.exitCode = 1; } else console.log('ok  ', m); };
+  await pg.evaluate(async () => { const P = { name: 'BS Fluides', phone: '01 30 00 00 05', stage: 'a_contacter', city: 'Poissy', reviews: 42, rating: 4.8, dirigeant: 'Marc' }; await DB.set('prospects', 'A1', P); S.prospects = [{ id: 'A1', ...P }]; S.calls = []; S.tab = 'appels'; S.call.pid = ''; render() });
+  ok(await pg.locator('#cang option[value="K"]').count() === 1, 'angle K dans la liste');
+  ok(await pg.locator('#cang').inputValue() === 'K', 'angle K par défaut');
+  const t = await pg.locator('.script').innerText();
+  ok(/Bonjour Marc, Kissima à l'appareil, de l'agence Khysam/.test(t), 'ouverture avec prénom + agence');
+  ok(/42 avis à 4.8\/5/.test(t), 'compliment court avec avis et note');
+  const k = await pg.evaluate(() => DEF_SCRIPTS.K.text);
+  ok(!/chantier/i.test(k.replace(/on ne parle plus de « chantiers »[^)]*\)/, '')), 'plus de « chantiers » dans ce qui est dit');
+  ok(errs.length === 0, 'aucune erreur JS ' + errs.join('|'));
+  await b.close();
+})();

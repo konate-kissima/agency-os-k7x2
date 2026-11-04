@@ -35,6 +35,7 @@ const fs = require('fs');
   // appel 1 : Dupont (score 100) -> RDV
   await pg.click('[data-v=appels]');
   ok(await pg.locator('h2:has-text("Dupont Plomberie")').count() === 1, 'file triée par score : Dupont en premier');
+  await pg.selectOption('#cang', 'H');
   ok(await pg.locator('.script:has-text("20 et 30 chantiers")').count() === 1, 'script Hamza tel quel affiché');
   await pg.fill('#cn', 'Gérant sympa, 2 techniciens');
   await pg.selectOption('#co', 'Déjà trop de travail');
