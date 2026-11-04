@@ -473,7 +473,8 @@ function appelsHTML(){
   const lastH=hist[0];
   const left=`<div class="card callcard"><div class="chips"><span class="chip" title="Nombre de fois où tu as appelé cette fiche">${(cur.touches||0)===0?'1er appel':'Appel n°'+((cur.touches||0)+1)}</span>${cur.stage==='contacte'?'<span class="chip warn">'+((cur.cycle||1)>=2?'Rappel de réserve':'Rappel')+'</span>':'<span class="chip hot">Premier appel</span>'}${cur.stage==='contacte'&&cur.slots&&cur.slots.length&&cur.slots.length<3?'<span class="chip" title="Les artisans sont souvent sur chantier : on varie le moment de l\'appel">Mieux : '+cur.slots.map(x=>SLOT_L[x]).join(' ou ')+'</span>':''}${mob?'<span class="chip bad" title="Mobile : le régime consommateur peut s\'appliquer aux indépendants, à vérifier">Mobile</span>':''}<span class="muted sm">${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}</span></div>
    <h2 class="cname">${esc(cur.name)}</h2>
-   <div class="sm muted">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a> · `:''}score ${esc(cur.score||'—')}</div>
+   <div class="sm muted">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a> · `:''}${socialLinksHTML(cur)}score ${esc(cur.score||'—')}</div>
+   <div class="sm" style="margin:4px 0">${adsBlock(cur)}</div>
    ${companyLine(cur)}
    <div class="numrow"><button type="button" class="callnum" data-act="copynum" data-n="${esc(normPhone(cur.phone))}" title="Clique pour copier le numéro, puis colle-le dans ton application d'appel (Onoff…)">${esc(fmtPhone(cur.phone))}</button><span class="numact"><a class="btn sm" href="tel:${esc(normPhone(cur.phone))}" title="Ouvre l'app téléphone du Mac (FaceTime) ou de l'iPhone">Appel Mac</a></span></div>
    ${lastH?`<div class="sm muted">Dernier : ${fdate(lastH.t)} · ${esc(ALL_RES_L[lastH.result]||lastH.result)}${lastH.note?' — '+esc(lastH.note):''}</div>`:''}
@@ -576,6 +577,12 @@ function valueFor(p){
   return '';
 }
 function socialUrl(h,kind){h=String(h||'').trim();if(!h)return '';if(/^https?:/i.test(h))return h;h=h.replace(/^@/,'');return (kind==='facebook'?'https://facebook.com/':'https://instagram.com/')+h}
+const fdateFull=iso=>{if(!iso)return '';const d=new Date(iso.length>10?iso:iso+'T12:00:00');return d.toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'})+(iso.length>10?' '+pad(d.getHours())+'h'+pad(d.getMinutes()):'')};
+function adLibUrl(p){return 'https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=FR&media_type=all&search_type=keyword_unordered&q='+encodeURIComponent(p.name||'')}
+function adsBlock(p){const v=p.adsMeta||'';
+  const lab=v==='oui'?'Pub Meta : vue le '+fdate(p.adsMetaAt):v==='non'?'Pub Meta : aucune vue le '+fdate(p.adsMetaAt):'Pub Meta potentielle';
+  return `<span class="adsb"><a href="${esc(adLibUrl(p))}" target="_blank" rel="noopener" title="Ouvre la Bibliothèque publicitaire de Meta cherchée sur ce nom : tu vérifies toi-même, rien d'automatique">${esc(lab)} ↗</a> <select id="adsm" data-id="${esc(p.id)}" aria-label="Résultat de ta vérification des pubs Meta"><option value=""${v===''?' selected':''}>à vérifier</option><option value="oui"${v==='oui'?' selected':''}>fait de la pub</option><option value="non"${v==='non'?' selected':''}>pas de pub</option></select></span>`}
+function socialLinksHTML(p){return (p.instagram?`<a href="${esc(socialUrl(p.instagram))}" target="_blank" rel="noopener">Instagram</a> · `:'')+(p.facebook?`<a href="${esc(socialUrl(p.facebook,'facebook'))}" target="_blank" rel="noopener">Facebook</a> · `:'')}
 function fillOut(txt,p){return fillScript(txt,p).replace(/\{nom_court\}/g,(p.name||'').split(/\s+/).slice(0,2).join(' '))}
 function outreachHTML(){
   const sc=settings(),Q=outQueue();
@@ -594,6 +601,7 @@ function outreachHTML(){
   const left=`<div class="card"><div class="muted sm">${outTries(cur)?'<span class="chip warn">Relance '+outTries(cur)+'</span>':'<span class="chip hot">Premier contact</span>'}${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}</div>
    <h2 style="margin-top:4px">${esc(cur.name)}</h2>
    <div class="sm muted">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a> · `:''}${cur.instagram?`<a href="${esc(socialUrl(cur.instagram))}" target="_blank" rel="noopener">Instagram</a> · `:''}${cur.facebook?`<a href="${esc(socialUrl(cur.facebook,'facebook'))}" target="_blank" rel="noopener">Facebook</a> · `:''}chercher : <a href="https://www.facebook.com/search/pages/?q=${encodeURIComponent((cur.name||'')+' '+(cur.city||''))}" target="_blank" rel="noopener">Facebook</a> · <a href="https://www.google.com/search?q=${encodeURIComponent('site:instagram.com '+(cur.name||'')+' '+(cur.city||''))}" target="_blank" rel="noopener">Instagram</a> · <a href="https://www.google.com/search?q=${encodeURIComponent('site:facebook.com '+(cur.name||'')+' '+(cur.city||''))}" target="_blank" rel="noopener">Facebook via Google</a></div>
+   <div class="sm" style="margin:4px 0">${adsBlock(cur)}</div>
    <div class="banner" style="margin-top:8px"><b>Accroche suggérée</b><br>${esc(hookFor(cur))}<br><span class="muted sm">Ajoute un détail vu sur son profil (dernier chantier, photo) : c'est ce qui rend le message personnel.</span></div>
    <div class="row" style="margin-top:8px"><div><label class="f" for="och">Canal</label><select id="och">${OUT_CH.map(([k,l])=>`<option value="${k}"${S.out.ch===k?' selected':''}>${l}</option>`).join('')}</select></div>
    <div><label class="f" for="ovar">Message</label><select id="ovar">${variants.map(([k,x])=>`<option value="${esc(k)}"${S.out.variant===k?' selected':''}>${esc(x.name)}</option>`).join('')}</select></div></div>
@@ -736,6 +744,13 @@ async function addMetric(cid){
 }
 
 /* ================= statistiques ================= */
+function journalHTML(L,from,to){
+  const rows=L.map(c=>({t:c.t,k:CH_L[c.channel||'appel'],n:c.prospectName||'',r:ALL_RES_L[c.result]||c.result,o:c.obj&&c.obj!=='—'?c.obj:'',note:c.note||''}));
+  S.clients.forEach(c=>{const d=c.signedAt;if(d&&d>=from&&d<=to)rows.push({t:d,k:'Client',n:c.name||'',r:'Signé',o:'',note:''})});
+  S.prospects.forEach(p=>{const d=String(p.adsMetaAt||'').slice(0,10);if(p.adsMeta&&d>=from&&d<=to)rows.push({t:p.adsMetaAt,k:'Vérification',n:p.name||'',r:p.adsMeta==='oui'?'Pub Meta vue':'Aucune pub Meta vue',o:'',note:''})});
+  rows.sort((a,b)=>String(b.t).localeCompare(String(a.t)));
+  const shown=rows.slice(0,150);
+  return `<section class="card"><h3>Journal daté <span class="muted">(${rows.length})</span></h3><p class="muted sm">Chaque action avec sa date et son heure exactes. L'export complet est dans l'onglet Données.</p><div class="scroll-x"><table class="t"><thead><tr><th>Date et heure</th><th>Type</th><th>Entreprise</th><th>Résultat</th><th>Objection</th><th>Note</th></tr></thead><tbody>${shown.map(r=>`<tr><td>${esc(fdateFull(r.t))}</td><td>${esc(r.k)}</td><td>${esc(r.n)}</td><td>${esc(r.r)}</td><td>${esc(r.o)}</td><td class="muted sm">${esc(String(r.note).slice(0,90))}</td></tr>`).join('')||'<tr><td colspan="6" class="muted">Rien sur cette période.</td></tr>'}</tbody></table></div>${rows.length>shown.length?`<p class="muted sm">+ ${rows.length-shown.length} lignes plus anciennes (voir l'export).</p>`:''}</section>`}
 function statsHTML(){
   const days=S.st.days;let from,to='9999-99-99';
   if(days==='w')from=weekStart(today());else if(days==='m')from=today().slice(0,8)+'01';else if(days==='c'){from=S.st.from||'0000-00-00';to=S.st.to||'9999-99-99'}else from=days>0?addDays(today(),-(days-1)):'0000-00-00';
@@ -757,6 +772,7 @@ function statsHTML(){
   const chart=`<section class="card"><h3>14 derniers jours (appels, RDV en doré)</h3><div class="bar">${dayB.map(x=>`<div title="${fdate(x.d)} : ${x.n} appels, ${x.r} RDV" style="height:${Math.max(2,Math.round(90*x.n/mx))}px"><span class="b2" style="display:block;position:absolute;bottom:0;left:0;right:0;background:var(--brass);height:${x.n?Math.round(100*x.r/x.n):0}%"></span></div>`).join('')}</div></section>`;
   return sel+recordsHTML()+kp+chart+`${grp(c=>CH_L[c.channel||'appel'],'Par canal (appels, DM, vidéos, emails)',30,L)}<div class="grid2">${grp(c=>(sc.scripts[c.angle]||{}).name||c.angle,'Appels : par angle de script')}${grp(c=>c.hour!=null?pad(c.hour)+'h':'','Appels : par heure',20)}</div><div class="grid2">${grp(c=>ageBucket(byId(c.prospectId)||{}),'Appels : par ancienneté de l\'entreprise',20)}${grp(c=>sectorOf(byId(c.prospectId)||{}),'Appels : par secteur d\'activité',20)}</div><div class="grid2">${grp(c=>reviewBucket(byId(c.prospectId)||{}),'Appels : par nombre d\'avis Google',20)}${grp(c=>(byId(c.prospectId)||{}).website?'Avec site':'Sans site','Appels : site internet',20)}</div><div class="grid2">${grp(c=>EFF_L[(byId(c.prospectId)||{}).effectif]||'Effectif inconnu','Appels : taille de l\'entreprise',20)}<span></span></div>
   <div class="grid2">${grp(c=>c.dept,'Appels : par département')}<section class="card"><h3>Objections</h3><table class="t"><tbody>${objT||'<tr><td class="muted">Aucune objection saisie.</td></tr>'}</tbody></table></section></div>
+  ${journalHTML(L,from,to)}
   <p class="muted sm">Règle : on ne compare pas deux angles avant 30 conversations chacun. Un taux sur 10 conversations ne veut rien dire.</p>`;
 }
 
@@ -1255,6 +1271,7 @@ document.addEventListener('click',async e=>{
   else if(a==='login'){const {data,error}=await DB.sb.auth.signInWithPassword({email:$('#lgm').value.trim(),password:$('#lgp').value});if(error){$('#lge').textContent='Connexion impossible : '+error.message;return}S.user=data.user;await start()}
 });
 document.addEventListener('change',e=>{
+  if(e.target.id==='adsm'){const t=e.target,p=byId(t.dataset.id);if(p){const v=t.value,at=v?new Date().toISOString():'';p.adsMeta=v;p.adsMetaAt=at;DB.update('prospects',p.id,{adsMeta:v,adsMetaAt:at}).then(()=>toast('Vérification enregistrée.')).catch(()=>toast('Enregistrement impossible, réessaie.'));const a=t.parentNode.querySelector('a');if(a)a.textContent=(v==='oui'?'Pub Meta : vue le '+fdate(at):v==='non'?'Pub Meta : aucune vue le '+fdate(at):'Pub Meta potentielle')+' ↗'}return}
   const t=e.target;
   if(t.id==='cang'){S.call.angle=t.value;const keep={note:$('#cn')?$('#cn').value:'',obj:$('#co')?$('#co').value:'—',audio:$('#ca')?$('#ca').value:'',informed:$('#ci')?$('#ci').checked:false};Object.assign(S.call,keep);render()}
   else if(t.dataset&&t.dataset.act==='mobsel'){S.call.mob=t.value;S.call.pid='';render()}
