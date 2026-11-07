@@ -1246,16 +1246,49 @@ function donneesHTML(){
 /* ================= aide ================= */
 function aideHTML(){return `<div class="card"><h2>Explication de l'outil</h2>
 <p class="muted sm">Pour toi et pour toute personne qui rejoint l'équipe : à quoi sert chaque onglet et comment le process se déroule de A à Z.</p>
-<details open><summary><b>Que choisir à la fin d'un appel ?</b></summary><table class="t sm"><thead><tr><th>Bouton</th><th>Quand</th><th>Ce qui se passe ensuite</th></tr></thead><tbody>
-<tr><td><b>RDV pris</b></td><td>Il accepte un rendez-vous.</td><td>La fiche passe en RDV. Tu renseignes la date et l'heure.</td></tr>
-<tr><td><b>A répondu, sans suite</b></td><td>Vraie discussion, mais ça n'a pas abouti (mail à envoyer, il réfléchit…).</td><td>La fiche reste en « Contacté » avec une relance à la date choisie (3 jours ouvrés par défaut). Compte comme une conversation.</td></tr>
-<tr><td><b>À rappeler</b></td><td>Tu lui as parlé, il demande à être rappelé.</td><td>Rappel à la date choisie. Compte comme une conversation.</td></tr>
-<tr><td><b>Pas de réponse</b></td><td>Ça sonne dans le vide ou c'est occupé.</td><td>Nouvel essai le lendemain ouvré, à un autre moment de la journée. Jusqu'à 5 essais. Un SMS de relance est proposé.</td></tr>
-<tr><td><b>Répondeur</b></td><td>Tu tombes sur la messagerie vocale.</td><td>Nouvel essai dans 2 jours ouvrés, à un autre moment de la journée. Compte dans les 5 essais.</td></tr>
-<tr><td><b>Raccroché au nez</b></td><td>Il décroche puis raccroche aussitôt.</td><td>1re fois : rappel dans 3 jours ouvrés. 2e fois : fiche classée perdue.</td></tr>
-<tr><td><b>Pas intéressé</b></td><td>Tu lui as parlé et il refuse.</td><td>Fiche classée perdue. Note l'objection pour les stats.</td></tr>
-<tr><td><b>Mauvais numéro</b></td><td>Le numéro ne marche pas ou n'est pas le bon.</td><td>Le numéro est retiré de la fiche.</td></tr>
-<tr><td><b>Ne plus appeler</b></td><td>Il demande à ne plus être contacté.</td><td>Fiche bloquée pour toujours.</td></tr></tbody></table><p class="muted sm">Les boutons « Pas de réponse », « Répondeur » et « Raccroché au nez » ne comptent pas comme une conversation. « RDV pris », « À rappeler », « A répondu, sans suite », « Pas intéressé » et « Ne plus appeler » comptent.</p></details>
+<details open><summary><b>Le fonctionnement d'un appel, en 2 étapes</b></summary>
+<p><b>Étape 1 :</b> dès que l'appel est fini, tu cliques <b>✅ Répondu</b> ou <b>📵 Pas répondu</b>. « Pas répondu » s'enregistre en un seul clic (et tu passes à la fiche suivante). Juste dessous, deux petits boutons : <b>Répondeur</b> et <b>Mauvais numéro</b>.</p>
+<p><b>Étape 2 (si répondu) :</b> tu choisis ce qui s'est passé.</p>
+<table class="t sm"><thead><tr><th>Bouton</th><th>Quand</th><th>Ce qui se passe ensuite</th></tr></thead><tbody>
+<tr><td><b>RDV visio</b></td><td>Il accepte une visio où tu présentes l'offre.</td><td>Tu saisis date et heure (et le lien Meet si tu l'as). La fiche passe en RDV et le message de confirmation est prêt.</td></tr>
+<tr><td><b>RDV téléphonique</b></td><td>Tu fixes un rappel à heure précise (le but : finir en visio ou en physique).</td><td>Une petite carte te prévient 5 minutes avant. Un message de confirmation est prêt.</td></tr>
+<tr><td><b>RDV physique</b></td><td>Rendez-vous en face à face.</td><td>Date, heure et lieu obligatoires. Message de confirmation prêt.</td></tr>
+<tr><td><b>À rappeler</b></td><td>Il a répondu mais il est occupé et aucun RDV n'est fixé.</td><td>La date du rappel est obligatoire. Il apparaît dans « À rappeler (N) ».</td></tr>
+<tr><td><b>Sans suite</b></td><td>Vraie discussion sans résultat (il réfléchit, mail à envoyer…).</td><td>Relance dans 3 jours ouvrés par défaut.</td></tr>
+<tr><td><b>Pas intéressé</b></td><td>Il refuse.</td><td>Tu choisis l'objection (pour les stats). Fiche classée perdue.</td></tr>
+<tr><td><b>Raccroché au nez</b></td><td>Il décroche puis raccroche aussitôt.</td><td>Compte comme décroché. 1re fois : rappel dans 3 jours ouvrés. 2e fois : fiche perdue.</td></tr>
+<tr><td><b>Ne plus appeler</b></td><td>Il demande à ne plus être contacté.</td><td>Fiche bloquée pour toujours.</td></tr></tbody></table>
+<p class="muted sm">Pas répondu : nouvel essai le lendemain ouvré à un autre moment de la journée, jusqu'à 5 essais, puis un second cycle un mois plus tard. Répondeur : nouvel essai dans 2 jours ouvrés. Mauvais numéro : le numéro est retiré de la fiche.</p></details>
+<details open><summary><b>Décroché, vraie conversation : les mots à connaître</b></summary><ul class="plain">
+<li><b>Appel passé</b> : chaque fois que tu composes un numéro.</li>
+<li><b>Décroché</b> : une personne a répondu, même si elle raccroche tout de suite. <b>C'est ton chiffre principal : 50 par jour, non négociable.</b></li>
+<li><b>Vraie conversation</b> : elle a décroché et vous avez réellement échangé (tout sauf « Raccroché au nez »).</li>
+<li>Les couleurs : vert à 50 et plus, orange de 25 à 49, rouge en dessous.</li></ul></details>
+<details open><summary><b>Rappels, alertes et ta journée</b></summary><ul class="plain">
+<li><b>Pop-up de retard</b> : s'ouvre quand un rappel est dépassé. Boutons « Tout fermer » (1 h), « 5 min » ou « Jusqu'à demain ». Les rappels restent listés dans Appels.</li>
+<li><b>Carte « Dans 5 min »</b> : petite carte en bas à droite avant chaque rappel ou RDV. Elle ne bloque rien.</li>
+<li><b>À rappeler (N)</b> : un clic liste tous ceux à rappeler (en retard, aujourd'hui, plus tard). « Appeler » ouvre directement la fiche.</li>
+<li><b>Au programme aujourd'hui</b> : le résumé de tes rappels et RDV du jour, en haut de la page Appels.</li></ul></details>
+<details open><summary><b>Les RDV : R1, R2 et signature (question obligatoire)</b></summary>
+<p>10 minutes après l'heure d'un RDV visio ou physique, un <b>pop-up plein écran</b> t'oblige à répondre avant de continuer :</p>
+<ol class="plain"><li><b>A-t-il eu lieu ?</b> ✅ Oui · ❌ Absent (rappel demain 10 h) · 🔁 Décalé (nouvelle date).</li>
+<li><b>S'il a eu lieu :</b> 🤝 <b>Signé</b> (tu saisis le montant, le client est créé tout seul, y compris dès le R1) · 📅 <b>R2 prévu</b> (date, type, lieu ou lien) · ⏳ Il réfléchit (date de rappel) · 🚫 Pas intéressé (raison).</li></ol>
+<p class="muted sm">Un R2 déclenche le même pop-up après sa date. Tout est daté dans l'historique de la personne.</p></details>
+<details open><summary><b>Les messages préremplis</b></summary><ul class="plain">
+<li>Après chaque RDV pris, une carte propose le message de confirmation, avec les « Points évoqués » (activité, objectif, point sensible).</li>
+<li>Boutons : <b>WhatsApp</b> et <b>SMS</b> (seulement pour les numéros 06/07), <b>E-mail (Gmail)</b>, <b>Copier</b>. Pour un fixe : e-mail ou copie.</li>
+<li>Rappels automatiquement proposés : la veille et 2 h avant (visio et physique). Tu cliques sur « Préparer », puis sur le bouton d'envoi : <b>c'est toujours toi qui envoies</b>.</li>
+<li>Le ton : amical, professionnel, sans question qui laisse une porte de sortie. Il demande juste un « OK » en réponse.</li></ul></details>
+<details open><summary><b>Enregistrement, résumé et Fathom</b></summary><ul class="plain">
+<li><b>🎙 Enregistrer</b> (page Appels, version en ligne dans Chrome) : lance-le quand la personne décroche, en mode haut-parleur. <b>Préviens-la que l'appel est enregistré.</b> Clique « Arrêter et résumer » : le texte est transcrit puis résumé (Groq, gratuit). « Importer un audio » fait la même chose avec un fichier.</li>
+<li>Le résumé remplit « Points évoqués » et la note (chiffres cités, engagements, prochaine étape). <b>Relis toujours avant d'envoyer</b> : les deux voix ne sont pas séparées et un mot peut être mal entendu.</li>
+<li>Seul le texte est conservé, pas l'audio. La durée de l'enregistrement alimente la durée moyenne des vraies conversations.</li>
+<li><b>Fathom</b> (visios) : sur la fiche, « Débrief Fathom (par e-mail) » ou « Coller un lien Fathom » ajoute le résumé de la visio à l'historique.</li></ul></details>
+<details open><summary><b>Historique daté et Stats</b></summary><ul class="plain">
+<li><b>Historique daté</b> sur chaque fiche : appels et notes, RDV tenus ou absents, messages préparés, débriefs Fathom, avec date et heure.</li>
+<li><b>Stats, « Mes moyennes »</b> : 📞 appels → 🙋 décrochés → 💬 vraies conversations → 📅 RDV pris → ✅ R1 tenus → 🔁 R2 prévus → 🗣 R2 tenus → 🤝 signés. Chaque étape affiche « 1 … tous les X … », et la phrase « pour 1 client, il t'a fallu N appels ». Tout se calcule seul.</li>
+<li><b>Stats, « Mes objectifs »</b> : décrochés par jour, % de décroché, part de vraies conversations, de raccrochés au nez, RDV par conversation, part d'À rappeler, présence aux RDV, quand on te répond (matin, midi, soir). Chaque ligne a sa zone verte, orange ou rouge.</li>
+<li>Prends les moyennes au sérieux à partir d'environ 200 appels. Avant, regarde la tendance.</li></ul></details>
 <details><summary><b>La note (score) des fiches : sur quoi elle repose</b></summary>
 <p>Chaque fiche a une note de 0 à 100. Elle ne dit <b>pas</b> qui va signer : elle classe les fiches pour que tu appelles d'abord celles qui ont le plus de chances d'être de vraies entreprises actives et joignables. Elle sert à trier, rien d'autre.</p>
 <table class="t"><thead><tr><th>D'où vient la fiche</th><th>Calcul de la note</th></tr></thead><tbody>
@@ -1274,12 +1307,12 @@ function aideHTML(){return `<div class="card"><h2>Explication de l'outil</h2>
 <p>Tu apportes des demandes de devis à des plombiers/chauffagistes grâce à des publicités Facebook et Instagram (Meta Ads). Modèle Hamza : contrat de 90 jours, prix total ${settings().pilotPrice} € au départ (moitié à la signature, moitié quand le client a reçu 20 leads qualifiés), puis ${settings().normalPrice} € quand tu montes tes prix. Le client paie lui-même la pub à Meta. Objectif 10 000 €/mois : avec un contrat à ${settings().normalPrice} € sur 3 mois, cela fait environ ${Math.ceil(10000/((settings().normalPrice||4000)/3))} clients en cours en même temps (${Math.ceil(10000/((settings().pilotPrice||3000)/3))} au prix de départ). Calcule toujours ton objectif en nombre de clients.</p></details>
 <details><summary><b>2. Ta journée type (cible)</b></summary><ol class="plain">
 <li><b>Veille ou tôt le matin :</b> liste du jour prête (onglet Données), 100 fiches appelables minimum.</li>
-<li><b>Bloc appels (artisans décrochent surtout tôt le matin, entre midi et deux, ou en fin de journée) :</b> 70 appels minimum, tu enchaînes sans réfléchir, onglet Appels.</li>
+<li><b>Bloc appels (artisans décrochent surtout tôt le matin, entre midi et deux, ou en fin de journée) :</b> vise 50 décrochés (environ 110 appels), tu enchaînes sans réfléchir, onglet Appels.</li>
 <li><b>Bloc DM / vidéos :</b> onglet DM &amp; vidéos, 40 à 70 messages, 10 à 15 vidéos de 45 s.</li>
 <li><b>Visios :</b> les RDV pris la veille, 30 à 45 min chacun.</li>
 <li><b>Soir :</b> relances, rappel des RDV de demain, débrief 5 min (onglet Aujourd'hui).</li></ol></details>
 <details><summary><b>3. L'entonnoir (hypothèses à mesurer)</b></summary>
-<p>70 appels → environ 15 à 20 vraies conversations → 2 à 4 RDV → 1 signature sur 3 à 5 RDV. Soit environ 1 client pour 100 à 200 appels. <b>Hypothèse, pas un fait</b> : Hamza dit que la grande majorité dit non et c'est normal. Ton onglet Stats te donne tes vrais taux au bout de 30 conversations. Si le goulot est l'appel → travaille l'accroche ; si c'est le RDV → travaille la visio ; si c'est la signature → travaille l'offre et le prix.</p></details>
+<p>110 appels → environ 50 décrochés → 2 à 6 RDV → 1 signature sur 3 à 5 RDV. Soit environ 1 client pour 100 à 200 appels. <b>Hypothèse, pas un fait</b> : Hamza dit que la grande majorité dit non et c'est normal. Ton onglet Stats te donne tes vrais taux au bout de 30 conversations. Si le goulot est l'appel → travaille l'accroche ; si c'est le RDV → travaille la visio ; si c'est la signature → travaille l'offre et le prix.</p></details>
 <details><summary><b>4. Le process complet, étape par étape</b></summary><ol class="plain">
 <li><b>Appel (3 min)</b> : script Hamza, but = un RDV de 10 à 15 min avec créneau précis (14h52). Tu prends son email et son numéro direct. Si pas de réponse : carte « Relance en 1 clic ».</li>
 <li><b>Entre l'appel et le RDV</b> : tu envoies une invitation Google Meet ou Zoom (message neutre, le mot « RDV » suffit) et tu rappelles le matin même.</li>
@@ -1306,13 +1339,13 @@ function aideHTML(){return `<div class="card"><h2>Explication de l'outil</h2>
 <li><b>Appels</b> : respecte immédiatement un « ne plus m'appeler » (case « Ne plus appeler » dans l'outil). Bloctel protège les particuliers ; pour des entreprises le cadre est différent, à faire confirmer.</li>
 <li><b>Enregistrement</b> : annonce-le en début d'appel (phrase dans Réglages).</li></ul></details>
 </div><div class="card"><h2>Explication de l'outil</h2>
-<h3>Appels</h3><p><b>À quoi ça sert :</b> appeler la liste, une fiche à la fois, et tout enregistrer.</p><ol class="plain"><li>Lis la fiche et le script de l'angle choisi.</li><li>Appelle (clique le numéro).</li><li>Note ce que tu apprends, choisis l'objection, puis clique le résultat.</li><li>La fiche suivante arrive toute seule.</li></ol><p class="muted sm">Bon à savoir : « Pas de réponse » reprogramme l'appel au prochain jour ouvré ; après ${MAX_TRIES} tentatives sans jamais joindre, la fiche part en réserve 30 jours (« Rappel de réserve »), puis une 2e série de ${MAX_TRIES} tentatives ; elle ne passe en « Perdu » qu'ensuite. Chaque rappel est proposé à un autre moment de la journée que le précédent.</p>
-<h3>Enregistrement</h3><p class="muted sm">Dis la phrase d'information au début de l'appel, coche la case, colle le lien de l'audio (Drive). Garde les enregistrements au plus quelques mois. Je ne suis pas juriste : fais valider le cadre légal (appels, enregistrement, mobiles d'indépendants).</p>
+<h3>Appels</h3><p><b>À quoi ça sert :</b> appeler la liste, une fiche à la fois, et tout enregistrer.</p><ol class="plain"><li>Lis la fiche et le script de l'angle choisi.</li><li>Appelle (clique le numéro, ou « Appel Mac »).</li><li>Note ce que tu apprends (ou lance 🎙 Enregistrer), puis clique ✅ Répondu / 📵 Pas répondu, et le résultat.</li><li>La fiche suivante arrive toute seule.</li></ol><p class="muted sm">Bon à savoir : « Pas de réponse » reprogramme l'appel au prochain jour ouvré ; après ${MAX_TRIES} tentatives sans jamais joindre, la fiche part en réserve 30 jours (« Rappel de réserve »), puis une 2e série de ${MAX_TRIES} tentatives ; elle ne passe en « Perdu » qu'ensuite. Chaque rappel est proposé à un autre moment de la journée que le précédent.</p>
+<h3>Enregistrement</h3><p class="muted sm">Dis la phrase d'information au début de l'appel (voir la section « Enregistrement, résumé et Fathom » plus haut). Le lien d'audio (Drive) reste possible dans « Historique daté, notes, enregistrement ». Garde les enregistrements au plus quelques mois. Je ne suis pas juriste : fais valider le cadre légal (appels, enregistrement, mobiles d'indépendants).</p>
 <h3>DM &amp; vidéos</h3><p><b>À quoi ça sert :</b> les deux autres canaux de Hamza : message privé (Instagram, Facebook, LinkedIn), vidéo personnalisée, email.</p><ol class="plain"><li>Choisis le canal et le message ; le texte se remplit avec les infos de la fiche.</li><li>Copie le message, envoie-le sur la plateforme, colle le compte (ou le lien de la vidéo).</li><li>Clique « Envoyé » : la relance revient après 3 jours ouvrés, 4 envois maximum.</li><li>Si la personne répond, clique « A répondu » puis passe à l'appel.</li></ol><p class="muted sm">Pas de faux profil, pas de fausse référence, pas de promesse de chantiers.</p>
 <h3>Contenu</h3><p>Note chaque publication (accroche, vues, messages reçus, RDV) pour savoir quelles accroches font venir des prospects.</p>
 <h3>Pipeline</h3><p>Toutes les fiches par étape. Ouvre une fiche pour corriger, ajouter une note ou la passer en « Signé ».</p>
 <h3>Clients</h3><p>Une fois « Signé », crée le client : liste de mise en place, saisie des résultats chaque semaine, coût par lead, alerte de revue à J+14.</p>
-<h3>Stats</h3><p>Appels → conversations → RDV → signés, par angle de script, par heure, par département. Attends 30 conversations avant de comparer deux angles.</p>
+<h3>Stats</h3><p>Les moyennes de l'entonnoir (appel → client), tes objectifs en zones vertes/orange/rouges, et les détails par angle de script, par heure, par département. Attends 30 conversations avant de comparer deux angles.</p>
 <h3>Scripts</h3><p>Modifie les scripts et les prix. Crée un nouvel angle plutôt que d'écraser l'ancien.</p>
 <h3>Données</h3><p>Import de la liste (CSV du script de recherche), exports, passage en cloud.</p></div>`}
 
