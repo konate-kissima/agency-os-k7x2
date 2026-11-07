@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Agency OS</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png"><link rel="icon" type="image/png" href="icons/icon-192.png"><meta name="theme-color" content="#f6f7fb"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Agency OS">
+<title>Agency OS</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png"><link rel="icon" type="image/png" href="icons/icon-192.png"><meta name="theme-color" content="#faf8f4"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Agency OS">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap">
 <style>
 :root{color-scheme:light;--bg:#f6f7fb;--bg2:#f1f3f9;--surface:#ffffff;--surface2:#f3f5fa;--ink:#101828;--muted:#667085;--line:#e4e7ee;--accent:#12b76a;--accent2:#f79009;--accent-ink:#ffffff;--good:#12b76a;--bad:#f04438;--warn:#b54708;--brass:#f79009;--ok:linear-gradient(90deg,#12b76a,#32d583);--hero:linear-gradient(135deg,#ffffff 0%,#f0fdf6 55%,#fff7e8 100%);--shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px -12px rgba(16,24,40,.12);--glow:0 8px 18px -8px rgba(18,183,106,.55);--f-body:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--f-disp:"Plus Jakarta Sans","Inter",system-ui,-apple-system,"Segoe UI",sans-serif}
 *{box-sizing:border-box}
@@ -182,6 +182,40 @@ a{color:#0e9f6e}
 .hero .eyebrow,.hero .kicker,.hero small{color:#0e9f6e}
 .hero h1 em{background:linear-gradient(90deg,#12b76a,#f79009);-webkit-background-clip:text;background-clip:text;color:transparent}
 .cres2 .btn.big:not(.primary){background:#fff!important;border:1px solid #d5d9e4!important}
+
+/* ===== design v4 : premium, ivoire & or ===== */
+:root{--f-disp:"Playfair Display",Georgia,"Times New Roman",serif;--bg:#faf8f4;--bg2:#f3efe7;--surface:#fff;--surface2:#f6f2ea;--ink:#16130f;--muted:#7a7365;--line:#e9e3d6;--accent:#b8893b;--accent2:#8a6420;--accent-ink:#f3dfae;--good:#3f7d58;--hero:linear-gradient(135deg,#fff 0%,#f8f1e3 100%);--shadow:0 1px 2px rgba(22,19,15,.05),0 14px 30px -18px rgba(22,19,15,.18);--glow:0 8px 18px -8px rgba(184,137,59,.5)}
+body{background:#faf8f4!important;font-feature-settings:"tnum" 1,"cv11" 1;-webkit-font-smoothing:antialiased;line-height:1.55}
+h1,h2,h3,h4{font-family:var(--f-disp);font-weight:700;letter-spacing:-.01em}
+h2{font-size:24px}h3{font-size:19px}
+.brand{font-family:var(--f-body);letter-spacing:.28em;font-weight:600}.brand b{color:#b8893b}
+header.top{background:rgba(250,248,244,.92);border-bottom:1px solid var(--line)}
+.logo{background:#16130f;color:#e8c77f;box-shadow:none}
+nav.tabs button{font-weight:500;letter-spacing:.01em}
+nav.tabs button[aria-selected=true]{background:#16130f;color:#f3dfae}
+.card,.hero{border-radius:14px}
+.btn{border-radius:8px;background:#fff;font-weight:600}
+.btn:hover{border-color:#b8893b;background:#fffaf0}
+.btn.primary{background:#16130f!important;color:#f3dfae!important;border-color:#16130f!important;box-shadow:0 8px 18px -8px rgba(22,19,15,.6)!important}
+.btn.primary:hover{filter:none;background:#2a241c!important}
+.hero h1{font-weight:700;letter-spacing:-.02em}
+.hero h1 em{background:linear-gradient(90deg,#8a6420,#d4aa5c);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .eyebrow,.hero .kicker,.hero small{color:#b8893b}
+.callcard .callnum,.numrow .callnum{font-family:var(--f-disp);font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.st b,.hero .st b,.stat b{font-family:var(--f-disp)}
+.pill b{color:#16130f;font-family:var(--f-body)}
+a{color:#8a6420}
+input:focus,select:focus,textarea:focus{border-color:#b8893b;outline:3px solid rgba(184,137,59,.22)}
+.script{border-left:3px solid #b8893b;background:#fbf8f1;font-size:14.5px;line-height:1.65}
+.card .track,.track{background:#ece6d8!important}.card .track i{background:linear-gradient(90deg,#b8893b,#e3c27c)!important}
+.cres2 .big.primary{box-shadow:0 12px 24px -12px rgba(22,19,15,.7)!important}
+.cres2 .btn.big:not(.primary){background:#fff!important;border:1px solid #d9d1bf!important}
+.banner{background:#fbf3df;color:#6b4c12;border-color:#ecd9a8}
+.banner.info{background:#f6f2ea;color:var(--ink);border-color:var(--line)}
+.btn.danger{background:#fff4f2;color:#b42318;border-color:#fecdca}
+.t th{letter-spacing:.12em;color:var(--muted)}
+#soon .srow{border:2px solid #b8893b}
+.res .btn[data-r=rap]{background:#fbf3df!important;border-color:#ecd9a8!important;color:#6b4c12!important}
 </style></head><body>
 <div id="app"></div><div id="toast" role="status"></div><dialog id="dlg"></dialog>
 <script src="config.js"></script>
