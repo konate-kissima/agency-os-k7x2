@@ -1317,7 +1317,8 @@ async function recSend(blob,name){
     else{
       if(j.besoin)S.call.pt1=j.besoin;if(j.objectif)S.call.pt2=j.objectif;if(j.sensible)S.call.pt3=j.sensible;
       const parts=[j.resume,j.chiffres&&'Chiffres : '+j.chiffres,j.engagements&&'Engagements : '+j.engagements,j.prochaine_etape&&'Prochaine étape : '+j.prochaine_etape].filter(Boolean);if(parts.length)S.call.note=((S.call.note?S.call.note+'\n':'')+'Résumé auto : '+parts.join('\n'));
-      S.call.step='ans';S.rec.msg=j.text&&j.text.trim().length>=20?'Résumé prêt : relis les champs puis choisis le résultat.':'Audio trop court ou inaudible.';toast(S.rec.msg)}
+      if(j.error==='summary_failed'&&j.text){S.call.note=((S.call.note?S.call.note+'\n':'')+'Transcription brute : '+j.text)}
+      S.call.step='ans';S.rec.msg=j.error==='summary_failed'?(j.message||'Résumé indisponible.'):j.text&&j.text.trim().length>=20?'Résumé prêt : relis les champs puis choisis le résultat.':'Audio trop court ou inaudible.';toast(S.rec.msg)}
   }catch(e){S.rec.msg='Échec : '+e.message;toast(S.rec.msg)}
   S.rec.busy=false;render();
 }
