@@ -525,14 +525,16 @@ function appelsHTML(){
   const lastH=hist[0];
   const rb=k=>{const [,l,c,t]=RES_BY[k];return `<button class="btn ${c}" data-act="callres" data-r="${k}" title="${esc(t||'')}">${l}</button>`};
   const inp=(id,lab,val,ph)=>`<div style="min-width:0"><label class="f" for="${id}">${lab}</label><input id="${id}" style="width:100%" placeholder="${esc(ph||'')}" value="${esc(val||'')}"></div>`;
-  const resUI=S.call.step==='ans'?`<div class="sm muted" style="margin:8px 0 2px"><b>Il a répondu : que s'est-il passé ?</b> <button class="btn sm" data-act="callstep" data-s="">← Retour</button></div>
+  const rc=S.rec||{};
+  const recRow=window.__sb?`<div class="row sm" style="margin:8px 0;flex-wrap:wrap;gap:6px">${rc.busy?'<span class="muted">⏳ Transcription et résumé en cours…</span>':rc.on?`<button class="btn sm primary" data-act="rec-stop">⏹ Arrêter et résumer</button><span style="color:#c0392b"><b>● Enregistrement</b></span>`:`<button class="btn sm" data-act="rec-start">🎙 Enregistrer</button><label class="btn sm" style="cursor:pointer">Importer un audio<input type="file" id="recf" accept="audio/*,video/mp4" hidden></label>`}${rc.msg?`<span class="muted">${esc(rc.msg)}</span>`:''}</div>`:'';
+  const resUI=recRow+(S.call.step==='ans'?`<div class="sm muted" style="margin:8px 0 2px"><b>Il a répondu : que s'est-il passé ?</b> <button class="btn sm" data-act="callstep" data-s="">← Retour</button></div>
    <div class="res cres">${['rdvv','rdvt','rdvp'].map(rb).join('')}</div><div class="res cres">${['rap','ans','no','hu','stop'].map(rb).join('')}</div>
    <div class="cfields"><div><label class="f" for="co">Objection (si pas intéressé)</label><select id="co">${OBJ.map(o=>`<option${S.call.obj===o?' selected':''}>${esc(o)}</option>`).join('')}</select></div>
    <div><label class="f" for="cd">Rappel le</label><input type="date" id="cd" value="${esc(S.call.date||'')}"></div>
    <div><label class="f" for="ct">à</label><input type="time" id="ct" value="${esc(S.call.time||'10:00')}" title="Heure du rappel : une petite fenêtre te prévient 5 minutes avant"></div></div>
    <div class="cfields"><div><label class="f" for="cr">RDV : date et heure</label><input type="datetime-local" id="cr" value="${esc(S.call.rdvAt)}"></div>${inp('cl','Lieu (RDV physique)',S.call.place,'Adresse')}${inp('cv','Lien visio (si tu l\'as)',S.call.link,'https://meet.google.com/…')}</div>
    <details class="sm" open style="margin:6px 0"><summary><b>Points évoqués</b> <span class="muted">(repris dans le message de confirmation)</span></summary><div class="cfields" style="grid-template-columns:1fr">${inp('pt1','Leur activité ou besoin',S.call.pt1,'ex. pompes à chaleur, rénovation')}${inp('pt2','Leur objectif',S.call.pt2,'ex. recevoir plus de demandes de devis qualifiées')}${inp('pt3','Point sensible',S.call.pt3,'ex. garder leur marge')}</div></details>`
-   :`<div class="res cres2"><button class="btn primary big" data-act="callstep" data-s="ans">✅ Répondu</button><button class="btn big" data-act="callres" data-r="nr">📵 Pas répondu</button></div><div class="row sm" style="margin-top:6px"><span class="muted">Pas répondu, plus précis :</span><button class="btn sm" data-act="callres" data-r="rep">Répondeur</button><button class="btn sm" data-act="callres" data-r="bad">Mauvais numéro</button></div>`;
+   :`<div class="res cres2"><button class="btn primary big" data-act="callstep" data-s="ans">✅ Répondu</button><button class="btn big" data-act="callres" data-r="nr">📵 Pas répondu</button></div><div class="row sm" style="margin-top:6px"><span class="muted">Pas répondu, plus précis :</span><button class="btn sm" data-act="callres" data-r="rep">Répondeur</button><button class="btn sm" data-act="callres" data-r="bad">Mauvais numéro</button></div>`);
   const left=`<div class="card callcard"><div class="chips"><span class="chip" title="Nombre de fois où tu as appelé cette fiche">${(cur.touches||0)===0?'1er appel':'Appel n°'+((cur.touches||0)+1)}</span>${cur.stage==='contacte'?'<span class="chip warn">'+((cur.cycle||1)>=2?'Rappel de réserve':'Rappel')+'</span>':'<span class="chip hot">Premier appel</span>'}${cur.stage==='contacte'&&cur.slots&&cur.slots.length&&cur.slots.length<3?'<span class="chip" title="Les artisans sont souvent sur chantier : on varie le moment de l\'appel">Mieux : '+cur.slots.map(x=>SLOT_L[x]).join(' ou ')+'</span>':''}${mob?'<span class="chip bad" title="Mobile : le régime consommateur peut s\'appliquer aux indépendants, à vérifier">Mobile</span>':''}<span class="muted sm">${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}</span></div>
    <h2 class="cname">${esc(cur.name)}</h2>
    <div class="sm muted">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a> · `:''}${socialLinksHTML(cur)}score ${esc(cur.score||'—')}</div>
@@ -1303,6 +1305,31 @@ function loginHTML(){
 
 /* ================= rappels horaires (pop-up qui revient) ================= */
 S.snooze=(()=>{try{const o=JSON.parse(localStorage.getItem('aos_snooze')||'{}');Object.keys(o).forEach(k=>{if(o[k]<Date.now())delete o[k]});return o}catch(e){return {}}})();
+S.rec={on:false,busy:false,msg:'',mr:null,chunks:[]};
+async function recSend(blob,name){
+  const cfg=window.AOS_CONFIG||{};S.rec.busy=true;S.rec.on=false;S.rec.msg='';render();
+  try{
+    const {data}=await window.__sb.auth.getSession();const tok=data.session&&data.session.access_token;
+    const fd=new FormData();fd.append('file',blob,name||'appel.webm');
+    const res=await fetch(cfg.url+'/functions/v1/resume-appel',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:cfg.key},body:fd});
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok){S.rec.msg=j.message||('Erreur '+res.status);toast(S.rec.msg)}
+    else{
+      if(j.besoin)S.call.pt1=j.besoin;if(j.objectif)S.call.pt2=j.objectif;if(j.sensible)S.call.pt3=j.sensible;
+      if(j.resume)S.call.note=((S.call.note?S.call.note+'\n':'')+'Résumé auto : '+j.resume);
+      S.call.step='ans';S.rec.msg=j.text&&j.text.trim().length>=20?'Résumé prêt : relis les champs puis choisis le résultat.':'Audio trop court ou inaudible.';toast(S.rec.msg)}
+  }catch(e){S.rec.msg='Échec : '+e.message;toast(S.rec.msg)}
+  S.rec.busy=false;render();
+}
+async function recStart(){
+  try{
+    const st=await navigator.mediaDevices.getUserMedia({audio:true});
+    const mr=new MediaRecorder(st);S.rec.chunks=[];S.rec.mr=mr;
+    mr.ondataavailable=e=>{if(e.data.size)S.rec.chunks.push(e.data)};
+    mr.onstop=()=>{st.getTracks().forEach(t=>t.stop());recSend(new Blob(S.rec.chunks,{type:mr.mimeType||'audio/webm'}),'appel.webm')};
+    mr.start(1000);S.rec.on=true;S.rec.msg='Dis à ton interlocuteur que l\'appel est enregistré.';render();
+  }catch(e){S.rec.msg='Micro refusé : autorise-le dans Chrome (cadenas de la barre d\'adresse).';toast(S.rec.msg);render()}
+}
 function saveSnooze(){try{localStorage.setItem('aos_snooze',JSON.stringify(S.snooze))}catch(e){}}
 S.soonSeen={};
 function soonItems(){const now=new Date(),t=today(),hm=nowHM(),lim=new Date(now.getTime()+5*60000),hm5=pad(lim.getHours())+':'+pad(lim.getMinutes());const out=[];
@@ -1341,6 +1368,8 @@ document.addEventListener('click',async e=>{
   if(a==='al-closeall'){const m=b.dataset.m;const until=m==='tomorrow'?(()=>{const d=new Date();d.setDate(d.getDate()+1);d.setHours(6,0,0,0);return +d})():Date.now()+(+m)*60000;dueCallbacks().forEach(p=>{S.snooze[p.id]=until});saveSnooze();alarmCheck();toast(m==='tomorrow'?'Rappels fermés jusqu\'à demain.':'Rappels fermés '+(m==='60'?'1 heure':m+' minutes')+'.');return}
   if(a==='soon-ok'){S.soonSeen[b.dataset.k]=1;soonCheck();return}
   if(a==='soon-open'){S.soonSeen[b.dataset.k]=1;soonCheck();const id=b.dataset.id;S.tab='appels';S.call.open=id;S.call.pid=id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';render();window.scrollTo(0,0);return}
+  if(a==='rec-start'){recStart();return}
+  if(a==='rec-stop'){if(S.rec.mr&&S.rec.mr.state!=='inactive')S.rec.mr.stop();return}
   if(a==='callstep'){S.call.step=b.dataset.s||'';render();return}
   if(a==='rapl-toggle'){S.call.showRap=!S.call.showRap;render();return}
   if(a==='rem-open'){S.remind={id:b.dataset.id,k:b.dataset.k};S.tab='appels';render();window.scrollTo(0,0);return}
@@ -1388,6 +1417,7 @@ document.addEventListener('change',e=>{
   if(e.target.id==='adsm'){const t=e.target,p=byId(t.dataset.id);if(p){const v=t.value,at=v?new Date().toISOString():'';p.adsMeta=v;p.adsMetaAt=at;DB.update('prospects',p.id,{adsMeta:v,adsMetaAt:at}).then(()=>toast('Vérification enregistrée.')).catch(()=>toast('Enregistrement impossible, réessaie.'));const a=t.parentNode.querySelector('a');if(a)a.textContent=(v==='oui'?'Pub Meta : vue le '+fdate(at):v==='non'?'Pub Meta : aucune vue le '+fdate(at):'Pub Meta potentielle')+' ↗'}return}
   const t=e.target;
   if(t.id==='ci'){S.call.informed=t.checked;return}
+  if(t.id==='recf'){const f=t.files[0];if(f)recSend(f,f.name);return}
   if(t.id==='co'){S.call.obj=t.value;return}
   if(t.id==='cang'){S.call.angle=t.value;const keep={note:$('#cn')?$('#cn').value:'',obj:$('#co')?$('#co').value:'—',audio:$('#ca')?$('#ca').value:'',informed:$('#ci')?$('#ci').checked:false};Object.assign(S.call,keep);render()}
   else if(t.dataset&&t.dataset.act==='mobsel'){S.call.mob=t.value;S.call.pid='';render()}
@@ -1423,7 +1453,7 @@ async function start(){
   const cfg=window.AOS_CONFIG||{};
   if(cfg.url&&cfg.key){
     await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';s.onload=res;s.onerror=()=>rej(new Error('Supabase indisponible'));document.head.appendChild(s)}).catch(e=>{S.err=e.message});
-    if(window.supabase){const sb=window.supabase.createClient(cfg.url,cfg.key,{auth:{persistSession:true,autoRefreshToken:true}});DB=cloudBackend(sb);
+    if(window.supabase){const sb=window.supabase.createClient(cfg.url,cfg.key,{auth:{persistSession:true,autoRefreshToken:true}});DB=cloudBackend(sb);window.__sb=sb;
       const {data}=await sb.auth.getSession();S.user=data.session?data.session.user:null;if(!S.user){render();return}}
     else DB=localBackend();
   }else DB=localBackend();
