@@ -1316,7 +1316,7 @@ async function recSend(blob,name){
     if(!res.ok){S.rec.msg=j.message||('Erreur '+res.status);toast(S.rec.msg)}
     else{
       if(j.besoin)S.call.pt1=j.besoin;if(j.objectif)S.call.pt2=j.objectif;if(j.sensible)S.call.pt3=j.sensible;
-      if(j.resume)S.call.note=((S.call.note?S.call.note+'\n':'')+'Résumé auto : '+j.resume);
+      const parts=[j.resume,j.chiffres&&'Chiffres : '+j.chiffres,j.engagements&&'Engagements : '+j.engagements,j.prochaine_etape&&'Prochaine étape : '+j.prochaine_etape].filter(Boolean);if(parts.length)S.call.note=((S.call.note?S.call.note+'\n':'')+'Résumé auto : '+parts.join('\n'));
       S.call.step='ans';S.rec.msg=j.text&&j.text.trim().length>=20?'Résumé prêt : relis les champs puis choisis le résultat.':'Audio trop court ou inaudible.';toast(S.rec.msg)}
   }catch(e){S.rec.msg='Échec : '+e.message;toast(S.rec.msg)}
   S.rec.busy=false;render();
