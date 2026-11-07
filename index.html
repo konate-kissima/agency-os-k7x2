@@ -136,6 +136,12 @@ details>summary{border-radius:8px}
 #alarm{position:fixed;inset:0;z-index:99999;background:rgba(3,6,10,.7);display:flex;align-items:center;justify-content:center;padding:16px}
 #alarm .abox{background:var(--surface);color:var(--ink);border:2px solid var(--accent,#7a8b3a);border-radius:18px;max-width:560px;width:100%;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
 #alarm h2{margin:0 0 6px}
+#soon{position:fixed;right:16px;bottom:16px;z-index:99998;display:flex;flex-direction:column;gap:8px;max-width:340px}
+#soon .srow{background:var(--surface);color:var(--ink);border:2px solid var(--accent,#7a8b3a);border-radius:16px;padding:12px 14px;box-shadow:0 12px 40px rgba(0,0,0,.35);display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+#soon .btns{display:flex;gap:6px;flex-wrap:wrap}
+.cres2{display:flex;gap:10px;margin-top:8px}.cres2 .big{flex:1;padding:16px 8px;font-size:1.1em;border-radius:14px}
+.zdot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+.tg td,.tg th{padding:6px 8px}.tg .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-weight:700;font-size:12px;color:#fff}
 #alarm .arow{border-top:1px solid var(--line);padding:10px 0;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 #alarm .arow .who{min-width:0}
 #alarm .arow .btns{display:flex;gap:6px;flex-wrap:wrap}
@@ -163,9 +169,14 @@ let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.style.display
 
 /* ================= constantes métier ================= */
 const STAGES=[['a_contacter','À contacter'],['contacte','Contacté / à rappeler'],['rdv','RDV pris'],['rdv_fait','RDV fait'],['pilote','Pilote proposé'],['signe','Signé'],['perdu','Perdu'],['stop','Ne plus appeler']];
-const RES=[['rdv','RDV pris','primary','Il a accepté un rendez-vous (renseigne la date et l\'heure).'],['rap','À rappeler','','Tu lui as parlé, il demande qu\'on le rappelle à une date précise (choisis « Rappel le »).'],['ans','A répondu, sans suite','','Tu as eu une vraie discussion mais ça n\'a pas abouti (mail à envoyer, il réfléchit, pas décideur…). La date « Rappel le » sert de relance (par défaut dans 3 jours ouvrés).'],['nr','Pas de réponse','','Ça sonne dans le vide, personne ne décroche, ou occupé. Tu retenteras à un autre moment.'],['rep','Répondeur','','Tu tombes sur la messagerie vocale. Tu retenteras à un autre moment.'],['hu','Raccroché au nez','','Quelqu\'un décroche puis raccroche tout de suite, sans échange. 1re fois : on rappelle dans 3 jours ouvrés. 2e fois : fiche classée perdue.'],['no','Pas intéressé','','Tu lui as parlé et il refuse. Note l\'objection. La fiche est classée perdue.'],['bad','Mauvais numéro','','Le numéro ne marche pas ou n\'est pas celui de l\'entreprise.'],['stop','Ne plus appeler','danger','Il demande à ne plus être appelé : la fiche est bloquée pour toujours.']];
+const RES=[['rdvv','RDV visio','primary','Il accepte une visio : tu présentes l\'offre (renseigne la date et l\'heure).'],['rdvt','RDV téléphonique','primary','Rappel à heure fixe : une petite fenêtre te prévient 5 minutes avant. Objectif : finir en visio ou en physique.'],['rdvp','RDV physique','primary','Rendez-vous en face à face (renseigne la date, l\'heure et le lieu).'],['rdv','RDV pris (ancien)','','Ancien bouton, conservé pour l\'historique.'],['rap','À rappeler','','Il a répondu mais il est occupé et aucun rendez-vous n\'est fixé (choisis « Rappel le »).'],['ans','Sans suite','','Vraie discussion sans résultat (il réfléchit, mail à envoyer, pas décideur…). Relance par défaut dans 3 jours ouvrés.'],['nr','Pas répondu','','Ça sonne dans le vide, personne ne décroche ou occupé. Nouvel essai à un autre moment.'],['rep','Répondeur','','Messagerie vocale. Nouvel essai à un autre moment.'],['hu','Raccroché au nez','','Il décroche puis raccroche tout de suite. 1re fois : rappel dans 3 jours ouvrés. 2e fois : fiche perdue.'],['no','Pas intéressé','','Il refuse. Choisis l\'objection. Fiche classée perdue.'],['bad','Mauvais numéro','','Le numéro ne marche pas ou n\'est pas celui de l\'entreprise.'],['stop','Ne plus appeler','danger','Il demande à ne plus être appelé : fiche bloquée pour toujours.']];
 const RES_L=Object.fromEntries(RES.map(r=>[r[0],r[1]]));
-const JOINT=['rdv','rap','ans','no','stop'];
+const RES_BY=Object.fromEntries(RES.map(r=>[r[0],r]));
+const RES_RDV=['rdvv','rdvt','rdvp'];
+const JOINT=['rdv','rdvv','rdvt','rdvp','rap','ans','no','stop'];
+const ANSWERED=[...JOINT,'hu'];
+const isRdvRes=r=>r==='rdv'||RES_RDV.includes(r);
+const isAns=c=>ANSWERED.includes(c.result);
 const DEF_RDV=`RENDEZ-VOUS DE VENTE EN 6 TEMPS (tu parles 20 % du temps, lui 80 %)
 
 1. INTRO
@@ -313,7 +324,7 @@ SI IL EST OCCUPÉ
 RDV
 « Je repasse ou on s'appelle : {jour} à 17h30, ça vous va ? »`}
 };
-const DEF_SETTINGS={angle:'H',pilotPrice:3000,normalPrice:4000,budgetDay:30,minMonths:3,recordText:'Cet appel peut être enregistré pour ma formation. Dites-le-moi si vous préférez que non.',scripts:DEF_SCRIPTS};
+const DEF_SETTINGS={mailFrom:'konate.kissima.ent@gmail.com',angle:'H',pilotPrice:3000,normalPrice:4000,budgetDay:30,minMonths:3,recordText:'Cet appel peut être enregistré pour ma formation. Dites-le-moi si vous préférez que non.',scripts:DEF_SCRIPTS};
 const CHECK=[['contrat','Contrat signé + 1er paiement'],['page','Page Facebook du client prête'],['bm','Accès partenaire au Business Manager / compte pub du client'],['pay','Moyen de paiement du client sur le compte pub'],['form','Formulaire de leads (3 questions de qualification)'],['crea','Créatives (3 variantes) validées par le client'],['alerte','Alerte lead (SMS/WhatsApp au client) + rappel du lead en moins de 5 min'],['launch','Campagne lancée (date = début des 14 jours sans toucher)'],['j14','Revue à J+14'],['cas','Accord écrit pour le cas d\'étude']];
 const OUT_CH=[['dm_insta','DM Instagram'],['dm_fb','DM Facebook'],['dm_lin','DM LinkedIn'],['video','Vidéo personnalisée (Loom, 45 s)'],['email','Email']];
 const OUT_RES=[['sent','Envoyé','primary'],['reply','A répondu',''],['rdv','RDV pris','primary'],['no','Pas intéressé',''],['stop','Ne plus contacter','danger']];
@@ -406,31 +417,71 @@ function callQueue(){
    .sort((a,b)=>rank(a)-rank(b)||(a.stage==='contacte'&&b.stage==='contacte'?String(a.nextDate||'').localeCompare(String(b.nextDate||'')):0)||(+b.score||0)-(+a.score||0)||(+b.reviews||0)-(+a.reviews||0)||String(a.name).localeCompare(String(b.name)));
 }
 function callsOf(pid){return S.calls.filter(c=>c.prospectId===pid)}
-function todayStats(){const t=today();const L=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t);return{n:L.length,j:L.filter(c=>JOINT.includes(c.result)).length,r:L.filter(c=>c.result==='rdv').length}}
+function todayStats(){const t=today();const L=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t);return{n:L.length,j:L.filter(c=>JOINT.includes(c.result)).length,conv:L.filter(isAns).length,r:L.filter(c=>isRdvRes(c.result)).length}}
 function fillScript(txt,p){return String(txt||'').replace(/\{contact\}/g,p.dirigeant||'monsieur/madame').replace(/\{accroche\}/g,hookFor(p)).replace(/\{Valeur\}/g,valueFor(p)).replace(/\{Accroche\}/g,(()=>{let h=hookFor(p);if(/je n'ai pas trouvé de site/.test(h))h=p.city?`j'ai découvert ${p.name} à ${p.city}`:`j'ai découvert ${p.name}`;return h.charAt(0).toUpperCase()+h.slice(1)})()).replace(/\{avis\}/g,p.reviews||'?').replace(/\{note\}/g,p.rating||'?').replace(/\{nom\}/g,p.name||'').replace(/\{ville\}/g,p.city||'').replace(/\{jour\}/g,'demain')}
 
+const RDV_T={visio:'visio',tel:'téléphonique',physique:'physique'};
+const icsDate=d=>d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'T'+pad(d.getHours())+pad(d.getMinutes())+'00';
+function rdvWhen(p){const d=new Date(p.rdvAt);return d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})+' à '+pad(d.getHours())+'h'+pad(d.getMinutes())}
+const greetName=p=>{const n=String(p.dirigeant||'').trim();return n?' '+n:''};
+function ptsText(p){const k=p.pts||{};let t='';if(k.objectif){t='On y verra '+k.objectif;if(k.besoin)t+=' (à partir de '+k.besoin+')'}else if(k.besoin)t='On y reviendra sur '+k.besoin;if(t){if(k.sensible)t+=', en tenant compte de '+k.sensible;t+='. '}return t}
+function rdvMsg(p,kind){
+  const ty=p.rdvType||'visio',n=greetName(p),w=rdvWhen(p),d=new Date(p.rdvAt),h=pad(d.getHours())+'h'+pad(d.getMinutes());
+  const lien=p.rdvLink||'[lien Meet]',lieu=p.rdvPlace?' à '+p.rdvPlace:'';
+  if(kind==='conf'){
+    if(ty==='tel')return `Bonjour${n}, c'est Kissima. Je vous appelle ${w}, comme convenu. Réservez-moi ce créneau, ça va être très utile pour vous. Répondez-moi juste « OK » pour que je sache que c'est calé de votre côté. À très vite !`;
+    if(ty==='physique')return `Bonjour${n}, c'est Kissima. Merci encore pour notre échange, c'était un vrai plaisir ! Comme convenu, on se retrouve ${w}${lieu}. ${ptsText(p)}Répondez-moi juste « OK » pour que je sache que c'est calé de votre côté. J'ai hâte de vous présenter tout ça !`;
+    return `Bonjour${n}, c'est Kissima. Merci encore pour notre échange, c'était un vrai plaisir ! Comme convenu, on se retrouve en visio ${w} : ${lien}. ${ptsText(p)}Répondez-moi juste « OK » pour que je sache que c'est calé de votre côté. J'ai hâte de vous présenter tout ça !`}
+  const jour=kind==='r24'?'demain':'aujourd\'hui';
+  if(ty==='physique')return `Bonjour${n}, c'est Kissima. Petit rappel pour notre rendez-vous ${jour} à ${h}${lieu}. On se retrouve ${jour==='demain'?'demain':'tout à l\'heure'}, j'ai hâte d'échanger avec vous !`;
+  return `Bonjour${n}, c'est Kissima. Petit rappel pour notre visio ${jour} à ${h} : ${lien}. On se retrouve ${jour==='demain'?'demain':'tout à l\'heure'}, j'ai hâte d'échanger avec vous !`}
+function msgButtons(p,msg,after){
+  const ph=normPhone(p.phone),e=encodeURIComponent(msg),mob=isMobile(p.phone);
+  const wa=mob?'https://wa.me/'+(ph.startsWith('0')?'33'+ph.slice(1):ph.replace('+',''))+'?text='+e:'';
+  const from=settings().mailFrom||'';
+  const gm=p.email?'https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(p.email)+'&su='+encodeURIComponent('Notre échange')+'&body='+e+(from?'&authuser='+encodeURIComponent(from):''):'';
+  const A=after||'';
+  return (wa?`<a class="btn primary" href="${wa}" target="_blank" rel="noopener" ${A}>WhatsApp</a>`:'')+(mob?`<a class="btn" href="sms:${esc(ph)}?&body=${e}" ${A}>SMS</a>`:'')+(gm?`<a class="btn" href="${gm}" target="_blank" rel="noopener" ${A}>E-mail (Gmail)</a>`:'')+`<button type="button" class="btn" data-act="copysms" data-m="${esc(msg)}">Copier</button>`+(!mob?'<span class="muted sm"> Numéro fixe : pas de WhatsApp ni de SMS.</span>':'')}
+function rdvCard(){
+  const p=S.lastRDV?byId(S.lastRDV):null;if(!p||!p.rdvAt)return '';
+  const ty=p.rdvType||'visio',d=new Date(p.rdvAt),dur=ty==='physique'?60:ty==='tel'?15:30,e=new Date(d.getTime()+dur*60000);
+  const msg=rdvMsg(p,'conf');
+  const title=ty==='tel'?'Appel avec ':ty==='physique'?'Rendez-vous avec ':'Visio avec ';
+  const gcal=ty==='tel'?'':'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(title+p.name)+'&dates='+icsDate(d)+'/'+icsDate(e)+'&ctz=Europe/Paris&details='+encodeURIComponent(ty==='physique'?'Rendez-vous.':'Échange en visio.')+(ty==='physique'&&p.rdvPlace?'&location='+encodeURIComponent(p.rdvPlace):'')+(p.email?'&add='+encodeURIComponent(p.email):'');
+  return `<div class="card" style="border:2px solid var(--ok,#2a7)"><b>RDV ${RDV_T[ty]} pris : ${esc(p.name)}, ${esc(rdvWhen(p))}.</b> Envoie la confirmation :<p class="sm" style="white-space:pre-wrap;margin:6px 0">${esc(msg)}</p><div class="row" style="margin-top:8px;flex-wrap:wrap">${gcal?`<a class="btn" href="${gcal}" target="_blank" rel="noopener">Invitation Google (ajoute Meet)</a>`:''}${msgButtons(p,msg)}<button class="btn sm" data-act="rdvdone">OK, fait</button></div>${ty==='visio'&&!p.rdvLink?'<p class="muted sm" style="margin-top:6px">Dans Google Agenda, clique « Ajouter Google Meet », enregistre, puis remplace [lien Meet] dans le message.</p>':''}</div>`}
+function remindDue(){const now=Date.now();return S.prospects.filter(p=>p.stage==='rdv'&&p.rdvAt&&(p.rdvType||'visio')!=='tel').map(p=>({p,h:(new Date(p.rdvAt)-now)/36e5})).map(x=>{if(x.h>2.5&&x.h<=30&&!x.p.rem24)return {...x,k:'r24'};if(x.h>-0.25&&x.h<=2.5&&!x.p.rem2)return {...x,k:'r2'};return null}).filter(Boolean)}
+function remindCard(){
+  const r=S.remind,p=r?byId(r.id):null;if(!p||!p.rdvAt)return '';
+  const msg=rdvMsg(p,r.k);const lab=r.k==='r24'?'rappel de la veille':'rappel 2 h avant';
+  return `<div class="card" style="border:2px solid var(--ok,#2a7)"><b>${lab} : ${esc(p.name)}, ${esc(rdvWhen(p))}.</b><p class="sm" style="white-space:pre-wrap;margin:6px 0">${esc(msg)}</p><div class="row" style="margin-top:8px;flex-wrap:wrap">${msgButtons(p,msg,`data-act="remdone" data-id="${esc(p.id)}" data-k="${r.k}"`)}<button class="btn sm" data-act="remdone" data-id="${esc(p.id)}" data-k="${r.k}">Déjà fait / ignorer</button></div></div>`}
+function todayPlanHTML(){
+  const t=today(),items=[];
+  S.prospects.forEach(p=>{
+    if(p.stage==='contacte'&&p.nextDate===t&&p.nextTime&&!p.optout)items.push({time:p.nextTime,p,k:p.rdvType==='tel'?'RDV téléphonique':'Rappel'});
+    if(p.stage==='rdv'&&p.rdvAt&&p.rdvAt.slice(0,10)===t)items.push({time:p.rdvAt.slice(11,16),p,k:'RDV '+RDV_T[p.rdvType||'visio']});
+  });
+  if(!items.length)return '';
+  items.sort((a,b)=>a.time.localeCompare(b.time));
+  return `<details class="card" open><summary><b>Au programme aujourd'hui (${items.length})</b></summary>${items.map(x=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:6px 0"><span><b>${esc(x.time.replace(':','h'))}</b> · ${x.k} · <b>${esc(x.p.name)}</b> <span class="muted sm">${esc(fmtPhone(x.p.phone))}</span></span><button class="btn sm" data-act="al-open" data-id="${esc(x.p.id)}">Ouvrir</button></div>`).join('')}</details>`}
+function rapList(){return S.prospects.filter(p=>p.stage==='contacte'&&!p.optout&&p.nextDate&&hasPhone(p.phone)).sort((a,b)=>(a.nextDate+(a.nextTime||'99:99')).localeCompare(b.nextDate+(b.nextTime||'99:99')))}
+function rapPanelHTML(){
+  if(!S.call.showRap)return '';
+  const L=rapList(),t=today();
+  const G=[['En retard',x=>x.nextDate<t],['Aujourd\'hui',x=>x.nextDate===t],['Plus tard',x=>x.nextDate>t]];
+  const body=G.map(([l,f])=>{const it=L.filter(f);return it.length?`<div class="muted sm" style="margin-top:8px">${l} (${it.length})</div>`+it.map(p=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:6px 0"><span><b>${esc(p.name)}</b> <span class="muted sm">${p.nextDate<t?fdate(p.nextDate)+' ':''}${p.nextTime?esc(p.nextTime.replace(':','h')):''} · ${esc(fmtPhone(p.phone))}${p.rdvType==='tel'?' · RDV téléphonique':''}</span></span><button class="btn sm primary" data-act="al-open" data-id="${esc(p.id)}">Appeler</button></div>`).join(''):''}).join('');
+  return `<div class="card"><div class="row" style="justify-content:space-between"><b>À rappeler (${L.length})</b><button class="btn sm" data-act="rapl-toggle">Fermer</button></div>${body||'<p class="muted sm">Personne à rappeler.</p>'}</div>`}
 function dueBanner(){
   const t=today();const items=S.clients.filter(c=>c.status!=='fini'&&c.checklist&&c.checklist.launch&&!c.checklist.j14).map(c=>({c,d:addDays(c.checklist.launch,14)}));
   const due=items.filter(x=>x.d<=t);const soon=items.filter(x=>x.d>t&&x.d<=addDays(t,3));
   let h='';
   due.forEach(x=>{h+=`<div class="banner">Revue J+14 à faire : <b>${esc(x.c.name)}</b> (campagne lancée le ${fdate(x.c.checklist.launch)}). <button class="btn sm" data-act="cli-open" data-id="${esc(x.c.id)}">Ouvrir</button></div>`});
   soon.forEach(x=>{h+=`<div class="banner info">Revue J+14 le ${fdate(x.d)} : ${esc(x.c.name)} (ne pas toucher la campagne avant).</div>`});
-  const rdv=S.prospects.filter(p=>p.stage==='rdv'&&p.rdvAt&&p.rdvAt.slice(0,10)<=addDays(t,1)).sort((a,b)=>a.rdvAt.localeCompare(b.rdvAt));
-  rdv.forEach(p=>{h+=`<div class="banner info">RDV ${fdate(p.rdvAt)} : <b>${esc(p.name)}</b> ${esc(fmtPhone(p.phone))} <button class="btn sm" data-act="open" data-id="${esc(p.id)}">Fiche</button></div>`});
+  const cut=new Date(Date.now()-30*60000);
+  S.prospects.filter(p=>p.stage==='rdv'&&p.rdvAt&&new Date(p.rdvAt)<cut&&!p.rdvShow).sort((a,b)=>a.rdvAt.localeCompare(b.rdvAt)).forEach(p=>{h+=`<div class="banner">RDV ${RDV_T[p.rdvType||'visio']} du ${fdate(p.rdvAt)} : <b>${esc(p.name)}</b>, a-t-il eu lieu ? <button class="btn sm primary" data-act="rdv-tenu" data-id="${esc(p.id)}">Tenu</button> <button class="btn sm" data-act="rdv-abs" data-id="${esc(p.id)}">Absent</button></div>`});
+  S.prospects.filter(p=>p.stage==='rdv'&&p.rdvAt&&new Date(p.rdvAt)>=cut&&p.rdvAt.slice(0,10)<=addDays(t,1)).sort((a,b)=>a.rdvAt.localeCompare(b.rdvAt)).forEach(p=>{h+=`<div class="banner info">RDV ${RDV_T[p.rdvType||'visio']} ${fdate(p.rdvAt)} : <b>${esc(p.name)}</b> ${esc(fmtPhone(p.phone))} <button class="btn sm" data-act="open" data-id="${esc(p.id)}">Fiche</button></div>`});
+  remindDue().forEach(x=>{h+=`<div class="banner">Rappel à envoyer (${x.k==='r24'?'veille':'2 h avant'}) : <b>${esc(x.p.name)}</b>, RDV ${esc(rdvWhen(x.p))} <button class="btn sm primary" data-act="rem-open" data-id="${esc(x.p.id)}" data-k="${x.k}">Préparer</button></div>`});
   return h;
 }
-
-const RDV_MSG="Bonjour {contact}, c'est Kissima, comme convenu on se retrouve {quand} pour notre échange de 15 min en visio. Voici le lien : {lien}. À très vite !";
-const icsDate=d=>d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'T'+pad(d.getHours())+pad(d.getMinutes())+'00';
-function rdvCard(){
-  const p=S.lastRDV?byId(S.lastRDV):null;if(!p||!p.rdvAt)return '';
-  const d=new Date(p.rdvAt),e=new Date(d.getTime()+15*60000);
-  const quand=d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})+' à '+pad(d.getHours())+'h'+pad(d.getMinutes());
-  const gcal='https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent('Échange avec '+p.name)+'&dates='+icsDate(d)+'/'+icsDate(e)+'&ctz=Europe/Paris&details='+encodeURIComponent('Échange de 15 minutes en visio.')+(p.email?'&add='+encodeURIComponent(p.email):'');
-  const msg=fillScript(RDV_MSG,p).replace('{quand}',quand).replace('{lien}','[lien Meet]').replace('monsieur/madame','').replace('Bonjour ,','Bonjour,');
-  const ph=normPhone(p.phone),enc=encodeURIComponent(msg);
-  const wa=ph?'https://wa.me/'+(ph.startsWith('0')?'33'+ph.slice(1):ph.replace('+',''))+'?text='+enc:'';
-  return `<div class="card" style="border:2px solid var(--ok,#2a7)"><b>RDV pris : ${esc(p.name)}, ${esc(quand)}.</b> Confirme-le en 2 clics :<div class="row" style="margin-top:8px;flex-wrap:wrap"><a class="btn primary" href="${gcal}" target="_blank" rel="noopener">1. Créer l'invitation Google (ajoute Meet)</a>${wa?`<a class="btn" href="${wa}" target="_blank" rel="noopener">2. WhatsApp</a>`:''}${p.email?`<a class="btn" href="mailto:${esc(p.email)}?subject=${encodeURIComponent('Notre échange')}&body=${enc}">2. Email</a>`:''}<button class="btn sm" data-act="rdvdone">OK, fait</button></div><p class="muted sm" style="margin-top:6px">Dans Google Agenda, clique « Ajouter Google Meet », enregistre, puis remplace [lien Meet] dans le message.</p></div>`}
 const NR_SMS="Bonjour {contact}, c'est Kissima, j'ai essayé de vous joindre. {Accroche}.{Valeur} Cela m'a donné envie de faire votre connaissance. Auriez-vous 5 minutes cette semaine pour échanger sur votre activité ? Dites-moi simplement le moment qui vous arrange le mieux. Au plaisir d'avoir votre retour. Très cordialement, Kissima";
 function nrCard(){
   const p=S.lastNR?byId(S.lastNR):null;if(!p)return '';
@@ -460,17 +511,28 @@ function appelsHTML(){
   const forced=S.call.open?byId(S.call.open):null;
   let cur=forced||(S.call.pid?byId(S.call.pid):null);
   if(!forced&&(!cur||!Q.some(x=>x.id===cur.id)))cur=Q[0]||null;
-  if(cur&&S.call.pid!==cur.id){S.call.pid=cur.id;S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time=''}
+  if(cur&&S.call.pid!==cur.id){S.call.pid=cur.id;S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link=''}
   if(!cur)S.call.pid='';
   const ang=S.call.angle||sc.angle;
-  const kp=`<span class="pill"><b>${st.n}</b> appels</span><span class="pill"><b>${st.j}</b> conv.</span><span class="pill"><b>${st.r}</b> RDV</span><span class="pill"><b>${Q.length}</b> à appeler</span>`;
+  const gc=goals().conv,zc=zoneOf(st.conv,gc[1],gc[0]);
+  const kp=`<span class="pill" title="Une conversation = une personne qui a répondu. Objectif ${gc[1]} par jour, minimum ${gc[0]}."><i class="zdot" style="background:${ZONE_C[zc]}"></i><b>${st.conv}</b> / ${gc[1]} conversations</span><span class="pill"><b>${st.r}</b> RDV</span><span class="pill muted"><b>${st.n}</b> appels passés</span><span class="pill"><b>${Q.length}</b> à appeler</span><button class="btn sm${S.call.showRap?' primary':''}" data-act="rapl-toggle">À rappeler (${rapList().length})</button>`;
   const filt=`<select data-act="mobsel" aria-label="Type de ligne" class="sm"><option value="all"${S.call.mob==='all'?' selected':''}>Toutes lignes</option><option value="fixe"${S.call.mob==='fixe'?' selected':''}>Fixes</option><option value="mobile"${S.call.mob==='mobile'?' selected':''}>Mobiles</option></select>`;
   const bar=callSearchHTML(kp+filt);
-  const above=dueBanner()+rdvCard()+nrCard()+(S.lastRes?`<div class="lastres">Dernier appel : ${S.lastRes}</div>`:'');
-  if(!cur)return above+bar+`<div class="card"><b>Plus personne à appeler pour l'instant.</b><div class="muted sm">Importe une liste (onglet Données) ou attends les rappels programmés.</div></div>`;
+  const above=todayPlanHTML()+dueBanner()+rdvCard()+remindCard()+nrCard()+(S.lastRes?`<div class="lastres">Dernier appel : ${S.lastRes}</div>`:'');
+  if(!cur)return above+bar+rapPanelHTML()+`<div class="card"><b>Plus personne à appeler pour l'instant.</b><div class="muted sm">Importe une liste (onglet Données) ou attends les rappels programmés.</div></div>`;
   const hist=callsOf(cur.id).slice(-4).reverse();
   const mob=isMobile(cur.phone);
   const lastH=hist[0];
+  const rb=k=>{const [,l,c,t]=RES_BY[k];return `<button class="btn ${c}" data-act="callres" data-r="${k}" title="${esc(t||'')}">${l}</button>`};
+  const inp=(id,lab,val,ph)=>`<div style="min-width:0"><label class="f" for="${id}">${lab}</label><input id="${id}" style="width:100%" placeholder="${esc(ph||'')}" value="${esc(val||'')}"></div>`;
+  const resUI=S.call.step==='ans'?`<div class="sm muted" style="margin:8px 0 2px"><b>Il a répondu : que s'est-il passé ?</b> <button class="btn sm" data-act="callstep" data-s="">← Retour</button></div>
+   <div class="res cres">${['rdvv','rdvt','rdvp'].map(rb).join('')}</div><div class="res cres">${['rap','ans','no','hu','stop'].map(rb).join('')}</div>
+   <div class="cfields"><div><label class="f" for="co">Objection (si pas intéressé)</label><select id="co">${OBJ.map(o=>`<option${S.call.obj===o?' selected':''}>${esc(o)}</option>`).join('')}</select></div>
+   <div><label class="f" for="cd">Rappel le</label><input type="date" id="cd" value="${esc(S.call.date||'')}"></div>
+   <div><label class="f" for="ct">à</label><input type="time" id="ct" value="${esc(S.call.time||'10:00')}" title="Heure du rappel : une petite fenêtre te prévient 5 minutes avant"></div></div>
+   <div class="cfields"><div><label class="f" for="cr">RDV : date et heure</label><input type="datetime-local" id="cr" value="${esc(S.call.rdvAt)}"></div>${inp('cl','Lieu (RDV physique)',S.call.place,'Adresse')}${inp('cv','Lien visio (si tu l\'as)',S.call.link,'https://meet.google.com/…')}</div>
+   <details class="sm" open style="margin:6px 0"><summary><b>Points évoqués</b> <span class="muted">(repris dans le message de confirmation)</span></summary><div class="cfields" style="grid-template-columns:1fr">${inp('pt1','Leur activité ou besoin',S.call.pt1,'ex. pompes à chaleur, rénovation')}${inp('pt2','Leur objectif',S.call.pt2,'ex. recevoir plus de demandes de devis qualifiées')}${inp('pt3','Point sensible',S.call.pt3,'ex. garder leur marge')}</div></details>`
+   :`<div class="res cres2"><button class="btn primary big" data-act="callstep" data-s="ans">✅ Répondu</button><button class="btn big" data-act="callres" data-r="nr">📵 Pas répondu</button></div><div class="row sm" style="margin-top:6px"><span class="muted">Pas répondu, plus précis :</span><button class="btn sm" data-act="callres" data-r="rep">Répondeur</button><button class="btn sm" data-act="callres" data-r="bad">Mauvais numéro</button></div>`;
   const left=`<div class="card callcard"><div class="chips"><span class="chip" title="Nombre de fois où tu as appelé cette fiche">${(cur.touches||0)===0?'1er appel':'Appel n°'+((cur.touches||0)+1)}</span>${cur.stage==='contacte'?'<span class="chip warn">'+((cur.cycle||1)>=2?'Rappel de réserve':'Rappel')+'</span>':'<span class="chip hot">Premier appel</span>'}${cur.stage==='contacte'&&cur.slots&&cur.slots.length&&cur.slots.length<3?'<span class="chip" title="Les artisans sont souvent sur chantier : on varie le moment de l\'appel">Mieux : '+cur.slots.map(x=>SLOT_L[x]).join(' ou ')+'</span>':''}${mob?'<span class="chip bad" title="Mobile : le régime consommateur peut s\'appliquer aux indépendants, à vérifier">Mobile</span>':''}<span class="muted sm">${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}</span></div>
    <h2 class="cname">${esc(cur.name)}</h2>
    <div class="sm muted">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a> · `:''}${socialLinksHTML(cur)}score ${esc(cur.score||'—')}</div>
@@ -479,11 +541,7 @@ function appelsHTML(){
    <div class="numrow"><button type="button" class="callnum" data-act="copynum" data-n="${esc(normPhone(cur.phone))}" title="Clique pour copier le numéro, puis colle-le dans ton application d'appel (Onoff…)">${esc(fmtPhone(cur.phone))}</button><span class="numact"><a class="btn sm" href="tel:${esc(normPhone(cur.phone))}" title="Ouvre l'app téléphone du Mac (FaceTime) ou de l'iPhone">Appel Mac</a></span></div>
    ${lastH?`<div class="sm muted">Dernier : ${fdate(lastH.t)} · ${esc(ALL_RES_L[lastH.result]||lastH.result)}${lastH.note?' — '+esc(lastH.note):''}</div>`:''}
    <textarea id="cn" rows="2" class="cnote" placeholder="Note : ce que tu as appris (interlocuteur, objection, chantiers…)">${esc(S.call.note)}</textarea>
-   <div class="cfields"><div><label class="f" for="co">Objection</label><select id="co">${OBJ.map(o=>`<option${S.call.obj===o?' selected':''}>${esc(o)}</option>`).join('')}</select></div>
-   <div><label class="f" for="cd">Rappel le</label><input type="date" id="cd" value="${esc(S.call.date||'')}"></div>
-   <div><label class="f" for="ct">à</label><input type="time" id="ct" value="${esc(S.call.time||'10:00')}" title="Heure du rappel : un pop-up te relance tant que tu n'as pas appelé"></div>
-   <div><label class="f" for="cr">RDV (si pris)</label><input type="datetime-local" id="cr" value="${esc(S.call.rdvAt)}"></div></div>
-   <div class="res cres">${RES.map(([k,l,c,t])=>`<button class="btn ${c}" data-act="callres" data-r="${k}" title="${esc(t||'')}">${l}</button>`).join('')}</div>
+   ${resUI}
    <div class="row" style="justify-content:space-between;margin-top:6px;flex-wrap:nowrap"><details class="sm" style="flex:1;min-width:0"><summary class="muted">Historique, notes, enregistrement</summary>
     ${hist.length?`<div class="sm muted" style="margin:6px 0"><b>Historique</b><br>${hist.map(h=>`${fdate(h.t)} · ${esc(CH_L[h.channel||'appel'])} · ${esc(ALL_RES_L[h.result]||h.result)}${h.note?' — '+esc(h.note):''}`).join('<br>')}</div>`:''}
     ${cur.notes?`<div class="sm muted" style="white-space:pre-wrap">${esc(cur.notes)}</div>`:''}
@@ -492,23 +550,30 @@ function appelsHTML(){
   const right=`<div class="card scriptcard"><div class="row" style="flex-wrap:nowrap"><select id="cang" aria-label="Angle de script (sert aux statistiques)">${Object.entries(sc.scripts).map(([k,v])=>`<option value="${esc(k)}"${k===ang?' selected':''}>${esc(v.name)}</option>`).join('')}</select></div>
    <div class="script">${esc(fillScript((sc.scripts[ang]||{}).text,cur))}</div>
    <div class="sm muted"><b>Information d'enregistrement</b><br>${esc(sc.recordText)}</div></div>`;
-  return above+bar+`<div class="callgrid">${left}${right}</div>`;
+  return above+bar+rapPanelHTML()+`<div class="callgrid">${left}${right}</div>`;
 }
 
 async function callResult(r){
   const p=byId(S.call.pid);if(!p)return;
   const sc=settings();
-  const note=($('#cn')||{}).value||'',obj=($('#co')||{}).value||'—',audio=($('#ca')||{}).value||'',informed=!!($('#ci')||{}).checked;
-  const date=($('#cd')||{}).value||workday(r==='ans'?3:2),ntime=($('#ct')||{}).value||'10:00',rdvAt=($('#cr')||{}).value||'';
-  if(r==='rap'&&!(($('#cd')||{}).value)){toast('Choisis la date du rappel (champ « Rappel le »).');return}
-  if(r==='rdv'&&!rdvAt){toast('Renseigne la date et l\'heure du RDV.');return}
+  const V=(id,k,d)=>{const e=$('#'+id);return e?e.value:(S.call[k]||d||'')};
+  const note=V('cn','note'),obj=V('co','obj','—'),audio=V('ca','audio'),informed=!!($('#ci')?$('#ci').checked:S.call.informed);
+  const hasDate=!!V('cd','date'),date=V('cd','date')||workday(r==='ans'?3:2),ntime=V('ct','time','10:00')||'10:00',rdvAt=V('cr','rdvAt');
+  const place=V('cl','place').trim(),link=V('cv','link').trim();
+  const pts={besoin:V('pt1','pt1').trim(),objectif:V('pt2','pt2').trim(),sensible:V('pt3','pt3').trim()};
+  if(r==='rap'&&!hasDate){toast('Choisis la date du rappel (champ « Rappel le »).');return}
+  if(isRdvRes(r)&&!rdvAt){toast('Renseigne la date et l\'heure du RDV.');return}
+  if(r==='rdvp'&&!place){toast('Indique le lieu du rendez-vous physique.');return}
   const now=new Date();
-  const call={channel:'appel',prospectId:p.id,prospectName:p.name,t:now.toISOString(),hour:now.getHours(),result:r,angle:S.call.angle||sc.angle,obj:obj==='—'?'':obj,note,audio,informed,dept:p.dept||'',joint:JOINT.includes(r)};
+  const ty=r==='rdvt'?'tel':r==='rdvp'?'physique':'visio';
+  const call={channel:'appel',prospectId:p.id,prospectName:p.name,t:now.toISOString(),hour:now.getHours(),result:r,angle:S.call.angle||sc.angle,obj:obj==='—'||r!=='no'?'':obj,note,audio,informed,dept:p.dept||'',joint:JOINT.includes(r),answered:ANSWERED.includes(r)};
+  if(isRdvRes(r)){call.rdvType=ty;call.rdvAt=rdvAt}
   const id='c'+uid();
   const touches=(p.touches||0)+1;
-  const base={touches,lastCall:call.t,lastResult:r,notes:note?((p.notes?p.notes+'\n':'')+today()+' : '+note):(p.notes||'')};
+  const base={touches,lastCall:call.t,lastResult:r,rdvType:'',notes:note?((p.notes?p.notes+'\n':'')+today()+' : '+note):(p.notes||'')};
   let patch;
-  if(r==='rdv')patch={...base,stage:'rdv',rdvAt,nextDate:''};
+  if(r==='rdv'||r==='rdvv'||r==='rdvp')patch={...base,stage:'rdv',rdvAt,rdvType:ty,rdvPlace:ty==='physique'?place:'',rdvLink:link,pts,nextDate:'',rdvShow:'',rem24:false,rem2:false};
+  else if(r==='rdvt')patch={...base,stage:'contacte',rdvAt,rdvType:'tel',pts,nextDate:rdvAt.slice(0,10),rdvShow:''};
   else if(r==='rap'||r==='ans')patch={...base,stage:'contacte',nextDate:date};
   else if(r==='nr'||r==='rep'){const joined=callsOf(p.id).some(c=>c.joint);const ctries=callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).length+1;
     const slots=['m','d','s'].filter(x=>x!==slotOf(call.hour));
@@ -518,11 +583,11 @@ async function callResult(r){
   else if(r==='no')patch={...base,stage:'perdu',lostReason:call.obj||'Pas intéressé'};
   else if(r==='bad')patch={...base,phone:'',badPhone:true};
   else patch={...base,stage:'stop',optout:true};
-  patch.nextTime=(r==='rap'||r==='ans')?ntime:'';
+  patch.nextTime=r==='rdvt'?rdvAt.slice(11,16):(r==='rap'||r==='ans')?ntime:'';
   const ok=await guard(async()=>{await DB.set('calls',id,call);await DB.update('prospects',p.id,patch)});
-  if(ok){S.calls.push({id,...call});Object.assign(p,patch);S.call.pid='';S.call.open='';S.call.q='';if(r==='nr')S.lastNR=p.id;if(r==='rdv')S.lastRDV=p.id;
+  if(ok){S.calls.push({id,...call});Object.assign(p,patch);S.call.pid='';S.call.open='';S.call.q='';S.call.step='';if(r==='nr')S.lastNR=p.id;if(isRdvRes(r))S.lastRDV=p.id;
     const nth=touches===1?'1er appel':touches+'e appel',tr=callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).length;
-    const nxt=patch.stage==='perdu'?'fiche classée perdue':patch.stage==='stop'?'ne plus appeler':patch.stage==='rdv'?'RDV pris':patch.nextDate?'prochain essai le '+fdate(patch.nextDate):'';
+    const nxt=isRdvRes(r)?'RDV '+RDV_T[ty]+' le '+fdate(rdvAt):patch.stage==='perdu'?'fiche classée perdue':patch.stage==='stop'?'ne plus appeler':patch.nextDate?'prochain essai le '+fdate(patch.nextDate):'';
     S.lastRes=`<b>${esc(p.name)}</b> : ${esc(RES_L[r])} · ${nth}${(r==='nr'||r==='rep')&&!callsOf(p.id).some(c=>c.joint)?' ('+tr+'/'+MAX_TRIES+' dans cette série)':''}${nxt?' · '+nxt:''}`;
     toast(RES_L[r]+' enregistré · '+nth+(nxt?' · '+nxt:''));render();alarmCheck()}
 }
@@ -751,26 +816,54 @@ function journalHTML(L,from,to){
   rows.sort((a,b)=>String(b.t).localeCompare(String(a.t)));
   const shown=rows.slice(0,150);
   return `<section class="card"><h3>Journal daté <span class="muted">(${rows.length})</span></h3><p class="muted sm">Chaque action avec sa date et son heure exactes. L'export complet est dans l'onglet Données.</p><div class="scroll-x"><table class="t"><thead><tr><th>Date et heure</th><th>Type</th><th>Entreprise</th><th>Résultat</th><th>Objection</th><th>Note</th></tr></thead><tbody>${shown.map(r=>`<tr><td>${esc(fdateFull(r.t))}</td><td>${esc(r.k)}</td><td>${esc(r.n)}</td><td>${esc(r.r)}</td><td>${esc(r.o)}</td><td class="muted sm">${esc(String(r.note).slice(0,90))}</td></tr>`).join('')||'<tr><td colspan="6" class="muted">Rien sur cette période.</td></tr>'}</tbody></table></div>${rows.length>shown.length?`<p class="muted sm">+ ${rows.length-shown.length} lignes plus anciennes (voir l'export).</p>`:''}</section>`}
+const ZONE_C={g:'#3f8f3a',o:'#d28b0f',r:'#c0392b'};
+const zoneOf=(v,g,o,hi=true)=>hi?(v>=g?'g':v>=o?'o':'r'):(v<=g?'g':v<=o?'o':'r');
+const cj=c=>isCall(c)?isAns(c):!!c.joint;
+function targetsHTML(LC,from,to){
+  const n=LC.length,ans=LC.filter(isAns),cv=ans.length;
+  const hu=ans.filter(c=>c.result==='hu').length,rap=ans.filter(c=>c.result==='rap').length,rdvC=ans.filter(c=>isRdvRes(c.result)).length;
+  const days=new Set(LC.map(c=>String(c.t).slice(0,10))).size||1;
+  const pct=(a,b)=>b?Math.round(1000*a/b)/10:null;
+  const st=todayStats(),g=goals().conv;
+  const pastShow=S.prospects.filter(p=>p.rdvShow&&p.rdvAt&&p.rdvAt.slice(0,10)>=from&&p.rdvAt.slice(0,10)<=to);
+  const tenu=pastShow.filter(p=>p.rdvShow==='tenu').length,abs=pastShow.filter(p=>p.rdvShow==='absent').length;
+  const rows=[
+   ['Conversations par jour d\'appel',cv?Math.round(10*cv/days)/10:null,'',g[1]+' et +',g[0]+' à '+(g[1]-1),'moins de '+g[0],v=>zoneOf(v,g[1],g[0])],
+   ['Décroché (conversations ÷ appels)',pct(cv,n),' %','45 % et +','35 à 44 %','moins de 35 %',v=>zoneOf(v,45,35)],
+   ['Raccroché au nez (part des conversations)',pct(hu,cv),' %','10 % et -','11 à 20 %','plus de 20 %',v=>zoneOf(v,10,20,false)],
+   ['RDV par conversation',pct(rdvC,cv),' %','12 % et +','8 à 11 %','moins de 8 %',v=>zoneOf(v,12,8)],
+   ['À rappeler (part des conversations)',pct(rap,cv),' %','25 % et -','26 à 35 %','plus de 35 %',v=>zoneOf(v,25,35,false)],
+   ['Présence aux RDV (tenu ÷ prévus)',pct(tenu,tenu+abs),' %','70 % et +','55 à 69 %','moins de 55 %',v=>zoneOf(v,70,55)]];
+  const body=rows.map(([l,v,u,tg,to_,tr,zf])=>{const z=v==null?null:zf(v);return `<tr><td>${l}</td><td class="r"><b>${v==null?'—':String(v).replace('.',',')+u}</b></td><td class="r">${z?`<span class="badge" style="background:${ZONE_C[z]}">${z==='g'?'vert':z==='o'?'orange':'rouge'}</span>`:'<span class="muted sm">pas de donnée</span>'}</td><td class="sm muted">vert : ${tg} · orange : ${to_} · rouge : ${tr}</td></tr>`}).join('');
+  const rt={visio:0,tel:0,phys:0};LC.filter(c=>isRdvRes(c.result)).forEach(c=>{if(c.result==='rdvt')rt.tel++;else if(c.result==='rdvp')rt.phys++;else rt.visio++});
+  const telP=new Set(LC.filter(c=>c.result==='rdvt').map(c=>c.prospectId));
+  const telConv=[...telP].filter(id=>S.calls.some(c=>c.prospectId===id&&(c.result==='rdvv'||c.result==='rdvp')&&c.t>(LC.filter(x=>x.prospectId===id&&x.result==='rdvt')[0]||{}).t)).length;
+  const sl=['m','d','s'].map(k=>{const L=LC.filter(c=>c.hour!=null&&slotOf(c.hour)===k),a=L.filter(isAns).length;return `<tr><td>${SLOT_L[k]}</td><td class="r">${L.length}</td><td class="r">${a}</td><td class="r"><b>${L.length?Math.round(100*a/L.length)+' %':'—'}</b></td></tr>`}).join('');
+  const zc=zoneOf(st.conv,g[1],g[0]);
+  return `<section class="card"><h3>Mes objectifs · conversations</h3><div class="row" style="justify-content:space-between"><span class="sm">Aujourd'hui : une conversation = une personne qui a répondu</span><span><b style="font-size:1.4em">${st.conv}</b> <span class="muted">/ ${g[1]}</span> <span class="badge" style="background:${ZONE_C[zc]};display:inline-block;padding:2px 8px;border-radius:999px;color:#fff;font-size:12px;font-weight:700">${zc==='g'?'vert':zc==='o'?'orange':'rouge'}</span></span></div><div class="track"><i style="width:${Math.min(100,Math.round(100*st.conv/g[1]))}%"></i></div>
+  <div class="scroll-x"><table class="t tg"><thead><tr><th>Indicateur (période choisie)</th><th class="r">Ta valeur</th><th class="r">Zone</th><th>Targets proposés</th></tr></thead><tbody>${body}</tbody></table></div>
+  <div class="grid2"><div><h4>Rendez-vous par type</h4><p class="sm">Visio : <b>${rt.visio}</b> · Téléphonique : <b>${rt.tel}</b> · Physique : <b>${rt.phys}</b><br>Rendez-vous téléphoniques devenus visio ou physique : <b>${telConv}</b> sur ${telP.size}</p></div><div><h4>Quand on te répond</h4><table class="t tg"><thead><tr><th></th><th class="r">Appels</th><th class="r">Répondu</th><th class="r">Décroché</th></tr></thead><tbody>${sl}</tbody></table></div></div>
+  <p class="muted sm">Les targets sont des ordres de grandeur de départ, à ajuster avec tes chiffres réels (peu de données la 1re semaine).</p></section>`}
 function statsHTML(){
   const days=S.st.days;let from,to='9999-99-99';
   if(days==='w')from=weekStart(today());else if(days==='m')from=today().slice(0,8)+'01';else if(days==='c'){from=S.st.from||'0000-00-00';to=S.st.to||'9999-99-99'}else from=days>0?addDays(today(),-(days-1)):'0000-00-00';
   const L=S.calls.filter(c=>{const d=String(c.t).slice(0,10);return d>=from&&d<=to});
-  const LA=L,LC=L.filter(isCall);L.length;const j=LC.filter(c=>c.joint),rdv=LA.filter(c=>c.result==='rdv');
+  const LA=L,LC=L.filter(isCall);L.length;const j=LC.filter(isAns),rdv=LA.filter(c=>isRdvRes(c.result));
   const pct=(a,b)=>b?Math.round(1000*a/b)/10+' %':'—';
   const done=S.prospects.filter(p=>['rdv_fait','pilote','signe'].includes(p.stage)).length;
   const signed=S.prospects.filter(p=>p.stage==='signe').length;
   const sel=`<div class="row" style="margin-bottom:12px"><select id="stdays">${[[1,'Aujourd\'hui'],['w','Cette semaine'],['m','Ce mois-ci'],[7,'7 jours'],[14,'14 jours'],[30,'30 jours'],[0,'Depuis le début'],['c','Période choisie…']].map(([v,l])=>`<option value="${v}"${days===v?' selected':''}>${l}</option>`).join('')}</select>${days==='c'?`<input type="date" id="stfrom" value="${S.st.from||''}"> → <input type="date" id="stto" value="${S.st.to||''}">`:''}<button class="btn sm" data-act="exp-calls">Exporter les appels (CSV)</button></div>`;
   const kp=`<div class="kpis"><div class="kpi"><b>${LC.length}</b><span>appels</span></div><div class="kpi"><b>${j.length}</b><span>conversations (${pct(j.length,LC.length)})</span></div><div class="kpi"><b>${L.length-LC.length}</b><span>DM / vidéos / emails</span></div><div class="kpi"><b>${rdv.length}</b><span>RDV (tous canaux)</span></div><div class="kpi"><b>${done}</b><span>RDV faits ou plus loin (total)</span></div><div class="kpi"><b>${signed}</b><span>signés (total)</span></div></div>`;
-  const grp=(keyFn,title,minJ=30,src=LC)=>{const m={};src.forEach(c=>{const k=keyFn(c)||'—';(m[k]=m[k]||{n:0,j:0,r:0});m[k].n++;if(c.joint)m[k].j++;if(c.result==='rdv')m[k].r++});
+  const grp=(keyFn,title,minJ=30,src=LC)=>{const m={};src.forEach(c=>{const k=keyFn(c)||'—';(m[k]=m[k]||{n:0,j:0,r:0});m[k].n++;if(cj(c))m[k].j++;if(isRdvRes(c.result))m[k].r++});
     const rows=Object.entries(m).sort((a,b)=>b[1].n-a[1].n).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="r">${v.n}</td><td class="r">${v.j}</td><td class="r">${v.r}</td><td class="r"><b>${pct(v.r,v.j)}</b>${v.j<minJ?` <span class="muted sm">(${v.j} conv. : trop peu pour conclure)</span>`:''}</td></tr>`).join('');
     return `<section class="card"><h3>${title}</h3><div class="scroll-x"><table class="t"><thead><tr><th></th><th class="r">Appels</th><th class="r">Conv.</th><th class="r">RDV</th><th class="r">RDV / conv.</th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="muted">Aucune donnée.</td></tr>'}</tbody></table></div></section>`};
   const obj={};LC.filter(c=>c.obj).forEach(c=>{obj[c.obj]=(obj[c.obj]||0)+1});
   const objT=Object.entries(obj).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="r">${v}</td></tr>`).join('');
   const sc=settings();
-  const dayB=[];for(let i=13;i>=0;i--){const d=addDays(today(),-i);const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);dayB.push({d,n:cs.length,r:cs.filter(c=>c.result==='rdv').length})}
+  const dayB=[];for(let i=13;i>=0;i--){const d=addDays(today(),-i);const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);dayB.push({d,n:cs.length,r:cs.filter(c=>isRdvRes(c.result)).length})}
   const mx=Math.max(1,...dayB.map(x=>x.n));
   const chart=`<section class="card"><h3>14 derniers jours (appels, RDV en doré)</h3><div class="bar">${dayB.map(x=>`<div title="${fdate(x.d)} : ${x.n} appels, ${x.r} RDV" style="height:${Math.max(2,Math.round(90*x.n/mx))}px"><span class="b2" style="display:block;position:absolute;bottom:0;left:0;right:0;background:var(--brass);height:${x.n?Math.round(100*x.r/x.n):0}%"></span></div>`).join('')}</div></section>`;
-  return sel+recordsHTML()+kp+chart+`${grp(c=>CH_L[c.channel||'appel'],'Par canal (appels, DM, vidéos, emails)',30,L)}<div class="grid2">${grp(c=>(sc.scripts[c.angle]||{}).name||c.angle,'Appels : par angle de script')}${grp(c=>c.hour!=null?pad(c.hour)+'h':'','Appels : par heure',20)}</div><div class="grid2">${grp(c=>ageBucket(byId(c.prospectId)||{}),'Appels : par ancienneté de l\'entreprise',20)}${grp(c=>sectorOf(byId(c.prospectId)||{}),'Appels : par secteur d\'activité',20)}</div><div class="grid2">${grp(c=>reviewBucket(byId(c.prospectId)||{}),'Appels : par nombre d\'avis Google',20)}${grp(c=>(byId(c.prospectId)||{}).website?'Avec site':'Sans site','Appels : site internet',20)}</div><div class="grid2">${grp(c=>EFF_L[(byId(c.prospectId)||{}).effectif]||'Effectif inconnu','Appels : taille de l\'entreprise',20)}<span></span></div>
+  return sel+targetsHTML(LC,from,to)+recordsHTML()+kp+chart+`${grp(c=>CH_L[c.channel||'appel'],'Par canal (appels, DM, vidéos, emails)',30,L)}<div class="grid2">${grp(c=>(sc.scripts[c.angle]||{}).name||c.angle,'Appels : par angle de script')}${grp(c=>c.hour!=null?pad(c.hour)+'h':'','Appels : par heure',20)}</div><div class="grid2">${grp(c=>ageBucket(byId(c.prospectId)||{}),'Appels : par ancienneté de l\'entreprise',20)}${grp(c=>sectorOf(byId(c.prospectId)||{}),'Appels : par secteur d\'activité',20)}</div><div class="grid2">${grp(c=>reviewBucket(byId(c.prospectId)||{}),'Appels : par nombre d\'avis Google',20)}${grp(c=>(byId(c.prospectId)||{}).website?'Avec site':'Sans site','Appels : site internet',20)}</div><div class="grid2">${grp(c=>EFF_L[(byId(c.prospectId)||{}).effectif]||'Effectif inconnu','Appels : taille de l\'entreprise',20)}<span></span></div>
   <div class="grid2">${grp(c=>c.dept,'Appels : par département')}<section class="card"><h3>Objections</h3><table class="t"><tbody>${objT||'<tr><td class="muted">Aucune objection saisie.</td></tr>'}</tbody></table></section></div>
   ${journalHTML(L,from,to)}
   <p class="muted sm">Règle : on ne compare pas deux angles avant 30 conversations chacun. Un taux sur 10 conversations ne veut rien dire.</p>`;
@@ -783,7 +876,7 @@ const REC_M=[['n','Appels'],['j','Conversations'],['r','RDV'],['dm','Messages (D
 function periodAgg(){
   const A={D:{},W:{},M:{}};
   const add=(d,f)=>[['D',d],['W',weekStart(d)],['M',d.slice(0,7)]].forEach(([p,k])=>{const x=A[p][k]=A[p][k]||{n:0,j:0,r:0,dm:0,v:0,ct:0};x[f]++});
-  S.calls.forEach(c=>{const d=String(c.t).slice(0,10);if(isCall(c)){add(d,'n');if(c.joint)add(d,'j')}else if(c.result==='sent')add(d,c.channel==='video'?'v':'dm');if(c.result==='rdv')add(d,'r')});
+  S.calls.forEach(c=>{const d=String(c.t).slice(0,10);if(isCall(c)){add(d,'n');if(isAns(c))add(d,'j')}else if(c.result==='sent')add(d,c.channel==='video'?'v':'dm');if(isRdvRes(c.result))add(d,'r')});
   S.content.forEach(c=>{if(c.d)add(String(c.d).slice(0,10),'ct')});
   return A;
 }
@@ -1114,13 +1207,13 @@ function aideHTML(){return `<div class="card"><h2>Explication de l'outil</h2>
 
 
 /* ================= aujourd'hui : non-négociables ================= */
-const DEF_GOALS={calls:[70,100],dm:[40,70],videos:[10,15],content:[1,2]};
+const DEF_GOALS={conv:[25,50],dm:[40,70],videos:[10,15],content:[1,2]};
 const DAILY_CHECKS=[['liste','Liste de demain préparée (au moins 100 fiches appelables)'],['relances','Relances et rappels du jour traités'],['debrief','Débrief 5 min : une note par conversation + l\'objection du jour'],['rdvconf','Rappel du matin fait pour chaque RDV du jour']];
 const goals=()=>({...DEF_GOALS,...(S.settings.goals||{})});
 function todayCounts(){
   const t=today();const L=S.calls.filter(c=>String(c.t).slice(0,10)===t);
   const out=L.filter(c=>!isCall(c));
-  return {calls:L.filter(isCall).length,dm:out.filter(c=>c.result==='sent'&&c.channel!=='video').length,videos:out.filter(c=>c.result==='sent'&&c.channel==='video').length,content:S.content.filter(c=>c.d===t).length,rdv:L.filter(c=>c.result==='rdv').length,conv:L.filter(c=>c.joint).length}
+  return {calls:L.filter(isCall).length,dm:out.filter(c=>c.result==='sent'&&c.channel!=='video').length,videos:out.filter(c=>c.result==='sent'&&c.channel==='video').length,content:S.content.filter(c=>c.d===t).length,rdv:L.filter(c=>isRdvRes(c.result)).length,conv:L.filter(c=>isCall(c)&&isAns(c)).length}
 }
 function heroHTML(){
   const n=todayCounts(),g=goals(),d=new Date();
@@ -1131,18 +1224,18 @@ function heroHTML(){
   const Q=['Chaque appel est un pas vers le prochain rendez-vous.','Le volume fait le talent : appelle.','La régularité dépasse l\'intensité.','Un « non » est une donnée, pas un échec.','Tu construis une entreprise, pas une journée.','Concentre-toi sur la prochaine conversation.','Ce que tu fais aujourd\'hui fera ton chiffre de demain.'];
   const q=Q[Math.floor(d/864e5)%Q.length];
   return `<section class="hero"><div><div class="kick">${esc(dateTxt)} · J-${left}</div><h1>Cap sur <em>10&nbsp;000&nbsp;€</em> par mois.</h1><p>${esc(q)}</p></div>
-  <div class="stats"><div class="st"><b>${n.calls}<small class="muted" style="font-size:15px"> / ${g.calls[0]}</small></b><span>Appels du jour</span></div><div class="st"><b>${n.rdv}</b><span>RDV pris</span></div>
+  <div class="stats"><div class="st"><b>${n.conv}<small class="muted" style="font-size:15px"> / ${g.conv[0]}</small></b><span>Conversations du jour</span></div><div class="st"><b>${n.rdv}</b><span>RDV pris</span></div>
   <div class="st goal"><div class="row" style="justify-content:space-between"><span>CA mensuel moyen</span><span><b style="display:inline;font-size:15px">${esc(money(mrr))}</b> <span>/ 10 000 €</span></span></div><div class="track"><i style="width:${pct}%"></i></div></div></div></section>`;
 }
 /* ================= objectif décembre : 8 000 à 10 000 € encaissés ================= */
-const GOAL={cash:[8000,10000],end:'2026-12-31',steps:[['2026-11-13',1],['2026-11-27',3],['2026-12-11',4],['2026-12-18',5]],rate:{sign:0.18,rdvConv:0.10,convCall:0.15}};
+const GOAL={cash:[8000,10000],end:'2026-12-31',steps:[['2026-11-13',1],['2026-11-27',3],['2026-12-11',4],['2026-12-18',5]],rate:{sign:0.18,rdvConv:0.12,convCall:0.45}};
 function workDaysLeft(to){let n=0,d=today();while(d<=to){if(new Date(d+'T12:00:00').getDay()!==0)n++;d=addDays(d,1)}return n}
 function goalCalc(){
   const t=today();
   const signed=Math.max(S.clients.length,S.prospects.filter(p=>p.stage==='signe').length);
   const cash=S.clients.reduce((s,c)=>{const k=cliKpi(c);return s+(c.signedAt&&c.signedAt<=t?(+c.price||0)/2:0)+(k.qu>=20?(+c.price||0)/2:0)},0);
   const step=GOAL.steps.find(([d,n])=>signed<n);
-  const LC=S.calls.filter(isCall),conv=LC.filter(c=>c.joint).length,rdvAll=S.calls.filter(c=>c.result==='rdv').length;
+  const LC=S.calls.filter(isCall),conv=LC.filter(isAns).length,rdvAll=S.calls.filter(c=>isRdvRes(c.result)).length;
   const own={sign:rdvAll>=10&&signed?signed/rdvAll:0,rdvConv:conv>=30?rdvAll/conv:0,convCall:LC.length>=100?conv/LC.length:0};
   const r={sign:own.sign||GOAL.rate.sign,rdvConv:own.rdvConv||GOAL.rate.rdvConv,convCall:own.convCall||GOAL.rate.convCall};
   const hyp=!(own.sign&&own.rdvConv&&own.convCall);
@@ -1161,11 +1254,11 @@ function goalHTML(){
   <p class="sm" style="margin:4px 0">Pour tenir : <b>${n.rdvNeed}</b> rendez-vous à prendre en plus des ${g.pending} déjà prévus, soit environ <b>${n.calls}</b> appels, soit <b>${n.perDay} appels par jour</b> jusqu'au ${fdate(n.d)} (${n.days} jours d'appel, dimanche exclu).</p>`}
   return `<section class="card"><h3>🎯 Objectif ${lo.toLocaleString('fr-FR')} à ${hi.toLocaleString('fr-FR')} € encaissés d'ici le 31 décembre · J-${left}</h3>
   <div class="row" style="justify-content:space-between"><span class="sm">Encaissé estimé (acompte + 2ᵉ paiement à 20 leads qualifiés)</span><span><b>${money(g.cash)}</b> <span class="muted sm">/ ${lo.toLocaleString('fr-FR')} €</span></span></div><div class="track"><i style="width:${pct}%"></i></div>${body}
-  <p class="muted sm" style="margin:6px 0 0">Jalons : 1 signature le 13 nov. · 3 le 27 nov. · 4 le 11 déc. · 5 le 18 déc. ${g.hyp?'Le calcul utilise des taux de départ (hypothèses) : 18 % de signatures par rendez-vous, 10 % de rendez-vous par conversation, 15 % de conversations par appel. Ils passent à tes vrais taux dès que tu as assez d\'appels.':'Le calcul utilise tes vrais taux.'}</p></section>`;
+  <p class="muted sm" style="margin:6px 0 0">Jalons : 1 signature le 13 nov. · 3 le 27 nov. · 4 le 11 déc. · 5 le 18 déc. ${g.hyp?'Le calcul utilise des taux de départ (hypothèses) : '+Math.round(GOAL.rate.sign*100)+' % de signatures par rendez-vous, '+Math.round(GOAL.rate.rdvConv*100)+' % de rendez-vous par conversation, '+Math.round(GOAL.rate.convCall*100)+' % de conversations par appel (ton décroché réel de la 1re semaine). Ils passent à tes vrais taux dès que tu as assez d\'appels.':'Le calcul utilise tes vrais taux.'}</p></section>`;
 }
 function aujourdhuiHTML(){
   const g=goals(),n=todayCounts(),t=today();const done=((S.settings.checks||{})[t])||{};
-  const rows=[['calls','Appels','appels','Appeler'],['dm','Messages envoyés (DM, mail)','outreach','Envoyer'],['videos','Vidéos personnalisées','outreach','Envoyer'],['content','Contenus publiés','contenu','Publier']];
+  const rows=[['conv','Conversations','appels','Appeler'],['dm','Messages envoyés (DM, mail)','outreach','Envoyer'],['videos','Vidéos personnalisées','outreach','Envoyer'],['content','Contenus publiés','contenu','Publier']];
   const bar=(v,[min,max])=>{const pm=Math.min(100,Math.round(100*v/min)),px=Math.min(100,Math.round(100*v/max));return `<div style="background:var(--line,#ddd);border-radius:6px;height:12px;position:relative;overflow:hidden"><div style="position:absolute;inset:0 auto 0 0;width:${px}%;background:var(--ok,#2a7);opacity:.35"></div><div style="position:absolute;inset:0 auto 0 0;width:${Math.min(pm,px)}%;background:var(--ok,#2a7)"></div></div>`};
   const lines=rows.map(([k,l])=>{const v=n[k],[mn,mx]=g[k];const st=v>=mx?'🏆 reach atteint':v>=mn?'✅ minimum fait':`encore ${mn-v}`;return `<div style="margin:12px 0"><div class="row" style="justify-content:space-between"><b>${l}</b><span><b>${v}</b> / ${mn} <span class="muted sm">(reach ${mx})</span> · ${st}</span></div>${bar(v,[mn,mx])}</div>`}).join('');
   const nextRow=rows.find(([k])=>n[k]<g[k][0]);
@@ -1174,7 +1267,7 @@ function aujourdhuiHTML(){
   const ch=DAILY_CHECKS.map(([k,l])=>`<label style="display:block;margin:8px 0"><input type="checkbox" data-act="tchk" data-k="${k}"${done[k]?' checked':''}> ${esc(l)}</label>`).join('');
   const chOK=DAILY_CHECKS.every(([k])=>done[k]);
   const kp=`<div class="kpis"><div class="kpi"><b>${n.conv}</b><span>conversations</span></div><div class="kpi"><b>${n.rdv}</b><span>RDV pris</span></div><div class="kpi"><b>${outQueue().length}</b><span>à contacter</span></div><div class="kpi"><b>${callQueue().length}</b><span>à appeler</span></div></div>`;
-  const gi=Object.keys(DEF_GOALS).map(k=>`<label class="sm">${k==='calls'?'Appels':k==='dm'?'Messages':k==='videos'?'Vidéos':'Contenus'} <input type="number" min="0" style="width:60px" id="g-${k}-0" value="${g[k][0]}"> minimum <input type="number" min="0" style="width:60px" id="g-${k}-1" value="${g[k][1]}"> reach</label>`).join('<br>');
+  const gi=Object.keys(DEF_GOALS).map(k=>`<label class="sm">${k==='conv'?'Conversations':k==='dm'?'Messages':k==='videos'?'Vidéos':'Contenus'} <input type="number" min="0" style="width:60px" id="g-${k}-0" value="${g[k][0]}"> minimum <input type="number" min="0" style="width:60px" id="g-${k}-1" value="${g[k][1]}"> reach</label>`).join('<br>');
   return heroHTML()+goalHTML()+`<div class="card"><h2>Aujourd'hui · ${t}</h2><p class="muted sm">Minimum = non négociable (BAM). Reach = ce que tu vises. Les compteurs se remplissent tout seuls quand tu enregistres un résultat. Pas besoin de réfléchir : fais le bouton du bas.</p>${lines}${nxt}<p style="margin-top:12px"><b>${minOK&&chOK?'✅ Journée validée.':minOK?'Minimums faits : reste la checklist.':'Journée pas encore validée.'}</b></p></div>${kp}${bilanHTML()}
   <div class="card"><h3>Checklist du jour</h3>${ch}</div>
   <details class="card"><summary><b>Modifier les objectifs</b></summary><p>${gi}</p><button class="btn sm" data-act="goals-save">Enregistrer les objectifs</button></details>`;
@@ -1209,7 +1302,19 @@ function loginHTML(){
 }
 
 /* ================= rappels horaires (pop-up qui revient) ================= */
-S.snooze={};
+S.snooze=(()=>{try{const o=JSON.parse(localStorage.getItem('aos_snooze')||'{}');Object.keys(o).forEach(k=>{if(o[k]<Date.now())delete o[k]});return o}catch(e){return {}}})();
+function saveSnooze(){try{localStorage.setItem('aos_snooze',JSON.stringify(S.snooze))}catch(e){}}
+S.soonSeen={};
+function soonItems(){const now=new Date(),t=today(),hm=nowHM(),lim=new Date(now.getTime()+5*60000),hm5=pad(lim.getHours())+':'+pad(lim.getMinutes());const out=[];
+  S.prospects.forEach(p=>{if(p.optout)return;
+    if(p.stage==='contacte'&&p.nextDate===t&&p.nextTime&&p.nextTime>hm&&p.nextTime<=hm5)out.push({id:p.id,k:p.rdvType==='tel'?'RDV téléphonique':'Rappel',time:p.nextTime,p});
+    if(p.stage==='rdv'&&p.rdvAt&&p.rdvAt.slice(0,10)===t){const tt=p.rdvAt.slice(11,16);if(tt>hm&&tt<=hm5)out.push({id:p.id,k:'RDV '+RDV_T[p.rdvType||'visio'],time:tt,p})}});
+  return out.filter(x=>!S.soonSeen[x.id+x.time])}
+function soonCheck(){let el=document.getElementById('soon');const L=S.loaded&&!S.err?soonItems():[];
+  if(!L.length){if(el)el.remove();return}
+  const html=L.map(x=>`<div class="srow"><div><b>Dans 5 min · ${esc(x.time.replace(':','h'))}</b><br>${esc(x.k)} · <b>${esc(x.p.name)}</b><br><span class="sm muted">${esc(fmtPhone(x.p.phone))}</span></div><div class="btns"><button class="btn sm primary" data-act="soon-open" data-id="${esc(x.id)}" data-k="${esc(x.id+x.time)}">Ouvrir la fiche</button><button class="btn sm" data-act="soon-ok" data-k="${esc(x.id+x.time)}">Compris</button></div></div>`).join('');
+  if(!el){el=document.createElement('div');el.id='soon';document.body.appendChild(el)}
+  if(el.dataset.h!==html){el.innerHTML=html;el.dataset.h=html;beep()}}
 function nowHM(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
 function dueCallbacks(){const t=today(),hm=nowHM();
   return (S.prospects||[]).filter(p=>p.stage==='contacte'&&!p.optout&&p.nextTime&&p.nextDate&&hasPhone(p.phone)&&(p.nextDate<t||(p.nextDate===t&&p.nextTime<=hm))&&!((S.snooze[p.id]||0)>Date.now()))
@@ -1218,10 +1323,11 @@ let titleT,baseTitle=document.title;
 function beep(){try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;const c=new C(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.value=.15;o.start();setTimeout(()=>{o.stop();c.close()},350)}catch(e){}}
 function alarmCheck(){
   if(!S.loaded||S.err)return;
+  soonCheck();
   const L=dueCallbacks();let el=document.getElementById('alarm');
   if(!L.length){if(el)el.remove();if(titleT){clearInterval(titleT);titleT=null;document.title=baseTitle}return}
   const key=L.map(p=>p.id).join(',');
-  const html=`<div class="abox" role="alertdialog" aria-modal="true"><h2>⏰ Tu dois rappeler</h2><p class="muted sm" style="margin:0 0 8px">As-tu appelé ? Enregistre le résultat dans la fiche : ce pop-up s'arrête. Sinon il revient.</p>${L.map(p=>`<div class="arow"><div class="who"><b>${esc(p.name)}</b><div class="sm muted">prévu ${p.nextDate<today()?fdate(p.nextDate)+' ':''}à ${esc(p.nextTime)} · ${esc(fmtPhone(p.phone))}</div></div><div class="btns"><button class="btn primary" data-act="al-open" data-id="${esc(p.id)}">Ouvrir la fiche</button><button class="btn" data-act="al-snooze" data-id="${esc(p.id)}">Pas encore (5 min)</button></div></div>`).join('')}</div>`;
+  const html=`<div class="abox" role="alertdialog" aria-modal="true"><h2>⏰ Tu dois rappeler</h2><p class="muted sm" style="margin:0 0 8px">As-tu appelé ? Enregistre le résultat dans la fiche : ce pop-up s'arrête. Sinon il revient.</p><div class="row" style="margin:0 0 10px;flex-wrap:wrap"><button class="btn sm primary" data-act="al-closeall" data-m="60">Tout fermer (1 h)</button><button class="btn sm" data-act="al-closeall" data-m="5">5 min</button><button class="btn sm" data-act="al-closeall" data-m="tomorrow">Jusqu'à demain</button></div>${L.map(p=>`<div class="arow"><div class="who"><b>${esc(p.name)}</b><div class="sm muted">prévu ${p.nextDate<today()?fdate(p.nextDate)+' ':''}à ${esc(p.nextTime)} · ${esc(fmtPhone(p.phone))}</div></div><div class="btns"><button class="btn primary" data-act="al-open" data-id="${esc(p.id)}">Ouvrir la fiche</button><button class="btn" data-act="al-snooze" data-id="${esc(p.id)}">Pas encore (5 min)</button></div></div>`).join('')}</div>`;
   if(!el){el=document.createElement('div');el.id='alarm';document.body.appendChild(el)}
   if(el.dataset.k!==key){el.innerHTML=html;el.dataset.k=key;beep()}
   if(!titleT){let on=0;titleT=setInterval(()=>{document.title=(on=!on)?'⏰ RAPPELER !':baseTitle},1000)}
@@ -1231,11 +1337,19 @@ setInterval(alarmCheck,15000);
 /* ================= événements ================= */
 document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b||b.tagName==='SELECT')return;const a=b.dataset.act;
-  if(a==='al-snooze'){S.snooze[b.dataset.id]=Date.now()+5*60000;alarmCheck();return}
-  if(a==='al-open'){const id=b.dataset.id;S.snooze[id]=Date.now()+10*60000;S.tab='appels';S.call.open=id;S.call.pid=id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';alarmCheck();render();window.scrollTo(0,0);return}
+  if(a==='al-snooze'){S.snooze[b.dataset.id]=Date.now()+5*60000;saveSnooze();alarmCheck();return}
+  if(a==='al-closeall'){const m=b.dataset.m;const until=m==='tomorrow'?(()=>{const d=new Date();d.setDate(d.getDate()+1);d.setHours(6,0,0,0);return +d})():Date.now()+(+m)*60000;dueCallbacks().forEach(p=>{S.snooze[p.id]=until});saveSnooze();alarmCheck();toast(m==='tomorrow'?'Rappels fermés jusqu\'à demain.':'Rappels fermés '+(m==='60'?'1 heure':m+' minutes')+'.');return}
+  if(a==='soon-ok'){S.soonSeen[b.dataset.k]=1;soonCheck();return}
+  if(a==='soon-open'){S.soonSeen[b.dataset.k]=1;soonCheck();const id=b.dataset.id;S.tab='appels';S.call.open=id;S.call.pid=id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';render();window.scrollTo(0,0);return}
+  if(a==='callstep'){S.call.step=b.dataset.s||'';render();return}
+  if(a==='rapl-toggle'){S.call.showRap=!S.call.showRap;render();return}
+  if(a==='rem-open'){S.remind={id:b.dataset.id,k:b.dataset.k};S.tab='appels';render();window.scrollTo(0,0);return}
+  if(a==='remdone'){const p=byId(b.dataset.id),k=b.dataset.k==='r24'?'rem24':'rem2';if(p){p[k]=true;DB.update('prospects',p.id,{[k]:true})}S.remind=null;if(b.tagName==='BUTTON'){render()}else setTimeout(render,50);return}
+  if(a==='rdv-tenu'||a==='rdv-abs'){const p=byId(b.dataset.id);if(p){const patch=a==='rdv-tenu'?{rdvShow:'tenu',stage:'rdv_fait'}:{rdvShow:'absent',stage:'contacte',nextDate:workday(1),nextTime:'10:00',rdvType:''};await guard(()=>DB.update('prospects',p.id,patch));Object.assign(p,patch);toast(a==='rdv-tenu'?'RDV tenu enregistré.':'Absence enregistrée : rappel prévu demain à 10 h.');render()}return}
+  if(a==='al-open'){const id=b.dataset.id;S.snooze[id]=Date.now()+10*60000;S.tab='appels';S.call.open=id;S.call.pid=id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';alarmCheck();render();window.scrollTo(0,0);return}
   if(a==='copysms'){const t=b.dataset.m||'';const done=()=>toast('SMS copié. Colle-le dans Onoff (iPhone).');try{navigator.clipboard.writeText(t).then(done,()=>toast('Copie impossible.'))}catch(e){toast('Copie impossible.')}}
   if(a==='copynum'){const n=b.dataset.n||'';const done=()=>toast('Numéro copié : '+n+'. Colle-le dans ton application d\'appel.');try{navigator.clipboard.writeText(n).then(done,()=>{const t=document.createElement('textarea');t.value=n;document.body.appendChild(t);t.select();try{document.execCommand('copy')}catch(e){}t.remove();done()})}catch(e){done()}}
-  else if(a==='callopen'){S.call.open=b.dataset.id;S.call.pid=b.dataset.id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';render();window.scrollTo(0,0)}
+  else if(a==='callopen'){S.call.open=b.dataset.id;S.call.pid=b.dataset.id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';render();window.scrollTo(0,0)}
   else if(a==='callclose'){S.call.open='';S.call.pid='';render()}
   else if(a==='chal-ok'){S.chal=false;S.tab='appels';render()}
   else if(a==='tab'){S.tab=b.dataset.v;render()}
@@ -1273,6 +1387,8 @@ document.addEventListener('click',async e=>{
 document.addEventListener('change',e=>{
   if(e.target.id==='adsm'){const t=e.target,p=byId(t.dataset.id);if(p){const v=t.value,at=v?new Date().toISOString():'';p.adsMeta=v;p.adsMetaAt=at;DB.update('prospects',p.id,{adsMeta:v,adsMetaAt:at}).then(()=>toast('Vérification enregistrée.')).catch(()=>toast('Enregistrement impossible, réessaie.'));const a=t.parentNode.querySelector('a');if(a)a.textContent=(v==='oui'?'Pub Meta : vue le '+fdate(at):v==='non'?'Pub Meta : aucune vue le '+fdate(at):'Pub Meta potentielle')+' ↗'}return}
   const t=e.target;
+  if(t.id==='ci'){S.call.informed=t.checked;return}
+  if(t.id==='co'){S.call.obj=t.value;return}
   if(t.id==='cang'){S.call.angle=t.value;const keep={note:$('#cn')?$('#cn').value:'',obj:$('#co')?$('#co').value:'—',audio:$('#ca')?$('#ca').value:'',informed:$('#ci')?$('#ci').checked:false};Object.assign(S.call,keep);render()}
   else if(t.dataset&&t.dataset.act==='mobsel'){S.call.mob=t.value;S.call.pid='';render()}
   else if(t.id==='och'||t.id==='ovar'){S.out.note=$('#on')?$('#on').value:S.out.note;S.out.handle='';if(t.id==='och')S.out.ch=t.value;else S.out.variant=t.value;render()}
@@ -1285,6 +1401,8 @@ document.addEventListener('change',e=>{
 });
 document.addEventListener('input',e=>{
   const t=e.target;
+  const SCK={cl:'place',cv:'link',pt1:'pt1',pt2:'pt2',pt3:'pt3',cd:'date',ct:'time',cr:'rdvAt',co:'obj'};
+  if(SCK[t.id]){S.call[SCK[t.id]]=t.value;return}
   if(t.id==='cn')S.call.note=t.value;else if(t.id==='ca')S.call.audio=t.value;else if(t.id==='on')S.out.note=t.value;else if(t.id==='oh')S.out.handle=t.value;
   else if(t.id==='pq'){S.pf.q=t.value;render()}
   else if(t.id==='cq'){S.call.q=t.value;render()}

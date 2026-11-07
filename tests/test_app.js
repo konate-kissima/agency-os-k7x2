@@ -37,15 +37,16 @@ const fs = require('fs');
   ok(await pg.locator('h2:has-text("Dupont Plomberie")').count() === 1, 'file triée par score : Dupont en premier');
   ok(await pg.locator('.script:has-text("20 et 30 chantiers")').count() === 1, 'script Hamza tel quel affiché');
   await pg.fill('#cn', 'Gérant sympa, 2 techniciens');
+  await pg.click('[data-act=callstep][data-s=ans]');
   await pg.selectOption('#co', 'Déjà trop de travail');
-  await pg.click('[data-act=callres][data-r=rdv]');
+  await pg.click('[data-act=callres][data-r=rdvv]');
   ok(/date et l'heure/.test(await pg.textContent('#toast')), 'RDV exige une date');
   await pg.waitForTimeout(600);
   await pg.fill('#cr', '2026-11-04T10:00');
-  await pg.click('[data-act=callres][data-r=rdv]');
+  await pg.click('[data-act=callres][data-r=rdvv]');
   try{await pg.waitForSelector('h2:has-text("Martin Chauffage")',{timeout:5000})}catch(e){console.log('DIAG toast=',await pg.textContent('#toast'),'| cr=',await pg.inputValue('#cr').catch(()=>'-'),'| h2=',await pg.$$eval('h2',h=>h.map(x=>x.textContent)).catch(()=>'-'));process.exitCode=1}
   ok(true, 'fiche suivante après RDV');
-  ok(/RDV pris : Dupont/.test(await pg.textContent('main')) && await pg.locator('a[href^="https://calendar.google.com"]').count()===1 && await pg.locator('a[href^="https://wa.me/33139700000"]').count()===1, 'carte confirmation RDV (Google Agenda + WhatsApp)');
+  ok(/RDV visio pris : Dupont/.test(await pg.textContent('main')) && await pg.locator('a[href^="https://calendar.google.com"]').count()===1 && await pg.locator('a[href^="https://wa.me"]').count()===0 && (await pg.textContent('main')).includes('Numéro fixe'), 'carte confirmation RDV (Google Agenda, pas de WhatsApp sur fixe)');
 
   // appel 2 : Martin -> pas de réponse (reprogrammé) puis plus personne
   await pg.selectOption('#cang', 'B');
@@ -105,10 +106,10 @@ const fs = require('fs');
   // aujourd'hui
   await pg.click('[data-v=auj]');
   const aj=await pg.textContent('main');
-  ok(/2\s*\/\s*70/.test(aj)||/Appels\s*2\s*\/\s*70/.test(aj),'checklist : appels 2 / 70 ('+aj.replace(/\s+/g,' ').slice(0,200)+')');
+  ok(/1\s*\/\s*25/.test(aj),'conversations 1 / 25 ('+aj.replace(/\s+/g,' ').slice(0,200)+')');
   await pg.check('[data-k=liste]'); ok(await pg.isChecked('[data-k=liste]'),'case cochée persistée');
-  await pg.waitForTimeout(300); await pg.click('details summary'); await pg.fill('#g-calls-0','80'); await pg.click('[data-act=goals-save]'); await pg.waitForTimeout(200);
-  const m80=await pg.textContent('main');ok(/2\s*\/\s*80/.test(m80),'objectif modifiable '+m80.replace(/\s+/g,' ').slice(0,260));
+  await pg.waitForTimeout(300); await pg.click('details summary'); await pg.fill('#g-conv-0','80'); await pg.click('[data-act=goals-save]'); await pg.waitForTimeout(200);
+  const m80=await pg.textContent('main');ok(/1\s*\/\s*80/.test(m80),'objectif modifiable '+m80.replace(/\s+/g,' ').slice(0,260));
 
   // stats
   await pg.click('[data-v=stats]');

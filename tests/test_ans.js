@@ -13,6 +13,7 @@ const path = require('path'), fs = require('fs');
   const ok = (c, m) => { if (!c) { console.log('FAIL', m); process.exitCode = 1; } else console.log('ok  ', m); };
   const setup = () => pg.evaluate(() => { S.prospects = [{ id: 'A1', name: 'SPC Batiment', phone: '01 30 00 00 05', stage: 'a_contacter', city: 'Poissy' }]; S.calls = []; S.tab = 'appels'; S.call.pid = ''; render() });
   await setup();
+  await pg.locator('[data-act=callstep][data-s=ans]').click();
   ok(await pg.locator('button[data-r="ans"]').count() === 1, 'bouton « A répondu, sans suite » présent');
   ok(await pg.locator('#cd').inputValue() === '', 'date de rappel vide par défaut');
   await pg.locator('button[data-r="rap"]').click();
