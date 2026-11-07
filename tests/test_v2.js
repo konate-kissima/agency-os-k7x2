@@ -67,7 +67,7 @@ const path = require('path'), fs = require('fs');
   // stats
   await pg.evaluate(() => { S.tab = 'stats'; render() });
   const st = await pg.textContent('main');
-  ok(st.includes('Décroché') && st.includes('Présence aux RDV') && st.includes('Conversations par jour'), 'page Stats : indicateurs cibles');
+  ok(st.includes('Décroché') && st.includes('Présence aux RDV') && st.includes('Décrochés par jour'), 'page Stats : indicateurs cibles');
   await pg.evaluate(() => { S.tab = 'auj'; render() });
   ok((await pg.textContent('main')).includes('Conversations'), 'Aujourd\'hui : conversations');
   ok(errs.length === 0, 'aucune erreur JS ' + errs.join('|'));

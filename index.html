@@ -490,7 +490,7 @@ function callQueue(){
    .sort((a,b)=>rank(a)-rank(b)||(a.stage==='contacte'&&b.stage==='contacte'?String(a.nextDate||'').localeCompare(String(b.nextDate||'')):0)||(+b.score||0)-(+a.score||0)||(+b.reviews||0)-(+a.reviews||0)||String(a.name).localeCompare(String(b.name)));
 }
 function callsOf(pid){return S.calls.filter(c=>c.prospectId===pid)}
-function todayStats(){const t=today();const L=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t);return{n:L.length,j:L.filter(c=>JOINT.includes(c.result)).length,conv:L.filter(isAns).length,r:L.filter(c=>isRdvRes(c.result)).length}}
+function todayStats(){const t=today();const L=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t);return{n:L.length,j:L.filter(c=>JOINT.includes(c.result)).length,conv:L.filter(isAns).length,real:L.filter(c=>JOINT.includes(c.result)).length,r:L.filter(c=>isRdvRes(c.result)).length}}
 function fillScript(txt,p){return String(txt||'').replace(/\{contact\}/g,p.dirigeant||'monsieur/madame').replace(/\{accroche\}/g,hookFor(p)).replace(/\{Valeur\}/g,valueFor(p)).replace(/\{Accroche\}/g,(()=>{let h=hookFor(p);if(/je n'ai pas trouvé de site/.test(h))h=p.city?`j'ai découvert ${p.name} à ${p.city}`:`j'ai découvert ${p.name}`;return h.charAt(0).toUpperCase()+h.slice(1)})()).replace(/\{avis\}/g,p.reviews||'?').replace(/\{note\}/g,p.rating||'?').replace(/\{nom\}/g,p.name||'').replace(/\{ville\}/g,p.city||'').replace(/\{jour\}/g,'demain')}
 
 const RDV_T={visio:'visio',tel:'téléphonique',physique:'physique'};
@@ -584,11 +584,11 @@ function appelsHTML(){
   const forced=S.call.open?byId(S.call.open):null;
   let cur=forced||(S.call.pid?byId(S.call.pid):null);
   if(!forced&&(!cur||!Q.some(x=>x.id===cur.id)))cur=Q[0]||null;
-  if(cur&&S.call.pid!==cur.id){S.call.pid=cur.id;S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link=''}
+  if(cur&&S.call.pid!==cur.id){S.call.pid=cur.id;S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0}
   if(!cur)S.call.pid='';
   const ang=S.call.angle||sc.angle;
   const gc=goals().conv,zc=zoneOf(st.conv,gc[0],Math.round(gc[0]/2));
-  const kp=`<span class="pill" title="Une conversation = une personne qui a répondu. Objectif non négociable : ${gc[0]} par jour."><i class="zdot" style="background:${ZONE_C[zc]}"></i><b>${st.conv}</b> / ${gc[0]} conversations</span><span class="pill"><b>${st.r}</b> RDV</span><span class="pill muted"><b>${st.n}</b> appels passés</span><span class="pill"><b>${Q.length}</b> à appeler</span><button class="btn sm${S.call.showRap?' primary':''}" data-act="rapl-toggle">À rappeler (${rapList().length})</button>`;
+  const kp=`<span class="pill" title="Décroché = une personne qui a répondu (même si elle raccroche). Objectif non négociable : ${gc[0]} par jour."><i class="zdot" style="background:${ZONE_C[zc]}"></i><b>${st.conv}</b> / ${gc[0]} décrochés</span><span class="pill" title="Vraie conversation = il a décroché et vous avez réellement échangé (hors raccroché au nez)."><b>${st.real}</b> vraies conversations</span><span class="pill"><b>${st.r}</b> RDV</span><span class="pill muted"><b>${st.n}</b> appels passés</span><span class="pill"><b>${Q.length}</b> à appeler</span><button class="btn sm${S.call.showRap?' primary':''}" data-act="rapl-toggle">À rappeler (${rapList().length})</button>`;
   const filt=`<select data-act="mobsel" aria-label="Type de ligne" class="sm"><option value="all"${S.call.mob==='all'?' selected':''}>Toutes lignes</option><option value="fixe"${S.call.mob==='fixe'?' selected':''}>Fixes</option><option value="mobile"${S.call.mob==='mobile'?' selected':''}>Mobiles</option></select>`;
   const bar=callSearchHTML(kp+filt);
   const above=todayPlanHTML()+dueBanner()+rdvCard()+remindCard()+nrCard()+(S.lastRes?`<div class="lastres">Dernier appel : ${S.lastRes}</div>`:'');
@@ -642,7 +642,7 @@ async function callResult(r){
   if(r==='rdvp'&&!place){toast('Indique le lieu du rendez-vous physique.');return}
   const now=new Date();
   const ty=r==='rdvt'?'tel':r==='rdvp'?'physique':'visio';
-  const call={channel:'appel',prospectId:p.id,prospectName:p.name,t:now.toISOString(),hour:now.getHours(),result:r,angle:S.call.angle||sc.angle,obj:obj==='—'||r!=='no'?'':obj,note,audio,informed,dept:p.dept||'',joint:JOINT.includes(r),answered:ANSWERED.includes(r)};
+  const call={channel:'appel',prospectId:p.id,prospectName:p.name,t:now.toISOString(),hour:now.getHours(),result:r,angle:S.call.angle||sc.angle,obj:obj==='—'||r!=='no'?'':obj,note,audio,informed,dept:p.dept||'',joint:JOINT.includes(r),answered:ANSWERED.includes(r),dur:S.call.dur||0};
   if(isRdvRes(r)){call.rdvType=ty;call.rdvAt=rdvAt}
   const id='c'+uid();
   const touches=(p.touches||0)+1;
@@ -915,19 +915,21 @@ function targetsHTML(LC,from,to){
   const pastShow=S.prospects.filter(p=>p.rdvShow&&p.rdvAt&&p.rdvAt.slice(0,10)>=from&&p.rdvAt.slice(0,10)<=to);
   const tenu=pastShow.filter(p=>p.rdvShow==='tenu').length,abs=pastShow.filter(p=>p.rdvShow==='absent').length;
   const rows=[
-   ['Conversations par jour d\'appel',cv?Math.round(10*cv/days)/10:null,'',g[0]+' et +',Math.round(g[0]/2)+' à '+(g[0]-1),'moins de '+Math.round(g[0]/2),v=>zoneOf(v,g[0],Math.round(g[0]/2))],
+   ['Décrochés par jour d\'appel',cv?Math.round(10*cv/days)/10:null,'',g[0]+' et +',Math.round(g[0]/2)+' à '+(g[0]-1),'moins de '+Math.round(g[0]/2),v=>zoneOf(v,g[0],Math.round(g[0]/2))],
    ['Décroché (conversations ÷ appels)',pct(cv,n),' %','45 % et +','35 à 44 %','moins de 35 %',v=>zoneOf(v,45,35)],
+   ['Vraies conversations (part des décrochés)',pct(ans.filter(c=>JOINT.includes(c.result)).length,cv),' %','75 % et +','60 à 74 %','moins de 60 %',v=>zoneOf(v,75,60)],
+   ['Durée moyenne d\'une vraie conversation (enregistrée)',(()=>{const d=ans.filter(c=>JOINT.includes(c.result)&&c.dur>0).map(c=>c.dur);return d.length?Math.round(d.reduce((a,b)=>a+b,0)/d.length/6)/10:null})(),' min','—','—','—',v=>'i'],
    ['Raccroché au nez (part des conversations)',pct(hu,cv),' %','10 % et -','11 à 20 %','plus de 20 %',v=>zoneOf(v,10,20,false)],
    ['RDV par conversation',pct(rdvC,cv),' %','12 % et +','8 à 11 %','moins de 8 %',v=>zoneOf(v,12,8)],
    ['À rappeler (part des conversations)',pct(rap,cv),' %','25 % et -','26 à 35 %','plus de 35 %',v=>zoneOf(v,25,35,false)],
    ['Présence aux RDV (tenu ÷ prévus)',pct(tenu,tenu+abs),' %','70 % et +','55 à 69 %','moins de 55 %',v=>zoneOf(v,70,55)]];
-  const body=rows.map(([l,v,u,tg,to_,tr,zf])=>{const z=v==null?null:zf(v);return `<tr><td>${l}</td><td class="r"><b>${v==null?'—':String(v).replace('.',',')+u}</b></td><td class="r">${z?`<span class="badge" style="background:${ZONE_C[z]}">${z==='g'?'vert':z==='o'?'orange':'rouge'}</span>`:'<span class="muted sm">pas de donnée</span>'}</td><td class="sm muted">vert : ${tg} · orange : ${to_} · rouge : ${tr}</td></tr>`}).join('');
+  const body=rows.map(([l,v,u,tg,to_,tr,zf])=>{const z=v==null?null:zf(v);return `<tr><td>${l}</td><td class="r"><b>${v==null?'—':String(v).replace('.',',')+u}</b></td><td class="r">${z?(z==='i'?'<span class="muted sm">info</span>':`<span class="badge" style="background:${ZONE_C[z]}">${z==='g'?'vert':z==='o'?'orange':'rouge'}</span>`):'<span class="muted sm">pas de donnée</span>'}</td><td class="sm muted">vert : ${tg} · orange : ${to_} · rouge : ${tr}</td></tr>`}).join('');
   const rt={visio:0,tel:0,phys:0};LC.filter(c=>isRdvRes(c.result)).forEach(c=>{if(c.result==='rdvt')rt.tel++;else if(c.result==='rdvp')rt.phys++;else rt.visio++});
   const telP=new Set(LC.filter(c=>c.result==='rdvt').map(c=>c.prospectId));
   const telConv=[...telP].filter(id=>S.calls.some(c=>c.prospectId===id&&(c.result==='rdvv'||c.result==='rdvp')&&c.t>(LC.filter(x=>x.prospectId===id&&x.result==='rdvt')[0]||{}).t)).length;
   const sl=['m','d','s'].map(k=>{const L=LC.filter(c=>c.hour!=null&&slotOf(c.hour)===k),a=L.filter(isAns).length;return `<tr><td>${SLOT_L[k]}</td><td class="r">${L.length}</td><td class="r">${a}</td><td class="r"><b>${L.length?Math.round(100*a/L.length)+' %':'—'}</b></td></tr>`}).join('');
   const zc=zoneOf(st.conv,g[0],Math.round(g[0]/2));
-  return `<section class="card"><h3>Mes objectifs · conversations</h3><div class="row" style="justify-content:space-between"><span class="sm">Aujourd'hui : une conversation = une personne qui a répondu</span><span><b style="font-size:1.4em">${st.conv}</b> <span class="muted">/ ${g[0]}</span> <span class="badge" style="background:${ZONE_C[zc]};display:inline-block;padding:2px 8px;border-radius:999px;color:#fff;font-size:12px;font-weight:700">${zc==='g'?'vert':zc==='o'?'orange':'rouge'}</span></span></div><div class="track"><i style="width:${Math.min(100,Math.round(100*st.conv/g[0]))}%"></i></div>
+  return `<section class="card"><h3>Mes objectifs · personnes qui décrochent</h3><div class="row" style="justify-content:space-between"><span class="sm">Aujourd'hui : décroché = une personne qui a répondu. Vraie conversation = ils ont réellement échangé (${st.real} aujourd'hui).</span><span><b style="font-size:1.4em">${st.conv}</b> <span class="muted">/ ${g[0]}</span> <span class="badge" style="background:${ZONE_C[zc]};display:inline-block;padding:2px 8px;border-radius:999px;color:#fff;font-size:12px;font-weight:700">${zc==='g'?'vert':zc==='o'?'orange':'rouge'}</span></span></div><div class="track"><i style="width:${Math.min(100,Math.round(100*st.conv/g[0]))}%"></i></div>
   <div class="scroll-x"><table class="t tg"><thead><tr><th>Indicateur (période choisie)</th><th class="r">Ta valeur</th><th class="r">Zone</th><th>Targets proposés</th></tr></thead><tbody>${body}</tbody></table></div>
   <div class="grid2"><div><h4>Rendez-vous par type</h4><p class="sm">Visio : <b>${rt.visio}</b> · Téléphonique : <b>${rt.tel}</b> · Physique : <b>${rt.phys}</b><br>Rendez-vous téléphoniques devenus visio ou physique : <b>${telConv}</b> sur ${telP.size}</p></div><div><h4>Quand on te répond</h4><table class="t tg"><thead><tr><th></th><th class="r">Appels</th><th class="r">Répondu</th><th class="r">Décroché</th></tr></thead><tbody>${sl}</tbody></table></div></div>
   <p class="muted sm">Les targets sont des ordres de grandeur de départ, à ajuster avec tes chiffres réels (peu de données la 1re semaine).</p></section>`}
@@ -1300,7 +1302,7 @@ const goals=()=>({...DEF_GOALS,...(S.settings.goals||{})});
 function todayCounts(){
   const t=today();const L=S.calls.filter(c=>String(c.t).slice(0,10)===t);
   const out=L.filter(c=>!isCall(c));
-  return {calls:L.filter(isCall).length,dm:out.filter(c=>c.result==='sent'&&c.channel!=='video').length,videos:out.filter(c=>c.result==='sent'&&c.channel==='video').length,content:S.content.filter(c=>c.d===t).length,rdv:L.filter(c=>isRdvRes(c.result)).length,conv:L.filter(c=>isCall(c)&&isAns(c)).length}
+  return {calls:L.filter(isCall).length,dm:out.filter(c=>c.result==='sent'&&c.channel!=='video').length,videos:out.filter(c=>c.result==='sent'&&c.channel==='video').length,content:S.content.filter(c=>c.d===t).length,rdv:L.filter(c=>isRdvRes(c.result)).length,conv:L.filter(c=>isCall(c)&&isAns(c)).length,real:L.filter(c=>isCall(c)&&JOINT.includes(c.result)).length}
 }
 function heroHTML(){
   const n=todayCounts(),g=goals(),d=new Date();
@@ -1311,7 +1313,7 @@ function heroHTML(){
   const Q=['Chaque appel est un pas vers le prochain rendez-vous.','Le volume fait le talent : appelle.','La régularité dépasse l\'intensité.','Un « non » est une donnée, pas un échec.','Tu construis une entreprise, pas une journée.','Concentre-toi sur la prochaine conversation.','Ce que tu fais aujourd\'hui fera ton chiffre de demain.'];
   const q=Q[Math.floor(d/864e5)%Q.length];
   return `<section class="hero"><div><div class="kick">${esc(dateTxt)} · J-${left}</div><h1>Cap sur <em>10&nbsp;000&nbsp;€</em> par mois.</h1><p>${esc(q)}</p></div>
-  <div class="stats"><div class="st"><b>${n.conv}<small class="muted" style="font-size:15px"> / ${g.conv[0]}</small></b><span>Conversations du jour</span></div><div class="st"><b>${n.calls}</b><span>Appels passés${n.calls?' · '+Math.round(100*n.conv/n.calls)+' % décrochés':''}</span></div><div class="st"><b>${n.rdv}</b><span>RDV pris</span></div>
+  <div class="stats"><div class="st"><b>${n.conv}<small class="muted" style="font-size:15px"> / ${g.conv[0]}</small></b><span>Décrochés du jour · dont ${n.real} vraies conversations</span></div><div class="st"><b>${n.calls}</b><span>Appels passés${n.calls?' · '+Math.round(100*n.conv/n.calls)+' % décrochés':''}</span></div><div class="st"><b>${n.rdv}</b><span>RDV pris</span></div>
   <div class="st goal"><div class="row" style="justify-content:space-between"><span>CA mensuel moyen</span><span><b style="display:inline;font-size:15px">${esc(money(mrr))}</b> <span>/ 10 000 €</span></span></div><div class="track"><i style="width:${pct}%"></i></div></div></div></section>`;
 }
 /* ================= objectif décembre : 8 000 à 10 000 € encaissés ================= */
@@ -1345,7 +1347,7 @@ function goalHTML(){
 }
 function aujourdhuiHTML(){
   const g=goals(),n=todayCounts(),t=today();const done=((S.settings.checks||{})[t])||{};
-  const rows=[['conv','Conversations','appels','Appeler'],['dm','Messages envoyés (DM, mail)','outreach','Envoyer'],['videos','Vidéos personnalisées','outreach','Envoyer'],['content','Contenus publiés','contenu','Publier']];
+  const rows=[['conv','Personnes qui décrochent','appels','Appeler'],['dm','Messages envoyés (DM, mail)','outreach','Envoyer'],['videos','Vidéos personnalisées','outreach','Envoyer'],['content','Contenus publiés','contenu','Publier']];
   const bar=(v,[min,max])=>{const pm=Math.min(100,Math.round(100*v/min)),px=Math.min(100,Math.round(100*v/max));return `<div style="background:var(--line,#ddd);border-radius:6px;height:12px;position:relative;overflow:hidden"><div style="position:absolute;inset:0 auto 0 0;width:${px}%;background:var(--ok,#2a7);opacity:.35"></div><div style="position:absolute;inset:0 auto 0 0;width:${Math.min(pm,px)}%;background:var(--ok,#2a7)"></div></div>`};
   const lines=rows.map(([k,l])=>{const v=n[k],[mn,mx]=g[k];const st=v>=mx?'🏆 reach atteint':v>=mn?'✅ minimum fait':`encore ${mn-v}`;return `<div style="margin:12px 0"><div class="row" style="justify-content:space-between"><b>${l}</b><span><b>${v}</b> / ${mn} <span class="muted sm">(reach ${mx})</span> · ${st}</span></div>${bar(v,[mn,mx])}</div>`}).join('');
   const nextRow=rows.find(([k])=>n[k]<g[k][0]);
@@ -1412,8 +1414,8 @@ async function recStart(){
     const st=await navigator.mediaDevices.getUserMedia({audio:true});
     const mr=new MediaRecorder(st);S.rec.chunks=[];S.rec.mr=mr;
     mr.ondataavailable=e=>{if(e.data.size)S.rec.chunks.push(e.data)};
-    mr.onstop=()=>{st.getTracks().forEach(t=>t.stop());recSend(new Blob(S.rec.chunks,{type:mr.mimeType||'audio/webm'}),'appel.webm')};
-    mr.start(1000);S.rec.on=true;S.rec.msg='Dis à ton interlocuteur que l\'appel est enregistré.';render();
+    mr.onstop=()=>{S.call.dur=Math.round((Date.now()-S.rec.t0)/1000);st.getTracks().forEach(t=>t.stop());recSend(new Blob(S.rec.chunks,{type:mr.mimeType||'audio/webm'}),'appel.webm')};
+    S.rec.t0=Date.now();mr.start(1000);S.rec.on=true;S.rec.msg='Dis à ton interlocuteur que l\'appel est enregistré.';render();
   }catch(e){S.rec.msg='Micro refusé : autorise-le dans Chrome (cadenas de la barre d\'adresse).';toast(S.rec.msg);render()}
 }
 function saveSnooze(){try{localStorage.setItem('aos_snooze',JSON.stringify(S.snooze))}catch(e){}}
@@ -1475,10 +1477,10 @@ document.addEventListener('click',async e=>{
   if(a==='rem-open'){S.remind={id:b.dataset.id,k:b.dataset.k};S.tab='appels';render();window.scrollTo(0,0);return}
   if(a==='remdone'){const p=byId(b.dataset.id),k=b.dataset.k==='r24'?'rem24':'rem2';if(p){p[k]=true;DB.update('prospects',p.id,{[k]:true});logEv(p,'msg','Rappel RDV '+(k==='rem24'?'(veille)':'(2 h avant)')+' préparé')}S.remind=null;if(b.tagName==='BUTTON'){render()}else setTimeout(render,50);return}
   if(a==='rdv-tenu'||a==='rdv-abs'){const p=byId(b.dataset.id);if(p){const ty0=RDV_T[p.rdvType||'visio'];const patch=a==='rdv-tenu'?{rdvShow:'tenu',stage:'rdv_fait'}:{rdvShow:'absent',stage:'contacte',nextDate:workday(1),nextTime:'10:00',rdvType:''};await guard(()=>DB.update('prospects',p.id,patch));Object.assign(p,patch);logEv(p,'rdv','RDV '+ty0+(a==='rdv-tenu'?' tenu':' : absent'));toast(a==='rdv-tenu'?'RDV tenu enregistré.':'Absence enregistrée : rappel prévu demain à 10 h.');render()}return}
-  if(a==='al-open'){const id=b.dataset.id;S.snooze[id]=Date.now()+10*60000;S.tab='appels';S.call.open=id;S.call.pid=id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';alarmCheck();render();window.scrollTo(0,0);return}
+  if(a==='al-open'){const id=b.dataset.id;S.snooze[id]=Date.now()+10*60000;S.tab='appels';S.call.open=id;S.call.pid=id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0;alarmCheck();render();window.scrollTo(0,0);return}
   if(a==='copysms'){const t=b.dataset.m||'';const done=()=>toast('SMS copié. Colle-le dans Onoff (iPhone).');try{navigator.clipboard.writeText(t).then(done,()=>toast('Copie impossible.'))}catch(e){toast('Copie impossible.')}}
   if(a==='copynum'){const n=b.dataset.n||'';const done=()=>toast('Numéro copié : '+n+'. Colle-le dans ton application d\'appel.');try{navigator.clipboard.writeText(n).then(done,()=>{const t=document.createElement('textarea');t.value=n;document.body.appendChild(t);t.select();try{document.execCommand('copy')}catch(e){}t.remove();done()})}catch(e){done()}}
-  else if(a==='callopen'){S.call.open=b.dataset.id;S.call.pid=b.dataset.id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';render();window.scrollTo(0,0)}
+  else if(a==='callopen'){S.call.open=b.dataset.id;S.call.pid=b.dataset.id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0;render();window.scrollTo(0,0)}
   else if(a==='callclose'){S.call.open='';S.call.pid='';render()}
   else if(a==='chal-ok'){S.chal=false;S.tab='appels';render()}
   else if(a==='tab'){S.tab=b.dataset.v;render()}
