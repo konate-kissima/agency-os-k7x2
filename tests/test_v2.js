@@ -59,15 +59,21 @@ const path = require('path'), fs = require('fs');
   // raccroché au nez = conversation
   await pg.click('[data-r=hu]'); await pg.waitForTimeout(300);
   ok(await pg.evaluate(() => S.calls.some(c => c.result === 'hu' && c.answered && !c.joint)), 'Raccroché au nez compte comme répondu');
-  // tenu / absent
-  await pg.evaluate(() => { const p = byId('P1'); p.rdvAt = '2026-11-01T10:00'; p.rdvShow = ''; p.stage = 'rdv'; render() });
-  ok(await pg.locator('[data-act=rdv-abs]').count() === 1, 'bannière Tenu / Absent');
-  await pg.click('[data-act=rdv-abs]'); await pg.waitForTimeout(200);
-  ok(await pg.evaluate(() => byId('P1').stage === 'contacte' && byId('P1').rdvShow === 'absent'), 'Absent : retour en contacté avec rappel');
+  // RDV passé : qualification obligatoire (modal)
+  await pg.evaluate(() => { const p = byId('P1'); p.rdvAt = '2026-11-01T10:00'; p.rdvShow = ''; p.stage = 'rdv'; p.rdvType = 'visio'; p.rdvN = 1; alarmCheck() });
+  ok(await pg.locator('#rdvq').count() === 1, 'pop-up obligatoire pour qualifier le RDV');
+  await pg.click('#rdvq [data-act=rq-go][data-s=tenu]'); await pg.click('#rdvq [data-act=rq-go][data-s=r2]');
+  await pg.fill('#rq-at', '2026-11-20T10:00'); await pg.click('#rdvq [data-act=rq-do][data-d=r2]'); await pg.waitForTimeout(300);
+  ok(await pg.evaluate(() => byId('P1').rdvN === 2 && byId('P1').stage === 'rdv' && byId('P1').rdvs.length === 1 && byId('P1').rdvs[0].out === 'r2'), 'R1 tenu puis R2 prévu');
+  ok(await pg.locator('#rdvq').count() === 0, 'pop-up fermé une fois répondu');
+  await pg.evaluate(() => { byId('P1').rdvAt = '2026-11-02T10:00'; alarmCheck() });
+  await pg.click('#rdvq [data-act=rq-go][data-s=tenu]'); await pg.click('#rdvq [data-act=rq-go][data-s=signe]');
+  await pg.fill('#rq-amt', '3000'); await pg.click('#rdvq [data-act=rq-do][data-d=signe]'); await pg.waitForTimeout(300);
+  ok(await pg.evaluate(() => byId('P1').stage === 'signe' && S.clients.some(c => c.prospectId === 'P1' && c.price === 3000)), 'R2 tenu puis signé : client créé à 3000');
   // stats
   await pg.evaluate(() => { S.tab = 'stats'; render() });
   const st = await pg.textContent('main');
-  ok(st.includes('Décroché') && st.includes('Présence aux RDV') && st.includes('Décrochés par jour'), 'page Stats : indicateurs cibles');
+  ok(st.includes('Décroché') && st.includes('Présence aux RDV') && st.includes('R2 prévus') && st.includes('Décrochés par jour'), 'page Stats : indicateurs cibles');
   await pg.evaluate(() => { S.tab = 'auj'; render() });
   ok((await pg.textContent('main')).includes('Conversations'), 'Aujourd\'hui : conversations');
   ok(errs.length === 0, 'aucune erreur JS ' + errs.join('|'));

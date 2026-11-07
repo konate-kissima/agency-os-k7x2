@@ -215,6 +215,9 @@ input:focus,select:focus,textarea:focus{border-color:#b8893b;outline:3px solid r
 .btn.danger{background:#fff4f2;color:#b42318;border-color:#fecdca}
 .t th{letter-spacing:.12em;color:var(--muted)}
 #soon .srow{border:2px solid #b8893b}
+#rdvq{position:fixed;inset:0;z-index:100000;background:rgba(22,19,15,.72);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+#rdvq .rq-box{background:#fff;color:#16130f;border-radius:16px;max-width:520px;width:100%;padding:24px;box-shadow:0 30px 80px -20px rgba(0,0,0,.6);border:2px solid #b8893b}
+#rdvq .rq-btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}#rdvq .rq-btns .big{flex:1 1 140px;padding:14px 10px;font-size:1.02em}
 .res .btn[data-r=rap]{background:#fbf3df!important;border-color:#ecd9a8!important;color:#6b4c12!important}
 
 h1,h2,h3,h4,.hero,.st b,.callnum,.numrow .callnum,.pill b{font-variant-numeric:lining-nums;font-feature-settings:"lnum" 1,"tnum" 1}
@@ -550,7 +553,6 @@ function dueBanner(){
   due.forEach(x=>{h+=`<div class="banner">Revue J+14 à faire : <b>${esc(x.c.name)}</b> (campagne lancée le ${fdate(x.c.checklist.launch)}). <button class="btn sm" data-act="cli-open" data-id="${esc(x.c.id)}">Ouvrir</button></div>`});
   soon.forEach(x=>{h+=`<div class="banner info">Revue J+14 le ${fdate(x.d)} : ${esc(x.c.name)} (ne pas toucher la campagne avant).</div>`});
   const cut=new Date(Date.now()-30*60000);
-  S.prospects.filter(p=>p.stage==='rdv'&&p.rdvAt&&new Date(p.rdvAt)<cut&&!p.rdvShow).sort((a,b)=>a.rdvAt.localeCompare(b.rdvAt)).forEach(p=>{h+=`<div class="banner">RDV ${RDV_T[p.rdvType||'visio']} du ${fdate(p.rdvAt)} : <b>${esc(p.name)}</b>, a-t-il eu lieu ? <button class="btn sm primary" data-act="rdv-tenu" data-id="${esc(p.id)}">Tenu</button> <button class="btn sm" data-act="rdv-abs" data-id="${esc(p.id)}">Absent</button></div>`});
   S.prospects.filter(p=>p.stage==='rdv'&&p.rdvAt&&new Date(p.rdvAt)>=cut&&p.rdvAt.slice(0,10)<=addDays(t,1)).sort((a,b)=>a.rdvAt.localeCompare(b.rdvAt)).forEach(p=>{h+=`<div class="banner info">RDV ${RDV_T[p.rdvType||'visio']} ${fdate(p.rdvAt)} : <b>${esc(p.name)}</b> ${esc(fmtPhone(p.phone))} <button class="btn sm" data-act="open" data-id="${esc(p.id)}">Fiche</button></div>`});
   remindDue().forEach(x=>{h+=`<div class="banner">Rappel à envoyer (${x.k==='r24'?'veille':'2 h avant'}) : <b>${esc(x.p.name)}</b>, RDV ${esc(rdvWhen(x.p))} <button class="btn sm primary" data-act="rem-open" data-id="${esc(x.p.id)}" data-k="${x.k}">Préparer</button></div>`});
   return h;
@@ -909,13 +911,22 @@ const cj=c=>isCall(c)?isAns(c):!!c.joint;
 function averagesHTML(LC,from,to){
   const n=LC.length,ans=LC.filter(isAns),dec=ans.length,real=ans.filter(c=>JOINT.includes(c.result)).length,rdv=ans.filter(c=>isRdvRes(c.result)).length;
   const days=new Set(LC.map(c=>String(c.t).slice(0,10))).size;
-  const sh=S.prospects.filter(p=>p.rdvShow==='tenu'&&p.rdvAt&&p.rdvAt.slice(0,10)>=from&&p.rdvAt.slice(0,10)<=to).length;
-  const cl=S.clients.filter(c=>c.signedAt&&c.signedAt>=from&&c.signedAt<=to).length;
+  const E=allRdvs().filter(e=>e.at&&e.at.slice(0,10)>=from&&e.at.slice(0,10)<=to);
+  const r1=E.filter(e=>(e.n||1)===1&&e.show==='tenu').length;
+  const r2p=E.filter(e=>e.out==='r2').length,r2=E.filter(e=>(e.n||1)>=2&&e.show==='tenu').length;
+  const sg=E.filter(e=>e.out==='signe'),sgN=sg.length||S.clients.filter(c=>c.signedAt&&c.signedAt>=from&&c.signedAt<=to).length;
+  const amt=sg.reduce((a,e)=>a+(+e.amount||0),0),sgR1=sg.filter(e=>(e.n||1)===1).length,sgR2=sg.length-sgR1;
   const per=(a,b)=>b?(Math.round(10*a/b)/10).toString().replace('.',','):null;
-  const F=[['📞','Appels passés',n,null],['🙋','Décrochés',dec,per(n,dec)],['💬','Vraies conversations',real,per(n,real)],['📅','RDV pris',rdv,per(dec,rdv)],['✅','RDV tenus',sh,per(rdv,sh)],['🤝','Clients signés',cl,per(sh,cl)]];
-  const lab=['','1 décroché tous les <b>X</b> appels','1 vraie conversation tous les <b>X</b> appels','1 RDV tous les <b>X</b> décrochés','1 RDV tenu tous les <b>X</b> RDV pris','1 client tous les <b>X</b> RDV tenus'];
-  const cells=F.map(([e,l,v,m],i)=>`<div style="flex:1;min-width:130px;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:12px"><div class="muted sm">${e} ${l}</div><div style="font:700 26px var(--f-disp)">${v}</div>${i?`<div class="sm" style="margin-top:4px">${m?lab[i].replace('X',m):'<span class="muted">pas encore assez de données</span>'}</div>`:`<div class="sm muted" style="margin-top:4px">${days?per(n,days)+' par jour d\'appel':'—'}</div>`}</div>`).join('<div style="align-self:center;color:var(--muted)">→</div>');
-  const tot=cl&&n?`<p class="sm" style="margin:10px 0 0">Tous les chiffres se calculent seuls à partir de tes résultats d'appel. <b>Pour 1 client signé, il t'a fallu ${Math.round(n/cl)} appels.</b></p>`:'<p class="muted sm" style="margin:10px 0 0">Tout se calcule seul à partir de tes résultats d\'appel : plus tu appelles, plus ces moyennes deviennent fiables (vise 200 appels avant de les prendre au sérieux).</p>';
+  const F=[['📞','Appels passés',n,days?per(n,days)+' par jour d\'appel':'—'],
+   ['🙋','Décrochés',dec,per(n,dec)&&'1 décroché tous les <b>'+per(n,dec)+'</b> appels'],
+   ['💬','Vraies conversations',real,per(n,real)&&'1 vraie conversation tous les <b>'+per(n,real)+'</b> appels'],
+   ['📅','RDV pris (R1)',rdv,per(dec,rdv)&&'1 RDV tous les <b>'+per(dec,rdv)+'</b> décrochés'],
+   ['✅','R1 tenus',r1,per(rdv,r1)&&'1 R1 tenu tous les <b>'+per(rdv,r1)+'</b> RDV pris'],
+   ['🔁','R2 prévus',r2p,per(r1,r2p)&&'1 R2 tous les <b>'+per(r1,r2p)+'</b> R1 tenus'],
+   ['🗣','R2 tenus',r2,per(r2p,r2)&&'1 R2 tenu tous les <b>'+per(r2p,r2)+'</b> R2 prévus'],
+   ['🤝','Signés',sgN,sgN?'dont '+sgR1+' dès le R1 et '+sgR2+' au R2'+(amt?' · '+amt.toLocaleString('fr-FR')+' €':''):null]];
+  const cells=F.map(([e,l,v,m],i)=>`<div style="flex:1;min-width:120px;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:12px"><div class="muted sm">${e} ${l}</div><div style="font:700 26px var(--f-disp)">${v}</div><div class="sm" style="margin-top:4px">${m||'<span class="muted">pas encore assez de données</span>'}</div></div>`).join('<div style="align-self:center;color:var(--muted)">→</div>');
+  const tot=sgN&&n?`<p class="sm" style="margin:10px 0 0">Tous les chiffres se calculent seuls. <b>Pour 1 client signé, il t'a fallu ${Math.round(n/sgN)} appels${r1?' et '+per(r1+r2,sgN)+' RDV tenus':''}.</b></p>`:'<p class="muted sm" style="margin:10px 0 0">Tout se calcule seul à partir de tes résultats d\'appel et de tes réponses après chaque RDV. Prends ces moyennes au sérieux à partir d\'environ 200 appels.</p>';
   return `<section class="card"><h3>Mes moyennes · de l'appel au client</h3><div class="row" style="flex-wrap:wrap;gap:8px;align-items:stretch">${cells}</div>${tot}</section>`}
 function targetsHTML(LC,from,to){
   const n=LC.length,ans=LC.filter(isAns),cv=ans.length;
@@ -923,8 +934,8 @@ function targetsHTML(LC,from,to){
   const days=new Set(LC.map(c=>String(c.t).slice(0,10))).size||1;
   const pct=(a,b)=>b?Math.round(1000*a/b)/10:null;
   const st=todayStats(),g=goals().conv;
-  const pastShow=S.prospects.filter(p=>p.rdvShow&&p.rdvAt&&p.rdvAt.slice(0,10)>=from&&p.rdvAt.slice(0,10)<=to);
-  const tenu=pastShow.filter(p=>p.rdvShow==='tenu').length,abs=pastShow.filter(p=>p.rdvShow==='absent').length;
+  const pastShow=allRdvs().filter(e=>e.at&&e.at.slice(0,10)>=from&&e.at.slice(0,10)<=to);
+  const tenu=pastShow.filter(e=>e.show==='tenu').length,abs=pastShow.filter(e=>e.show==='absent').length;
   const rows=[
    ['Décrochés par jour d\'appel',cv?Math.round(10*cv/days)/10:null,'',g[0]+' et +',Math.round(g[0]/2)+' à '+(g[0]-1),'moins de '+Math.round(g[0]/2),v=>zoneOf(v,g[0],Math.round(g[0]/2))],
    ['Décroché (conversations ÷ appels)',pct(cv,n),' %','45 % et +','35 à 44 %','moins de 35 %',v=>zoneOf(v,45,35)],
@@ -1447,7 +1458,65 @@ function dueCallbacks(){const t=today(),hm=nowHM();
     .sort((a,b)=>(a.nextDate+a.nextTime).localeCompare(b.nextDate+b.nextTime))}
 let titleT,baseTitle=document.title;
 function beep(){try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;const c=new C(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.value=.15;o.start();setTimeout(()=>{o.stop();c.close()},350)}catch(e){}}
+
+/* ===== qualification obligatoire des RDV (R1 / R2 / signature) ===== */
+S.rq={id:'',step:''};
+function rdvOverdue(){const cut=Date.now()-10*60000;return S.prospects.filter(p=>p.stage==='rdv'&&p.rdvAt&&new Date(p.rdvAt).getTime()<cut&&!p.rdvShow).sort((a,b)=>a.rdvAt.localeCompare(b.rdvAt))[0]}
+function allRdvs(){const o=[];S.prospects.forEach(p=>{(p.rdvs||[]).forEach(e=>o.push({p,...e}));if(p.rdvShow&&!(p.rdvs||[]).length&&p.rdvAt)o.push({p,n:1,type:p.rdvType||'visio',at:p.rdvAt,show:p.rdvShow,out:p.rdvShow==='tenu'?(p.stage==='signe'?'signe':''):''})});return o}
+async function rqSave(p,entry,patch,logTxt){
+  const rdvs=[...(p.rdvs||[]),entry];const full={...patch,rdvs};
+  const ok=await guard(()=>DB.update('prospects',p.id,full));
+  if(ok){Object.assign(p,full);logEv(p,'rdv',logTxt);S.rq={id:'',step:''};render();rdvqCheck()}
+  return ok}
+function rdvqCheck(){
+  let el=document.getElementById('rdvq');
+  const p=S.loaded&&!S.err?rdvOverdue():null;
+  if(!p){if(el)el.remove();return}
+  if(S.rq.id!==p.id){S.rq={id:p.id,step:''}}
+  const n=p.rdvN||1,ty=RDV_T[p.rdvType||'visio'],lab=`R${n} ${ty}`;
+  const sc=settings();
+  const inp=(id,l,t,v,ph)=>`<label class="f" for="${id}">${l}</label><input id="${id}" type="${t||'text'}" style="width:100%" value="${esc(v||'')}" placeholder="${esc(ph||'')}">`;
+  let body='';
+  if(S.rq.step===''){
+    body=`<h2>Le ${lab} avec ${esc(p.name)} a-t-il eu lieu ?</h2><p class="muted sm">Prévu le ${esc(rdvWhen(p))}. Tu dois répondre pour continuer : c'est ce qui permet de suivre tes vraies moyennes.</p>
+    <div class="rq-btns"><button class="btn primary big" data-act="rq-go" data-s="tenu">✅ Oui, il a eu lieu</button><button class="btn big" data-act="rq-go" data-s="absent">❌ Absent</button><button class="btn big" data-act="rq-go" data-s="decale">🔁 Décalé</button></div>`}
+  else if(S.rq.step==='absent'){
+    body=`<h2>${esc(p.name)} ne s'est pas présenté</h2><p class="muted sm">Un rappel est programmé demain à 10 h pour le recontacter.</p><div class="rq-btns"><button class="btn primary big" data-act="rq-do" data-d="absent">Confirmer l'absence</button><button class="btn" data-act="rq-go" data-s="">← Retour</button></div>`}
+  else if(S.rq.step==='decale'){
+    body=`<h2>Nouvelle date pour ${esc(p.name)}</h2>${inp('rq-at','Date et heure du nouveau RDV','datetime-local')}<div class="rq-btns"><button class="btn primary big" data-act="rq-do" data-d="decale">Enregistrer</button><button class="btn" data-act="rq-go" data-s="">← Retour</button></div>`}
+  else if(S.rq.step==='tenu'){
+    body=`<h2>${lab} tenu avec ${esc(p.name)}. Et ensuite ?</h2><div class="rq-btns"><button class="btn primary big" data-act="rq-go" data-s="signe">🤝 Signé</button><button class="btn big" data-act="rq-go" data-s="r2">📅 ${n>=2?'RDV suivant':'R2'} prévu</button><button class="btn big" data-act="rq-go" data-s="rap">⏳ Il réfléchit (rappel)</button><button class="btn big" data-act="rq-go" data-s="perdu">🚫 Pas intéressé</button></div><p><button class="btn sm" data-act="rq-go" data-s="">← Retour</button></p>`}
+  else if(S.rq.step==='signe'){
+    body=`<h2>🎉 ${esc(p.name)} a signé</h2>${inp('rq-amt','Montant total signé (€)','number',sc.pilotPrice)}<div class="rq-btns"><button class="btn primary big" data-act="rq-do" data-d="signe">Enregistrer la signature</button><button class="btn" data-act="rq-go" data-s="tenu">← Retour</button></div>`}
+  else if(S.rq.step==='r2'){
+    body=`<h2>${n>=2?'RDV suivant':'R2'} avec ${esc(p.name)}</h2>${inp('rq-at','Date et heure','datetime-local')}<label class="f" for="rq-ty">Type</label><select id="rq-ty"><option value="visio">Visio</option><option value="physique">Physique</option></select>${inp('rq-pl','Lieu (si physique)','text','','Adresse')}${inp('rq-lk','Lien visio (si tu l\'as)','text','','https://meet.google.com/…')}<div class="rq-btns"><button class="btn primary big" data-act="rq-do" data-d="r2">Enregistrer le RDV</button><button class="btn" data-act="rq-go" data-s="tenu">← Retour</button></div>`}
+  else if(S.rq.step==='rap'){
+    body=`<h2>Rappeler ${esc(p.name)}</h2>${inp('rq-dt','Date du rappel','date',workday(3))}${inp('rq-tm','Heure','time','10:00')}<div class="rq-btns"><button class="btn primary big" data-act="rq-do" data-d="rap">Programmer le rappel</button><button class="btn" data-act="rq-go" data-s="tenu">← Retour</button></div>`}
+  else if(S.rq.step==='perdu'){
+    body=`<h2>Pourquoi pas intéressé ?</h2><label class="f" for="rq-ob">Raison</label><select id="rq-ob">${OBJ.filter(o=>o!=='—').map(o=>`<option>${esc(o)}</option>`).join('')}</select><div class="rq-btns"><button class="btn primary big" data-act="rq-do" data-d="perdu">Classer perdu</button><button class="btn" data-act="rq-go" data-s="tenu">← Retour</button></div>`}
+  const html=`<div class="rq-box">${body}</div>`;
+  if(!el){el=document.createElement('div');el.id='rdvq';document.body.appendChild(el);beep()}
+  if(el.dataset.h!==html){const keep={};el.querySelectorAll('input,select').forEach(i=>{if(i.id)keep[i.id]=i.value});el.innerHTML=html;el.dataset.h=html;Object.entries(keep).forEach(([k,v])=>{const i=el.querySelector('#'+k);if(i&&v)i.value=v})}}
+async function rqDo(d){
+  const p=byId(S.rq.id);if(!p)return;const v=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
+  const n=p.rdvN||1,ent=(show,extra)=>({n,type:p.rdvType||'visio',at:p.rdvAt,show,...extra});
+  if(d==='absent')return rqSave(p,ent('absent'),{rdvShow:'absent',stage:'contacte',nextDate:workday(1),nextTime:'10:00',rdvType:''},`R${n} ${RDV_T[p.rdvType||'visio']} : absent`);
+  if(d==='decale'){const at=v('rq-at');if(!at){toast('Choisis la nouvelle date et heure.');return}
+    const ok=await rqSave(p,ent('decale'),{rdvAt:at,rdvShow:'',rem24:false,rem2:false},`R${n} décalé au ${fdt(at)}`);if(ok)S.lastRDV=p.id;return}
+  if(d==='signe'){const amt=+v('rq-amt')||0;
+    const e=ent('tenu',{out:'signe',amount:amt});
+    const id='k'+uid(),sc=settings();const o={prospectId:p.id,name:p.name,phone:p.phone||'',email:p.email||'',contact:'',price:amt||sc.pilotPrice,budgetDay:sc.budgetDay,signedAt:today(),status:'onboarding',checklist:{contrat:today()},metrics:[],notes:'',caseOk:false};
+    const had=S.clients.some(c=>c.prospectId===p.id);
+    if(!had&&await guard(()=>DB.set('clients',id,o)))S.clients.push({id,...o});
+    return rqSave(p,e,{rdvShow:'tenu',stage:'signe',signedAmount:amt,signedAt:today()},`Signé à R${n} : ${amt} €`)}
+  if(d==='r2'){const at=v('rq-at'),ty=v('rq-ty')||'visio',pl=v('rq-pl');if(!at){toast('Choisis la date et l\'heure.');return}if(ty==='physique'&&!pl){toast('Indique le lieu.');return}
+    const ok=await rqSave(p,ent('tenu',{out:'r2'}),{rdvShow:'',rdvN:n+1,rdvAt:at,rdvType:ty,rdvPlace:ty==='physique'?pl:'',rdvLink:v('rq-lk'),rem24:false,rem2:false,stage:'rdv'},`R${n} tenu, R${n+1} ${RDV_T[ty]} prévu le ${fdt(at)}`);if(ok)S.lastRDV=p.id;return}
+  if(d==='rap'){const dt=v('rq-dt');if(!dt){toast('Choisis la date du rappel.');return}
+    return rqSave(p,ent('tenu',{out:'rap'}),{rdvShow:'tenu',stage:'contacte',nextDate:dt,nextTime:v('rq-tm')||'10:00'},`R${n} tenu, il réfléchit : rappel le ${fdate(dt)}`)}
+  if(d==='perdu'){const ob=v('rq-ob')||'Pas intéressé';return rqSave(p,ent('tenu',{out:'perdu',why:ob}),{rdvShow:'tenu',stage:'perdu',lostReason:ob},`R${n} tenu, perdu : ${ob}`)}
+}
 function alarmCheck(){
+  rdvqCheck();
   if(!S.loaded||S.err)return;
   soonCheck();
   const L=dueCallbacks();let el=document.getElementById('alarm');
@@ -1481,6 +1550,8 @@ document.addEventListener('click',async e=>{
       if(n)await DB.update('prospects',p.id,{log:p.log});
       toast(n?n+' débrief(s) Fathom ajouté(s) à l\'historique.':(a==='fathom-link'?'Réunion introuvable avec ce lien (ou déjà ajoutée).':'Aucun nouveau débrief Fathom pour cet e-mail.'));render()
     }catch(e){toast('Échec : '+e.message)}return}
+  if(a==='rq-go'){S.rq.step=b.dataset.s||'';rdvqCheck();return}
+  if(a==='rq-do'){rqDo(b.dataset.d);return}
   if(a==='rec-start'){recStart();return}
   if(a==='rec-stop'){if(S.rec.mr&&S.rec.mr.state!=='inactive')S.rec.mr.stop();return}
   if(a==='callstep'){S.call.step=b.dataset.s||'';render();return}
