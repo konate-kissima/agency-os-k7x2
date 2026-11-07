@@ -106,7 +106,7 @@ const fs = require('fs');
   // aujourd'hui
   await pg.click('[data-v=auj]');
   const aj=await pg.textContent('main');
-  ok(/1\s*\/\s*25/.test(aj),'conversations 1 / 25 ('+aj.replace(/\s+/g,' ').slice(0,200)+')');
+  ok(/1\s*\/\s*50/.test(aj),'conversations 1 / 50 ('+aj.replace(/\s+/g,' ').slice(0,200)+')');
   await pg.check('[data-k=liste]'); ok(await pg.isChecked('[data-k=liste]'),'case cochée persistée');
   await pg.waitForTimeout(300); await pg.click('details summary'); await pg.fill('#g-conv-0','80'); await pg.click('[data-act=goals-save]'); await pg.waitForTimeout(200);
   const m80=await pg.textContent('main');ok(/1\s*\/\s*80/.test(m80),'objectif modifiable '+m80.replace(/\s+/g,' ').slice(0,260));
