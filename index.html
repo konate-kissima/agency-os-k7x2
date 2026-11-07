@@ -1,11 +1,10 @@
 <!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Agency OS</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png"><link rel="icon" type="image/png" href="icons/icon-192.png"><meta name="theme-color" content="#0b100c"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Agency OS">
+<title>Agency OS</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png"><link rel="icon" type="image/png" href="icons/icon-192.png"><meta name="theme-color" content="#f6f7fb"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Agency OS">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap">
 <style>
-:root{color-scheme:dark;--bg:#0b100c;--bg2:#101712;--surface:#151d17;--surface2:#1d2820;--ink:#f2f5ee;--muted:#93a398;--line:#2a382d;--accent:#a8bd3c;--accent2:#e0a63a;--accent-ink:#121708;--good:#34d399;--bad:#ff6577;--warn:#fbbf24;--brass:#e0a63a;--ok:linear-gradient(90deg,#8fa332,#c9d04a);--hero:linear-gradient(135deg,#1b2519 0%,#141c15 55%,#232814 100%);--shadow:0 14px 34px -16px rgba(0,0,0,.7);--glow:0 10px 28px -10px rgba(168,189,60,.5);--f-body:"Manrope",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--f-disp:"Space Grotesk","Manrope",system-ui,-apple-system,"Segoe UI",sans-serif}
-@media (prefers-color-scheme:light){:root{color-scheme:light;--bg:#f1f2e9;--bg2:#e8eadd;--surface:#ffffff;--surface2:#eff1e4;--ink:#141a12;--muted:#5b6656;--line:#dcdfcc;--accent:#5f7316;--accent2:#b9780c;--accent-ink:#ffffff;--good:#0e9f6e;--bad:#d1304a;--warn:#a96b0a;--brass:#c98200;--ok:linear-gradient(90deg,#5f7316,#8da12a);--hero:linear-gradient(135deg,#fff 0%,#f6f8ec 60%,#e8efcf 100%);--shadow:0 12px 30px -18px rgba(40,30,10,.35);--glow:0 10px 24px -10px rgba(95,115,22,.45)}}
+:root{color-scheme:light;--bg:#f6f7fb;--bg2:#f1f3f9;--surface:#ffffff;--surface2:#f3f5fa;--ink:#101828;--muted:#667085;--line:#e4e7ee;--accent:#12b76a;--accent2:#f79009;--accent-ink:#ffffff;--good:#12b76a;--bad:#f04438;--warn:#b54708;--brass:#f79009;--ok:linear-gradient(90deg,#12b76a,#32d583);--hero:linear-gradient(135deg,#ffffff 0%,#f0fdf6 55%,#fff7e8 100%);--shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px -12px rgba(16,24,40,.12);--glow:0 8px 18px -8px rgba(18,183,106,.55);--f-body:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--f-disp:"Plus Jakarta Sans","Inter",system-ui,-apple-system,"Segoe UI",sans-serif}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;color:var(--ink);font:15px/1.5 var(--f-body);background:radial-gradient(900px 420px at 88% -8%,rgba(168,189,60,.14),transparent 62%),radial-gradient(700px 380px at -8% 4%,rgba(224,166,58,.08),transparent 58%),var(--bg);background-attachment:fixed;min-height:100vh}
@@ -145,6 +144,44 @@ details>summary{border-radius:8px}
 #alarm .arow{border-top:1px solid var(--line);padding:10px 0;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 #alarm .arow .who{min-width:0}
 #alarm .arow .btns{display:flex;gap:6px;flex-wrap:wrap}
+
+/* ===== design v3 : clair, net, énergique ===== */
+body{background:var(--bg)!important;font-size:15px;letter-spacing:-.005em}
+h1,h2,h3,h4{font-weight:800;letter-spacing:-.02em}
+header.top{background:rgba(255,255,255,.88);border-bottom:1px solid var(--line)}
+.logo{background:linear-gradient(135deg,#12b76a,#0e9f6e);color:#fff;border-radius:10px;box-shadow:var(--glow)}
+.brand{font-weight:800;letter-spacing:.12em}.brand b{color:var(--accent)}
+nav.tabs button{font-weight:600;color:var(--muted);border-radius:999px;padding:8px 14px}
+nav.tabs button:hover{background:var(--surface2);color:var(--ink)}
+nav.tabs button[aria-selected=true]{background:var(--ink);color:#fff;box-shadow:none}
+.card,.hero{background:var(--surface)!important;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+.hero{background:var(--hero)!important}
+.btn{border-radius:10px;font-weight:600;box-shadow:0 1px 2px rgba(16,24,40,.06)}
+.btn:hover{background:var(--surface2);border-color:#cfd4df;box-shadow:0 2px 6px -2px rgba(16,24,40,.15)}
+.btn.primary{background:linear-gradient(180deg,#22c97a,#12b76a)!important;color:#fff!important;border-color:#0e9f6e!important;box-shadow:0 6px 14px -6px rgba(18,183,106,.7)!important;font-weight:700}
+.btn.primary:hover{filter:brightness(1.05)}
+.btn.danger{background:#fff4f2;color:var(--bad);border-color:#fecdca}
+.pill{background:var(--surface);border:1px solid var(--line);color:var(--muted);box-shadow:none}.pill b{color:var(--ink)}
+input,select,textarea{background:#fff;border:1px solid #d5d9e4;border-radius:10px}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:3px solid rgba(18,183,106,.18);outline-offset:0}
+a{color:#0e9f6e}
+.banner{background:#fffaeb;color:#93370d;border:1px solid #fedf89}
+.banner.info{background:#f2f4f7;color:var(--ink);border-color:var(--line)}
+.callcard .callnum,.numrow .callnum{color:var(--ink);font-family:var(--f-disp);font-weight:800;letter-spacing:-.02em}
+.cres2 .big{border-radius:14px;font-size:1.15em;font-weight:800}
+.cres2 .big.primary{box-shadow:0 10px 22px -10px rgba(18,183,106,.8)!important}
+#soon .srow{background:#fff;border:2px solid var(--accent)}
+.script{background:#f8fafc;border-left:3px solid var(--accent);border-radius:10px}
+.t th{color:var(--muted);font-weight:600;text-transform:uppercase;font-size:11.5px;letter-spacing:.04em}
+.chal{background:rgba(16,24,40,.55)}
+
+.card .track,.track{background:#e9ecf3!important}
+.res .btn[data-r=nr],.res .btn[data-r=rep]{background:#fff!important;border-color:#d5d9e4!important}
+.res .btn[data-r=rap]{background:#fffaeb!important;border-color:#fedf89!important;color:#93370d!important}
+.res .btn[data-r=no],.res .btn[data-r=bad]{background:#f2f4f7!important;color:var(--muted)!important}
+.hero .eyebrow,.hero .kicker,.hero small{color:#0e9f6e}
+.hero h1 em{background:linear-gradient(90deg,#12b76a,#f79009);-webkit-background-clip:text;background-clip:text;color:transparent}
+.cres2 .btn.big:not(.primary){background:#fff!important;border:1px solid #d5d9e4!important}
 </style></head><body>
 <div id="app"></div><div id="toast" role="status"></div><dialog id="dlg"></dialog>
 <script src="config.js"></script>
@@ -1296,7 +1333,7 @@ async function saveGoals(){
 }
 
 /* ================= rendu ================= */
-const TABS=[['auj','Aujourd\'hui'],['appels','Appels'],['outreach','DM & vidéos'],['contenu','Contenu'],['pipeline','Pipeline'],['clients','Clients'],['stats','Stats'],['scripts','Scripts'],['donnees','Données'],['aide','Explication']];
+const TABS=[['auj','🔥 Aujourd\'hui'],['appels','📞 Appels'],['outreach','💬 DM & vidéos'],['contenu','🎬 Contenu'],['pipeline','🧭 Pipeline'],['clients','🤝 Clients'],['stats','📊 Stats'],['scripts','📝 Scripts'],['donnees','🗂 Données'],['aide','💡 Explication']];
 function render(){
   const app=$('#app');
   if(DB.mode==='cloud'&&!S.user){loginHTML();return}
