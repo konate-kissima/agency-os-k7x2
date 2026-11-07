@@ -27,7 +27,7 @@ main{padding:18px max(16px,env(safe-area-inset-left)) 40px max(16px,env(safe-are
 .lastres{font-size:13px;margin:0 0 8px;padding:5px 10px;border-left:3px solid var(--accent);background:var(--surface2)}
 .callgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start}
 .callcard{padding:12px 14px;margin:0}.callcard .chips{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.cname{margin:4px 0 0;font-size:22px;line-height:1.15}
-.callcard .callnum{font-size:34px;margin:4px 0 2px}.cnote{width:100%;margin-top:6px;min-height:0}
+.callcard .callnum{font-size:34px;margin:4px 0 2px}.cnote{width:100%;margin-top:6px;min-height:190px;resize:vertical;line-height:1.45}
 .cfields{display:grid;grid-template-columns:1.2fr 1fr 1.2fr;gap:8px;margin-top:6px}.cfields .f{margin:0 0 2px;font-size:11px}.cfields>div{min-width:0}.cfields select,.cfields input{width:100%;min-width:0;padding:6px 6px;font-size:13px}
 .callcard .cres{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}.cres .btn{padding:10px 6px;font-size:14px;text-align:center;white-space:normal;line-height:1.15}
 .scriptcard{margin:0;padding:12px 14px;position:sticky;top:8px;max-height:calc(100vh - 150px);overflow:auto}.scriptcard .script{font-size:14px;line-height:1.45;margin:8px 0}
@@ -542,10 +542,11 @@ function appelsHTML(){
    ${companyLine(cur)}
    <div class="numrow"><button type="button" class="callnum" data-act="copynum" data-n="${esc(normPhone(cur.phone))}" title="Clique pour copier le numéro, puis colle-le dans ton application d'appel (Onoff…)">${esc(fmtPhone(cur.phone))}</button><span class="numact"><a class="btn sm" href="tel:${esc(normPhone(cur.phone))}" title="Ouvre l'app téléphone du Mac (FaceTime) ou de l'iPhone">Appel Mac</a></span></div>
    ${lastH?`<div class="sm muted">Dernier : ${fdate(lastH.t)} · ${esc(ALL_RES_L[lastH.result]||lastH.result)}${lastH.note?' — '+esc(lastH.note):''}</div>`:''}
-   <textarea id="cn" rows="2" class="cnote" placeholder="Note : ce que tu as appris (interlocuteur, objection, chantiers…)">${esc(S.call.note)}</textarea>
+   <textarea id="cn" rows="9" class="cnote" placeholder="Note : ce que tu as appris (interlocuteur, objection, chantiers…)">${esc(S.call.note)}</textarea>
    ${resUI}
-   <div class="row" style="justify-content:space-between;margin-top:6px;flex-wrap:nowrap"><details class="sm" style="flex:1;min-width:0"><summary class="muted">Historique, notes, enregistrement</summary>
-    ${hist.length?`<div class="sm muted" style="margin:6px 0"><b>Historique</b><br>${hist.map(h=>`${fdate(h.t)} · ${esc(CH_L[h.channel||'appel'])} · ${esc(ALL_RES_L[h.result]||h.result)}${h.note?' — '+esc(h.note):''}`).join('<br>')}</div>`:''}
+   <div class="row" style="justify-content:space-between;margin-top:6px;flex-wrap:nowrap"><details class="sm" style="flex:1;min-width:0"${timeline(cur).length?' open':''}><summary class="muted">Historique daté, notes, enregistrement</summary>
+    <div style="margin:6px 0"><b>Historique</b>${timelineHTML(cur,12)}</div>
+    ${cur.email?`<button class="btn sm" data-act="fathom-sync" data-id="${esc(cur.id)}">Récupérer le débrief Fathom</button>`:''}
     ${cur.notes?`<div class="sm muted" style="white-space:pre-wrap">${esc(cur.notes)}</div>`:''}
     <label class="f" for="ca">Lien de l'enregistrement (Drive), si enregistré</label><input id="ca" style="width:100%" placeholder="https://drive.google.com/…" value="${esc(S.call.audio)}">
     <label class="ck sm"><input type="checkbox" id="ci"${S.call.informed?' checked':''}> J'ai informé l'interlocuteur de l'enregistrement</label></details><span style="display:flex;gap:6px"><button class="btn sm" data-act="callskip" title="Passer cette fiche sans rien enregistrer">Passer</button><button class="btn sm" data-act="open" data-id="${esc(cur.id)}">Ouvrir la fiche</button></span></div></div>`;
@@ -736,6 +737,17 @@ function pipelineHTML(){
   return bar+`<div class="grid3">${cols}</div>`;
 }
 
+const fdt=t=>{const d=new Date(t);return isNaN(d)?String(t||''):d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})+' '+pad(d.getHours())+'h'+pad(d.getMinutes())};
+const LOG_L={rdv:'RDV',msg:'Message',fathom:'Fathom',note:'Note'};
+function timeline(p){
+  const ev=callsOf(p.id).map(c=>({t:c.t,k:CH_L[c.channel||'appel'],r:ALL_RES_L[c.result]||c.result,x:[c.obj,c.note].filter(Boolean).join(' — '),a:c.audio}));
+  (p.log||[]).forEach(l=>ev.push({t:l.t,k:LOG_L[l.k]||l.k,r:'',x:l.txt||'',u:l.url}));
+  return ev.sort((a,b)=>String(b.t).localeCompare(String(a.t)));
+}
+function timelineHTML(p,max){
+  const ev=timeline(p).slice(0,max||200);if(!ev.length)return '<p class="muted sm">Aucune action pour l\'instant.</p>';
+  return `<div class="sm tl">${ev.map(e=>`<div style="border-top:1px solid var(--line);padding:5px 0"><b>${esc(fdt(e.t))}</b> · ${esc(e.k)}${e.r?' · '+esc(e.r):''}${e.x?`<div class="muted" style="white-space:pre-wrap">${esc(e.x)}</div>`:''}${e.u?`<a href="${esc(e.u)}" target="_blank" rel="noopener">Ouvrir</a>`:''}${e.a?` <a href="${esc(e.a)}" target="_blank" rel="noopener">audio</a>`:''}</div>`).join('')}</div>`}
+async function logEv(p,k,txt,url){const l={t:new Date().toISOString(),k,txt:txt||'',...(url?{url}:{})};p.log=[...(p.log||[]),l];try{await DB.update('prospects',p.id,{log:p.log})}catch(e){}}
 function openProspect(id){
   const p=byId(id);if(!p)return;const d=$('#dlg');
   const cs=callsOf(id).slice().reverse();
@@ -745,7 +757,7 @@ function openProspect(id){
   ${p.stage==='rdv'?`<details class="card" style="margin:10px 0"><summary><b>Préparer le rendez-vous</b> (trame en 6 temps + offre)</summary><div class="script" style="white-space:pre-wrap;font-size:13px;margin-top:8px">${esc(rdvFill(settings().rdvText||DEF_RDV))}\n\n${esc(rdvFill(settings().offerText||DEF_OFFER))}</div></details>`:''}
   <label class="f">Email</label><input id="fp-email" style="width:100%" value="${esc(p.email||'')}">
   <label class="f">Notes</label><textarea id="fp-notes" rows="5">${esc(p.notes||'')}</textarea>
-  <h3 style="margin-top:12px">Appels (${cs.length})</h3>${cs.length?`<div class="sm">${cs.map(c=>`<div>${fdate(c.t)} · ${esc(CH_L[c.channel||'appel'])} · ${esc(ALL_RES_L[c.result]||c.result)} · angle ${esc(c.angle||'')}${c.obj?' · '+esc(c.obj):''}${c.note?' — '+esc(c.note):''}${c.audio?` · <a href="${esc(c.audio)}" target="_blank" rel="noopener">audio</a>`:''}</div>`).join('')}</div>`:'<p class="muted sm">Aucun appel.</p>'}
+  <h3 style="margin-top:12px">Historique daté</h3>${timelineHTML(p)}${p.email?`<button class="btn sm" data-act="fathom-sync" data-id="${esc(id)}">Récupérer le débrief Fathom</button>`:''}
   <div class="row" style="margin-top:14px;justify-content:space-between"><span>${p.stage==='signe'&&!cli?`<button class="btn primary" data-act="mkclient" data-id="${esc(id)}">Créer le client</button>`:cli?`<button class="btn" data-act="cli-open" data-id="${esc(cli.id)}">Voir le client</button>`:''}</span><span><button class="btn primary" data-act="savep" data-id="${esc(id)}">Enregistrer</button> <button class="btn" data-act="close">Fermer</button></span></div>`;
   d.showModal();
 }
@@ -1369,13 +1381,24 @@ document.addEventListener('click',async e=>{
   if(a==='al-closeall'){const m=b.dataset.m;const until=m==='tomorrow'?(()=>{const d=new Date();d.setDate(d.getDate()+1);d.setHours(6,0,0,0);return +d})():Date.now()+(+m)*60000;dueCallbacks().forEach(p=>{S.snooze[p.id]=until});saveSnooze();alarmCheck();toast(m==='tomorrow'?'Rappels fermés jusqu\'à demain.':'Rappels fermés '+(m==='60'?'1 heure':m+' minutes')+'.');return}
   if(a==='soon-ok'){S.soonSeen[b.dataset.k]=1;soonCheck();return}
   if(a==='soon-open'){S.soonSeen[b.dataset.k]=1;soonCheck();const id=b.dataset.id;S.tab='appels';S.call.open=id;S.call.pid=id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';render();window.scrollTo(0,0);return}
+  if(a==='fathom-sync'){const p=byId(b.dataset.id);if(!p||!p.email){toast('Ajoute d\'abord l\'e-mail du prospect.');return}
+    toast('Recherche dans Fathom…');
+    try{const cfg=window.AOS_CONFIG||{};const {data}=await window.__sb.auth.getSession();
+      const res=await fetch(cfg.url+'/functions/v1/fathom-sync',{method:'POST',headers:{Authorization:'Bearer '+data.session.access_token,apikey:cfg.key,'Content-Type':'application/json'},body:JSON.stringify({email:p.email})});
+      const j=await res.json().catch(()=>({}));
+      if(!res.ok){toast(j.message||('Erreur '+res.status));return}
+      const have=new Set((p.log||[]).map(l=>l.url).filter(Boolean));let n=0;
+      for(const m of j.items||[]){if(m.url&&have.has(m.url))continue;const l={t:m.created_at||new Date().toISOString(),k:'fathom',txt:(m.title?m.title+'\n':'')+(m.summary||'(pas de résumé)'),url:m.url||''};p.log=[...(p.log||[]),l];n++}
+      if(n)await DB.update('prospects',p.id,{log:p.log});
+      toast(n?n+' débrief(s) Fathom ajouté(s) à l\'historique.':'Aucun nouveau débrief Fathom pour cet e-mail.');render()
+    }catch(e){toast('Échec : '+e.message)}return}
   if(a==='rec-start'){recStart();return}
   if(a==='rec-stop'){if(S.rec.mr&&S.rec.mr.state!=='inactive')S.rec.mr.stop();return}
   if(a==='callstep'){S.call.step=b.dataset.s||'';render();return}
   if(a==='rapl-toggle'){S.call.showRap=!S.call.showRap;render();return}
   if(a==='rem-open'){S.remind={id:b.dataset.id,k:b.dataset.k};S.tab='appels';render();window.scrollTo(0,0);return}
-  if(a==='remdone'){const p=byId(b.dataset.id),k=b.dataset.k==='r24'?'rem24':'rem2';if(p){p[k]=true;DB.update('prospects',p.id,{[k]:true})}S.remind=null;if(b.tagName==='BUTTON'){render()}else setTimeout(render,50);return}
-  if(a==='rdv-tenu'||a==='rdv-abs'){const p=byId(b.dataset.id);if(p){const patch=a==='rdv-tenu'?{rdvShow:'tenu',stage:'rdv_fait'}:{rdvShow:'absent',stage:'contacte',nextDate:workday(1),nextTime:'10:00',rdvType:''};await guard(()=>DB.update('prospects',p.id,patch));Object.assign(p,patch);toast(a==='rdv-tenu'?'RDV tenu enregistré.':'Absence enregistrée : rappel prévu demain à 10 h.');render()}return}
+  if(a==='remdone'){const p=byId(b.dataset.id),k=b.dataset.k==='r24'?'rem24':'rem2';if(p){p[k]=true;DB.update('prospects',p.id,{[k]:true});logEv(p,'msg','Rappel RDV '+(k==='rem24'?'(veille)':'(2 h avant)')+' préparé')}S.remind=null;if(b.tagName==='BUTTON'){render()}else setTimeout(render,50);return}
+  if(a==='rdv-tenu'||a==='rdv-abs'){const p=byId(b.dataset.id);if(p){const ty0=RDV_T[p.rdvType||'visio'];const patch=a==='rdv-tenu'?{rdvShow:'tenu',stage:'rdv_fait'}:{rdvShow:'absent',stage:'contacte',nextDate:workday(1),nextTime:'10:00',rdvType:''};await guard(()=>DB.update('prospects',p.id,patch));Object.assign(p,patch);logEv(p,'rdv','RDV '+ty0+(a==='rdv-tenu'?' tenu':' : absent'));toast(a==='rdv-tenu'?'RDV tenu enregistré.':'Absence enregistrée : rappel prévu demain à 10 h.');render()}return}
   if(a==='al-open'){const id=b.dataset.id;S.snooze[id]=Date.now()+10*60000;S.tab='appels';S.call.open=id;S.call.pid=id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';alarmCheck();render();window.scrollTo(0,0);return}
   if(a==='copysms'){const t=b.dataset.m||'';const done=()=>toast('SMS copié. Colle-le dans Onoff (iPhone).');try{navigator.clipboard.writeText(t).then(done,()=>toast('Copie impossible.'))}catch(e){toast('Copie impossible.')}}
   if(a==='copynum'){const n=b.dataset.n||'';const done=()=>toast('Numéro copié : '+n+'. Colle-le dans ton application d\'appel.');try{navigator.clipboard.writeText(n).then(done,()=>{const t=document.createElement('textarea');t.value=n;document.body.appendChild(t);t.select();try{document.execCommand('copy')}catch(e){}t.remove();done()})}catch(e){done()}}
@@ -1404,7 +1427,7 @@ document.addEventListener('click',async e=>{
   else if(a==='demo')loadDemo();
   else if(a==='goals-save')saveGoals();
   else if(a==='dedupe')cleanDupes();
-  else if(a==='rdvdone'){S.lastRDV='';render()}
+  else if(a==='rdvdone'){const pp=S.lastRDV&&byId(S.lastRDV);if(pp)logEv(pp,'msg','Confirmation du RDV préparée');S.lastRDV='';render()}
   else if(a==='nrdone'){const p=byId(S.lastNR);if(p&&b.tagName==='A'){DB.update('prospects',p.id,{nrSent:(p.nrSent||0)+1});p.nrSent=(p.nrSent||0)+1}S.lastNR='';setTimeout(render,50)}
   else if(a==='osm')sourceOSM();
   else if(a==='gouv')sourceGouv();
