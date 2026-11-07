@@ -546,7 +546,7 @@ function appelsHTML(){
    ${resUI}
    <div class="row" style="justify-content:space-between;margin-top:6px;flex-wrap:nowrap"><details class="sm" style="flex:1;min-width:0"${timeline(cur).length?' open':''}><summary class="muted">Historique daté, notes, enregistrement</summary>
     <div style="margin:6px 0"><b>Historique</b>${timelineHTML(cur,12)}</div>
-    ${cur.email?`<button class="btn sm" data-act="fathom-sync" data-id="${esc(cur.id)}">Récupérer le débrief Fathom</button>`:''}
+    ${cur.email?`<button class="btn sm" data-act="fathom-sync" data-id="${esc(cur.id)}">Débrief Fathom (par e-mail)</button> `:''}<button class="btn sm" data-act="fathom-link" data-id="${esc(cur.id)}">Coller un lien Fathom</button>
     ${cur.notes?`<div class="sm muted" style="white-space:pre-wrap">${esc(cur.notes)}</div>`:''}
     <label class="f" for="ca">Lien de l'enregistrement (Drive), si enregistré</label><input id="ca" style="width:100%" placeholder="https://drive.google.com/…" value="${esc(S.call.audio)}">
     <label class="ck sm"><input type="checkbox" id="ci"${S.call.informed?' checked':''}> J'ai informé l'interlocuteur de l'enregistrement</label></details><span style="display:flex;gap:6px"><button class="btn sm" data-act="callskip" title="Passer cette fiche sans rien enregistrer">Passer</button><button class="btn sm" data-act="open" data-id="${esc(cur.id)}">Ouvrir la fiche</button></span></div></div>`;
@@ -757,7 +757,7 @@ function openProspect(id){
   ${p.stage==='rdv'?`<details class="card" style="margin:10px 0"><summary><b>Préparer le rendez-vous</b> (trame en 6 temps + offre)</summary><div class="script" style="white-space:pre-wrap;font-size:13px;margin-top:8px">${esc(rdvFill(settings().rdvText||DEF_RDV))}\n\n${esc(rdvFill(settings().offerText||DEF_OFFER))}</div></details>`:''}
   <label class="f">Email</label><input id="fp-email" style="width:100%" value="${esc(p.email||'')}">
   <label class="f">Notes</label><textarea id="fp-notes" rows="5">${esc(p.notes||'')}</textarea>
-  <h3 style="margin-top:12px">Historique daté</h3>${timelineHTML(p)}${p.email?`<button class="btn sm" data-act="fathom-sync" data-id="${esc(id)}">Récupérer le débrief Fathom</button>`:''}
+  <h3 style="margin-top:12px">Historique daté</h3>${timelineHTML(p)}${p.email?`<button class="btn sm" data-act="fathom-sync" data-id="${esc(id)}">Débrief Fathom (par e-mail)</button> `:''}<button class="btn sm" data-act="fathom-link" data-id="${esc(id)}">Coller un lien Fathom</button>
   <div class="row" style="margin-top:14px;justify-content:space-between"><span>${p.stage==='signe'&&!cli?`<button class="btn primary" data-act="mkclient" data-id="${esc(id)}">Créer le client</button>`:cli?`<button class="btn" data-act="cli-open" data-id="${esc(cli.id)}">Voir le client</button>`:''}</span><span><button class="btn primary" data-act="savep" data-id="${esc(id)}">Enregistrer</button> <button class="btn" data-act="close">Fermer</button></span></div>`;
   d.showModal();
 }
@@ -1381,16 +1381,19 @@ document.addEventListener('click',async e=>{
   if(a==='al-closeall'){const m=b.dataset.m;const until=m==='tomorrow'?(()=>{const d=new Date();d.setDate(d.getDate()+1);d.setHours(6,0,0,0);return +d})():Date.now()+(+m)*60000;dueCallbacks().forEach(p=>{S.snooze[p.id]=until});saveSnooze();alarmCheck();toast(m==='tomorrow'?'Rappels fermés jusqu\'à demain.':'Rappels fermés '+(m==='60'?'1 heure':m+' minutes')+'.');return}
   if(a==='soon-ok'){S.soonSeen[b.dataset.k]=1;soonCheck();return}
   if(a==='soon-open'){S.soonSeen[b.dataset.k]=1;soonCheck();const id=b.dataset.id;S.tab='appels';S.call.open=id;S.call.pid=id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';render();window.scrollTo(0,0);return}
-  if(a==='fathom-sync'){const p=byId(b.dataset.id);if(!p||!p.email){toast('Ajoute d\'abord l\'e-mail du prospect.');return}
+  if(a==='fathom-sync'||a==='fathom-link'){const p=byId(b.dataset.id);if(!p)return;
+    let body;
+    if(a==='fathom-link'){const u=(prompt('Colle le lien Fathom de la réunion (fathom.video/share/… ou /calls/…)')||'').trim();if(!u)return;body={url:u}}
+    else{if(!p.email){toast('Ajoute d\'abord l\'e-mail du prospect, ou colle un lien Fathom.');return}body={email:p.email}}
     toast('Recherche dans Fathom…');
     try{const cfg=window.AOS_CONFIG||{};const {data}=await window.__sb.auth.getSession();
-      const res=await fetch(cfg.url+'/functions/v1/fathom-sync',{method:'POST',headers:{Authorization:'Bearer '+data.session.access_token,apikey:cfg.key,'Content-Type':'application/json'},body:JSON.stringify({email:p.email})});
+      const res=await fetch(cfg.url+'/functions/v1/fathom-sync',{method:'POST',headers:{Authorization:'Bearer '+data.session.access_token,apikey:cfg.key,'Content-Type':'application/json'},body:JSON.stringify(body)});
       const j=await res.json().catch(()=>({}));
       if(!res.ok){toast(j.message||('Erreur '+res.status));return}
       const have=new Set((p.log||[]).map(l=>l.url).filter(Boolean));let n=0;
       for(const m of j.items||[]){if(m.url&&have.has(m.url))continue;const l={t:m.created_at||new Date().toISOString(),k:'fathom',txt:(m.title?m.title+'\n':'')+(m.summary||'(pas de résumé)'),url:m.url||''};p.log=[...(p.log||[]),l];n++}
       if(n)await DB.update('prospects',p.id,{log:p.log});
-      toast(n?n+' débrief(s) Fathom ajouté(s) à l\'historique.':'Aucun nouveau débrief Fathom pour cet e-mail.');render()
+      toast(n?n+' débrief(s) Fathom ajouté(s) à l\'historique.':(a==='fathom-link'?'Réunion introuvable avec ce lien (ou déjà ajoutée).':'Aucun nouveau débrief Fathom pour cet e-mail.'));render()
     }catch(e){toast('Échec : '+e.message)}return}
   if(a==='rec-start'){recStart();return}
   if(a==='rec-stop'){if(S.rec.mr&&S.rec.mr.state!=='inactive')S.rec.mr.stop();return}
