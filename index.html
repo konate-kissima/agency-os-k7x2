@@ -603,9 +603,10 @@ function planItems(){
   return items.sort((a,b)=>a.time.localeCompare(b.time));
 }
 function waList(q){
-  q=String(q||'').trim().toLowerCase();if(q.length<2)return '<p class="muted sm" style="margin:8px 0 0">Tape au moins 2 lettres du nom, ou le numéro.</p>';
-  const dq=q.replace(/\D/g,'');
-  const L=S.prospects.filter(p=>(p.name||'').toLowerCase().includes(q)||(p.contact||p.dirigeant||'').toLowerCase().includes(q)||(dq.length>=4&&normPhone(p.phone).includes(dq))).slice(0,6);
+  q=String(q||'').replace(/[\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g,'').trim().toLowerCase();
+  const dq=q.replace(/\D/g,''),num=!/[a-zà-ÿ]/.test(q)&&dq.length>=3;
+  if(!num&&q.length<2)return '<p class="muted sm" style="margin:8px 0 0">Tape au moins 2 lettres du nom, ou le numéro.</p>';
+  const L=num?callSearch(q):S.prospects.filter(p=>(p.name||'').toLowerCase().includes(q)||(p.contact||p.dirigeant||'').toLowerCase().includes(q)).slice(0,6);
   if(!L.length)return '<p class="muted sm" style="margin:8px 0 0">Aucune fiche trouvée.</p>';
   return L.map(p=>`<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:8px 0;margin-top:6px;gap:8px;flex-wrap:wrap"><span><b>${esc(p.name)}</b> <span class="muted sm">${esc(p.city||'')} · ${esc(fmtPhone(p.phone))}${p.waReply?' · déjà : '+(p.waReply==='yes'?'intéressé':'pas intéressé'):''}</span></span><span style="display:flex;gap:8px"><button class="btn sm primary" data-act="wa-yes" data-id="${esc(p.id)}">✅ Intéressé</button><button class="btn sm" data-act="wa-no" data-id="${esc(p.id)}">❌ Pas intéressé</button></span></div>`).join('')}
 async function waReply(id,yes){
