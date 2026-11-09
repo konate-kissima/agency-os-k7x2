@@ -1499,6 +1499,7 @@ async function recSend(blob,name){
       S.call.step='ans';S.rec.msg=j.error==='summary_failed'?(j.message||'Résumé indisponible.'):j.text&&j.text.trim().length>=20?'Résumé prêt : relis les champs puis choisis le résultat.':'Audio trop court ou inaudible.';toast(S.rec.msg)}
   }catch(e){S.rec.msg='Échec : '+e.message;toast(S.rec.msg)}
   S.rec.busy=false;render();
+  if(S.rec.resolve){const f=S.rec.resolve;S.rec.resolve=null;f()}
 }
 async function recStart(){
   try{
@@ -1623,7 +1624,7 @@ document.addEventListener('click',async e=>{
   if(a==='rq-do'){rqDo(b.dataset.d);return}
   if(a==='rec-start'){recStart();return}
   if(a==='rec-stop'){if(S.rec.mr&&S.rec.mr.state!=='inactive')S.rec.mr.stop();return}
-  if(a==='callstep'){S.call.step=b.dataset.s||'';render();return}
+  if(a==='callstep'){S.call.step=b.dataset.s||'';render();if(S.call.step==='ans'&&window.__sb&&!S.rec.on&&!S.rec.busy)recStart();return}
   if(a==='rapl-toggle'){S.call.showRap=!S.call.showRap;render();return}
   if(a==='day-toggle'){S.call.showDay=!S.call.showDay;render();return}
   if(a==='rem-toggle'){S.call.showRem=!S.call.showRem;render();return}
@@ -1638,7 +1639,7 @@ document.addEventListener('click',async e=>{
   else if(a==='callclose'){S.call.open='';S.call.pid='';render()}
   else if(a==='chal-ok'){S.chal=false;S.tab='appels';render()}
   else if(a==='tab'){S.tab=b.dataset.v;render()}
-  else if(a==='callres')callResult(b.dataset.r);
+  else if(a==='callres'){const r=b.dataset.r;if(S.rec.on&&S.rec.mr&&S.rec.mr.state!=='inactive'){toast('Enregistrement arrêté, résumé en cours : le résultat s\'enregistre ensuite.');const w=new Promise(res=>{S.rec.resolve=res;setTimeout(res,60000)});S.rec.mr.stop();w.then(()=>callResult(r))}else callResult(r)}
   else if(a==='outres')outResult(b.dataset.r);
   else if(a==='outskip'){if(S.out.pid)S.out.skip.push(S.out.pid);S.out.pid='';render()}
   else if(a==='copy'){const t=($('#otext')||{}).textContent||'';try{await navigator.clipboard.writeText(t);toast('Message copié.')}catch(e){toast('Copie impossible : sélectionne le texte.')}}
