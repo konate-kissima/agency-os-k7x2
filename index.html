@@ -2005,8 +2005,8 @@ async function rfValidate(){
 /* ---- vue privée dans la fiche prospect (jamais dans la fenêtre partagée) ---- */
 const copyTxt=async t=>{try{await navigator.clipboard.writeText(t);toast('Copié.')}catch(e){const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy');toast('Copié.')}catch(_){toast('Copie impossible.')}a.remove()}};
 function prepHTML(p){
-  if(S.prepBusy===p.id)return '<p class="muted sm">⏳ Recherche en cours (registre officiel, site web, résumé)… 20 à 40 secondes.</p>';
-  const r=p.prep;if(!r)return '<p class="muted sm">Aucune recherche pour l\'instant.</p>';
+  if(S.prepBusy===p.id)return '<p class="muted sm">⏳ En cours…</p>';
+  const r=p.prep;if(!r)return p.prepAsk?`<p class="muted sm">Recherche demandée le ${esc(fdt(p.prepAsk))}. Dis à Claude : « prépare ${esc(p.name)} » et le dossier s'affichera ici.</p>`:'<p class="muted sm">Aucune recherche pour l\'instant. Clique sur « Préparer le RDV », puis dis à Claude : « prépare '+esc(p.name)+' ».</p>';
   const li=a=>a&&a.length?`<ul style="margin:4px 0 8px 18px">${a.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'';
   const reg=r.registre||{};const regL=[reg.nom,reg.creation&&('créée le '+reg.creation),reg.effectif&&('effectif '+reg.effectif),reg.ca&&reg.ca.ca&&('CA '+money(reg.ca.ca)+' ('+reg.ca.annee+')'),(reg.dirigeants||[]).length&&('dirigeants : '+reg.dirigeants.join(' ; ')),reg.rge].filter(Boolean);
   return `<div class="sm"><div class="muted">Recherche du ${esc(fdt(r.at))}</div>${regL.length?`<p><b>Registre :</b> ${esc(regL.join(' · '))}</p>`:''}${r.activite?`<p><b>Activité :</b> ${esc(r.activite)}</p>`:''}${r.anciennete?`<p><b>Ancienneté :</b> ${esc(r.anciennete)}</p>`:''}${r.positionnement?`<p><b>Positionnement :</b> ${esc(r.positionnement)}</p>`:''}${r.points_forts&&r.points_forts.length?`<b>Points forts</b>${li(r.points_forts)}`:''}${r.publicite?`<p><b>Publicité :</b> ${esc(r.publicite)}</p>`:''}${(r.tags||[]).length?`<p>${r.tags.map(t=>`<span class="chip">${esc(t)}</span>`).join('')}</p>`:''}${r.accroches&&r.accroches.length?`<b>Accroches possibles</b>${li(r.accroches)}`:''}${r.questions&&r.questions.length?`<b>Questions à poser</b>${li(r.questions)}`:''}${r.vigilance&&r.vigilance.length?`<b>À vérifier</b>${li(r.vigilance)}`:''}${r.sources&&r.sources.length?`<details><summary class="muted">Sources (${r.sources.length})</summary>${r.sources.map(s=>/^https?:/.test(s)?`<div><a href="${esc(s)}" target="_blank" rel="noopener">${esc(s)}</a></div>`:`<div>${esc(s)}</div>`).join('')}</details>`:''}</div>`}
@@ -2016,20 +2016,11 @@ function outHTML(p){
   return `<h4 style="margin:12px 0 4px">Après le rendez-vous (généré le ${esc(fdt(o.at))})</h4>${blk('Compte rendu','cr',o.cr)}${blk('Message WhatsApp de récapitulatif','msg',o.msg)}${blk('Accord','accord',o.accord)}`}
 function rdvPanelHTML(p){
   const st=p.rdvForm&&p.rdvForm.status==='validé'?'validée':p.rdvForm?'en cours':'';
-  return `<details class="card" style="margin:10px 0"${p.stage==='rdv'||p.prep||p.rdvOut?' open':''}><summary><b>Rendez-vous : recherche et fiche à partager</b>${st?` <span class="chip">${st}</span>`:''}</summary><div class="row" style="margin:8px 0;flex-wrap:wrap"><button class="btn sm primary" data-act="prep" data-id="${esc(p.id)}">🔎 Préparer le RDV (recherche)</button><button class="btn sm" data-act="rdvopen" data-id="${esc(p.id)}">🖥 Ouvrir la fiche de RDV (à partager)</button></div><div id="prepbox">${prepHTML(p)}</div><div id="outbox">${outHTML(p)}</div></details>`}
+  return `<details class="card" style="margin:10px 0"${p.stage==='rdv'||p.prep||p.rdvOut?' open':''}><summary><b>Rendez-vous : recherche et fiche à partager</b>${st?` <span class="chip">${st}</span>`:''}</summary><div class="row" style="margin:8px 0;flex-wrap:wrap"><button class="btn sm primary" data-act="prep" data-id="${esc(p.id)}">🔎 Préparer le RDV (demander la recherche)</button><button class="btn sm" data-act="rdvopen" data-id="${esc(p.id)}">🖥 Ouvrir la fiche de RDV (à partager)</button></div><div id="prepbox">${prepHTML(p)}</div><div id="outbox">${outHTML(p)}</div></details>`}
 async function runPrep(id){
-  const p=byId(id);if(!p)return;const cfg=window.AOS_CONFIG||{};
-  if(!window.__sb){toast('La recherche demande le mode connecté.');return}
-  S.prepBusy=id;{const b=$('#prepbox');if(b)b.innerHTML=prepHTML(p)}
-  try{
-    const {data}=await window.__sb.auth.getSession();const tok=data.session&&data.session.access_token;
-    const res=await fetch(cfg.url+'/functions/v1/recherche-prospect',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:cfg.key,'Content-Type':'application/json'},body:JSON.stringify({name:p.name,siren:p.siren,website:p.website,city:p.city,dept:p.dept,dirigeant:p.dirigeant||p.contact,rating:p.rating,reviews:p.reviews,instagram:p.instagram,facebook:p.facebook,notes:p.notes})});
-    const j=await res.json();
-    S.prepBusy='';
-    if(j.error&&!j.registre&&!j.activite){toast(j.message||'Recherche impossible.');const b=$('#prepbox');if(b)b.innerHTML=prepHTML(p)+`<p class="sm" style="color:var(--bad)">${esc(j.message||'Recherche impossible.')}</p>`;return}
-    await saveP(id,{prep:j});toast('Recherche terminée, dossier enregistré.');
-  }catch(e){S.prepBusy='';toast('Recherche impossible : '+(e.message||e))}
-  const b=$('#prepbox');if(b)b.innerHTML=prepHTML(byId(id)||p);
+  const p=byId(id);if(!p)return;
+  const at=new Date().toISOString();
+  if(await saveP(id,{prepAsk:at})){toast('Demande enregistrée. Dis à Claude : « prépare '+p.name+' ».');const b=$('#prepbox');if(b)b.innerHTML=prepHTML(byId(id))}
 }
 function rdvOpenWin(id){
   const u=location.href.split('#')[0]+'#rdv='+encodeURIComponent(id);
