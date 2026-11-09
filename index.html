@@ -1592,6 +1592,29 @@ async function purgeAudios(){
     const {data:fs}=await bk.list(d.name,{limit:1000});
     const old=(fs||[]).filter(f=>f.created_at&&new Date(f.created_at).getTime()<cutoff).map(f=>d.name+'/'+f.name);
     if(old.length)await bk.remove(old)}}
+async function loadLame(){
+  if(window.lamejs)return;
+  for(const u of ['https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js','https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js']){
+    try{await new Promise((ok,ko)=>{const s=document.createElement('script');s.src=u;s.onload=ok;s.onerror=()=>ko();document.head.appendChild(s)});if(window.lamejs)return}catch(e){}}
+  throw new Error("outil de compression indisponible (vérifie ta connexion)")}
+// Réduit un gros fichier audio/vidéo en MP3 mono 16 kHz (≈ 0,25 Mo par minute) : largement assez pour la transcription
+async function compressAudio(file){
+  await loadLame();
+  const AC=window.AudioContext||window.webkitAudioContext,ctx=new AC({sampleRate:16000});
+  let buf;try{buf=await ctx.decodeAudioData(await file.arrayBuffer())}catch(e){ctx.close();throw new Error("format non lisible par le navigateur (essaie un fichier m4a, mp3 ou mp4)")}
+  ctx.close();
+  const a=buf.getChannelData(0),b=buf.numberOfChannels>1?buf.getChannelData(1):null,n=a.length,pcm=new Int16Array(n);
+  for(let i=0;i<n;i++){let v=b?(a[i]+b[i])/2:a[i];v=v>1?1:v<-1?-1:v;pcm[i]=v<0?v*32768:v*32767}
+  const enc=new lamejs.Mp3Encoder(1,16000,32),out=[],step=1152*20;
+  for(let i=0;i<n;i+=step){const c=enc.encodeBuffer(pcm.subarray(i,i+step));if(c.length)out.push(new Uint8Array(c));if((i/step)%40===0)await new Promise(r=>setTimeout(r))}
+  const e=enc.flush();if(e.length)out.push(new Uint8Array(e));
+  return new Blob(out,{type:'audio/mpeg'})}
+async function recImport(f){
+  if(f.size<=20*1048576){recSend(f,f.name);return}
+  S.rec.busy=true;S.rec.msg='';render();toast('Fichier volumineux : compression en cours…');
+  try{const blob=await compressAudio(f);S.rec.busy=false;if(blob.size>24*1048576){S.rec.msg='Même compressé, le fichier dépasse 24 Mo (enregistrement trop long : coupe-le en deux).';toast(S.rec.msg);render();return}
+    recSend(blob,f.name.replace(/\.\w+$/,'')+'.mp3')}
+  catch(e){S.rec.busy=false;S.rec.msg='Compression impossible : '+e.message;toast(S.rec.msg);render()}}
 async function recSend(blob,name){
   const cfg=window.AOS_CONFIG||{};S.rec.busy=true;S.rec.on=false;S.rec.msg='';render();
   const pid0=S.call.pid;
@@ -1792,7 +1815,7 @@ document.addEventListener('change',e=>{
   if(e.target.id==='adsm'){const t=e.target,p=byId(t.dataset.id);if(p){const v=t.value,at=v?new Date().toISOString():'';p.adsMeta=v;p.adsMetaAt=at;DB.update('prospects',p.id,{adsMeta:v,adsMetaAt:at}).then(()=>toast('Vérification enregistrée.')).catch(()=>toast('Enregistrement impossible, réessaie.'));const a=t.parentNode.querySelector('a');if(a)a.textContent=(v==='oui'?'Pub Meta : vue le '+fdate(at):v==='non'?'Pub Meta : aucune vue le '+fdate(at):'Pub Meta potentielle')+' ↗'}return}
   const t=e.target;
   if(t.id==='ci'){S.call.informed=t.checked;return}
-  if(t.id==='recf'){const f=t.files[0];if(f)recSend(f,f.name);return}
+  if(t.id==='recf'){const f=t.files[0];if(f)recImport(f);return}
   if(t.id==='co'){S.call.obj=t.value;return}
   if(t.id==='cang'){S.call.angle=t.value;const keep={note:$('#cn')?$('#cn').value:'',obj:$('#co')?$('#co').value:'—',audio:$('#ca')?$('#ca').value:'',informed:$('#ci')?$('#ci').checked:false};Object.assign(S.call,keep);render()}
   else if(t.dataset&&t.dataset.act==='mobsel'){S.call.mob=t.value;S.call.pid='';render()}
