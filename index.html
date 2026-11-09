@@ -643,10 +643,22 @@ function dueBanner(sk){
   return h;
 }
 const SIGN="Konaté Kissima, Instinct Agency";
-const NR_SMS="Bonjour {contact}, "+SIGN+". Je viens d'essayer de vous joindre : je lance un programme pilote pour amener des demandes de devis qualifiées à des artisans. Avez-vous de la place pour de nouveaux chantiers d'ici 3 mois ? Un simple OUI ou NON me suffit.";
+const NR_Q="Une petite question : aujourd'hui, vos nouveaux clients viennent surtout du bouche-à-oreille ou d'autre chose ?";
+function nrMessage(p){
+  const fn=String(p.dirigeant||'').replace(/\(.*?\)/g,'').trim().split(/\s+/)[0]||'';
+  const first=fn?fn.charAt(0).toUpperCase()+fn.slice(1).toLowerCase():'';
+  const yr=p.created_co?+String(p.created_co).slice(0,4):0,y=new Date().getFullYear();
+  let c;
+  if(+p.reviews>=10&&+p.rating>=4.5)c="j'ai vu vos "+p.reviews+" avis à "+String(p.rating).replace('.',',')+"/5 sur Google, c'est du beau travail.";
+  else if(p.instagram)c="j'ai vu votre compte Instagram, ça donne une belle image de votre travail.";
+  else if(yr&&yr<=y-10)c=(p.name||'Votre entreprise')+" existe depuis "+yr+", ça se respecte.";
+  else c="j'ai vu "+(p.name||'votre entreprise')+(p.city?' à '+p.city:'')+", belle activité.";
+  return "Bonjour"+(first?' '+first:'')+", "+SIGN+". Je viens d'essayer de vous joindre : "+c+" "+NR_Q;
+}
+const NR_SMS=nrMessage({name:'{nom}'});
 function nrCard(){
   const p=S.lastNR?byId(S.lastNR):null;if(!p)return '';
-  const msg=fillScript(settings().nrText||NR_SMS,p).replace('monsieur/madame','').replace('Bonjour ,','Bonjour,');
+  const msg=settings().nrText?fillScript(settings().nrText,p).replace('monsieur/madame','').replace('Bonjour ,','Bonjour,'):nrMessage(p);
   const ph=normPhone(p.phone),e=encodeURIComponent(msg);
   const wa=ph?'whatsapp://send?phone='+(ph.startsWith('0')?'33'+ph.slice(1):ph.replace('+',''))+'&text='+e:'';
   return `<div class="card nrfloat" style="position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:60;width:min(94vw,620px);margin:0;border:2px solid var(--ok,#2a7);box-shadow:0 10px 34px rgba(0,0,0,.28);background:var(--card,#fff)"><b>${p.lastResult==='rep'?'Répondeur':'Pas de réponse'} : ${esc(p.name)}.</b> Envoie-lui un message (double contact) :<div class="row" style="margin-top:8px;flex-wrap:wrap"><button type="button" class="btn primary" data-act="copysms" data-m="${esc(msg)}" title="Copie le SMS, puis colle-le dans Onoff (Presse-papiers universel Mac → iPhone)">Copier le SMS</button>${ph?`<a class="btn" href="sms:${esc(ph)}?&body=${e}" data-act="nrdone" title="Ouvre Messages (ton numéro perso, pas Onoff)">SMS Mac</a><a class="btn" href="${wa}" data-act="nrdone">WhatsApp</a>`:''}${p.email?`<a class="btn" href="mailto:${esc(p.email)}?subject=${encodeURIComponent('Suite à mon appel')}&body=${e}" data-act="nrdone">Email</a>`:''}<button class="btn sm" data-act="nrdone">Ignorer</button></div><p class="muted sm" style="margin-top:6px">${esc(msg)}</p></div>`}
