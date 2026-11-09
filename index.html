@@ -669,8 +669,8 @@ function nrCard(){
   return `<div class="card nrfloat" style="position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:60;width:min(94vw,620px);margin:0;border:2px solid var(--ok,#2a7);box-shadow:0 10px 34px rgba(0,0,0,.28);background:var(--card,#fff)"><b>${p.lastResult==='rep'?'Répondeur':'Pas de réponse'} : ${esc(p.name)}.</b> Envoie-lui un message (double contact) :<div class="row" style="margin-top:8px;flex-wrap:wrap"><button type="button" class="btn primary" data-act="copysms" data-m="${esc(msg)}" title="Copie le SMS, puis colle-le dans Onoff (Presse-papiers universel Mac → iPhone)">Copier le SMS</button>${ph?`<a class="btn" href="sms:${esc(ph)}?&body=${e}" data-act="nrdone" title="Ouvre Messages (ton numéro perso, pas Onoff)">SMS Mac</a><a class="btn" href="${wa}" data-act="nrdone">WhatsApp</a>`:''}${p.email?`<a class="btn" href="mailto:${esc(p.email)}?subject=${encodeURIComponent('Suite à mon appel')}&body=${e}" data-act="nrdone">Email</a>`:''}<button class="btn sm" data-act="nrdone">Ignorer</button></div><p class="muted sm" style="margin-top:6px">${esc(msg)}</p></div>`}
 function phoneKey(v){let d=String(v||'').replace(/\D/g,'');if(d.startsWith('0033'))d=d.slice(4);else if(d.startsWith('33')&&d.length>9)d=d.slice(2);return d.replace(/^0/,'')}
 function callSearch(q){
-  q=String(q||'').trim();if(!q)return [];
-  const pk=phoneKey(q),isNum=/^[\d\s+().-]+$/.test(q);
+  q=String(q||'').replace(/[\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g,'').trim();if(!q)return [];
+  const pk=phoneKey(q),isNum=!/[A-Za-zÀ-ÿ]/.test(q)&&q.replace(/\D/g,'').length>=3;
   if(isNum){if(pk.length<3)return [];return S.prospects.filter(p=>phoneKey(p.phone).includes(pk)).slice(0,6)}
   if(q.length<2)return [];const ql=q.toLowerCase();
   return S.prospects.filter(p=>String(p.name||'').toLowerCase().includes(ql)||String(p.dirigeant||'').toLowerCase().includes(ql)||String(p.city||'').toLowerCase().includes(ql)).slice(0,6);
