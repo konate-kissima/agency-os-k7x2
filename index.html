@@ -307,6 +307,22 @@ La phrase : « Je vous amène 20 demandes de devis en 90 jours sur Facebook et I
 const OBJ=['—','Pas le temps','Déjà une agence','Le bouche-à-oreille suffit','Pas de budget / trop cher','Déjà trop de travail','Doit en parler (associé, conjoint)','A déjà essayé les pubs (sans résultat)','Pas le décideur','Méfiance','🔥 Signal chaud : demande le coût d\'un client','Autre'];
 const MAX_TRIES=5;
 const DEF_SCRIPTS={
+ P:{name:'P · Court (Platten × Hamza)',text:`1. OUVERTURE
+« Bonjour {contact}, Kissima à l'appareil. Je suis sur votre fiche Google, vos avis sont excellents. Vous avez 30 secondes ? »
+
+2. LA QUESTION
+« Est-ce que vous auriez de la place pour 20 à 30 chantiers de plus d'ici trois mois ? »
+
+3. L'OFFRE, EN UNE PHRASE
+« Je fais arriver des demandes de devis qualifiées chez des artisans, par Facebook et Instagram. Je lance un programme pilote en Île-de-France et vous avez le bon profil. »
+
+4. LE RENDEZ-VOUS
+« 10 minutes {jour} à 14h52, ça vous irait ? »
+
+5. CLÔTURE
+« Je prends votre email, et ce numéro est bien le bon ? Je vous rappelle le matin même pour confirmer. Belle journée. »
+
+Un non est normal : remercie, enchaîne le suivant.`},
  H:{name:'H · Script Hamza (tel quel)',text:`1. OUVERTURE
 « Oui, bonjour {contact}. Kissima à l'appareil, société [ton agence]. Comment allez-vous ? »
 
@@ -409,7 +425,7 @@ SI IL EST OCCUPÉ
 RDV
 « Je repasse ou on s'appelle : {jour} à 17h30, ça vous va ? »`}
 };
-const DEF_SETTINGS={mailFrom:'konate.kissima.ent@gmail.com',angle:'H',pilotPrice:3000,normalPrice:4000,budgetDay:30,minMonths:3,recordText:'Cet appel peut être enregistré pour ma formation. Dites-le-moi si vous préférez que non.',scripts:DEF_SCRIPTS};
+const DEF_SETTINGS={mailFrom:'konate.kissima.ent@gmail.com',angle:'P',pilotPrice:3000,normalPrice:4000,budgetDay:30,minMonths:3,recordText:'Cet appel peut être enregistré pour ma formation. Dites-le-moi si vous préférez que non.',scripts:DEF_SCRIPTS};
 const CHECK=[['contrat','Contrat signé + 1er paiement'],['page','Page Facebook du client prête'],['bm','Accès partenaire au Business Manager / compte pub du client'],['pay','Moyen de paiement du client sur le compte pub'],['form','Formulaire de leads (3 questions de qualification)'],['crea','Créatives (3 variantes) validées par le client'],['alerte','Alerte lead (SMS/WhatsApp au client) + rappel du lead en moins de 5 min'],['launch','Campagne lancée (date = début des 14 jours sans toucher)'],['j14','Revue à J+14'],['cas','Accord écrit pour le cas d\'étude']];
 const OUT_CH=[['dm_insta','DM Instagram'],['dm_fb','DM Facebook'],['dm_lin','DM LinkedIn'],['video','Vidéo personnalisée (Loom, 45 s)'],['email','Email']];
 const OUT_RES=[['sent','Envoyé','primary'],['reply','A répondu',''],['rdv','RDV pris','primary'],['no','Pas intéressé',''],['stop','Ne plus contacter','danger']];
