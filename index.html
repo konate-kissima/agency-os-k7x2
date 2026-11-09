@@ -708,7 +708,7 @@ function appelsHTML(){
     ${cur.email?`<button class="btn sm" data-act="fathom-sync" data-id="${esc(cur.id)}">Débrief Fathom (par e-mail)</button> `:''}<button class="btn sm" data-act="fathom-link" data-id="${esc(cur.id)}">Coller un lien Fathom</button>
     ${cur.notes?`<div class="sm muted" style="white-space:pre-wrap">${esc(cur.notes)}</div>`:''}
     <label class="f" for="ca">Lien de l'enregistrement (Drive), si enregistré</label><input id="ca" style="width:100%" placeholder="https://drive.google.com/…" value="${esc(S.call.audio)}">
-    <label class="ck sm"><input type="checkbox" id="ci"${S.call.informed?' checked':''}> J'ai informé l'interlocuteur de l'enregistrement</label></details><span style="display:flex;gap:6px"><button class="btn sm" data-act="callskip" title="Passer cette fiche sans rien enregistrer">Passer</button><button class="btn sm" data-act="open" data-id="${esc(cur.id)}">Ouvrir la fiche</button></span></div></div>`;
+    <label class="ck sm"><input type="checkbox" id="ci"${S.call.informed?' checked':''}> J'ai informé l'interlocuteur de l'enregistrement</label></details><span style="display:flex;gap:6px"><button class="btn sm" data-act="callskip" title="Passer cette fiche sans rien enregistrer">Passer</button><button class="btn sm" data-act="open" data-id="${esc(cur.id)}">Ouvrir la fiche</button> <button class="btn sm" data-act="prep" data-id="${esc(cur.id)}">🔎 Préparer le RDV</button> <button class="btn sm" data-act="rdvopen" data-id="${esc(cur.id)}">🖥 Fiche de RDV</button></span></div></div>`;
   const right=`<div class="card scriptcard"><div class="row" style="flex-wrap:nowrap"><select id="cang" aria-label="Angle de script (sert aux statistiques)">${Object.entries(sc.scripts).map(([k,v])=>`<option value="${esc(k)}"${k===ang?' selected':''}>${esc(v.name)}</option>`).join('')}</select></div>
    <div class="script">${esc(fillScript((sc.scripts[ang]||{}).text,cur))}</div>
    <div class="sm muted"><b>Information d'enregistrement</b><br>${esc(sc.recordText)}</div></div>`;
@@ -838,7 +838,7 @@ function outreachHTML(){
    <label class="f" for="or">RDV (si pris)</label><input type="datetime-local" id="or" value="${esc(S.out.rdvAt)}">
    ${hist.length?`<div class="sm muted" style="margin-top:8px"><b>Historique</b><br>${hist.map(h=>`${fdate(h.t)} · ${esc(CH_L[h.channel||'appel'])} · ${esc(ALL_RES_L[h.result]||h.result)}${h.note?' — '+esc(h.note):''}`).join('<br>')}</div>`:''}
    <div class="res">${OUT_RES.map(([k,l,c])=>`<button class="btn ${c}" data-act="outres" data-r="${k}">${l}</button>`).join('')}<button class="btn" data-act="outskip">Passer</button></div>
-   <div style="margin-top:8px"><button class="btn sm" data-act="open" data-id="${esc(cur.id)}">Ouvrir la fiche</button></div></div>`;
+   <div style="margin-top:8px"><button class="btn sm" data-act="open" data-id="${esc(cur.id)}">Ouvrir la fiche</button> <button class="btn sm" data-act="prep" data-id="${esc(cur.id)}">🔎 Préparer le RDV</button> <button class="btn sm" data-act="rdvopen" data-id="${esc(cur.id)}">🖥 Fiche de RDV</button></div></div>`;
   const text=fillOut(v.text,cur);
   const right=`<div class="card"><h3>${esc(v.name)}</h3><div class="script" id="otext">${esc(text)}</div><button class="btn sm" data-act="copy">Copier le message</button>
    <p class="muted sm" style="margin-top:10px">${isVid?'Vidéo : une par prospect, adressée à lui, avec sa fiche Google à l\'écran. Tu l\'envoies seulement s\'il a répondu « oui, envoie » ou en première approche si tu préfères.':'DM : le but de la première phrase est de déclencher une réponse, pas de vendre. Aucune promesse de chantiers, aucune fausse référence, aucun faux profil.'}</p></div>`;
@@ -2016,7 +2016,7 @@ function outHTML(p){
   return `<h4 style="margin:12px 0 4px">Après le rendez-vous (généré le ${esc(fdt(o.at))})</h4>${blk('Compte rendu','cr',o.cr)}${blk('Message WhatsApp de récapitulatif','msg',o.msg)}${blk('Accord','accord',o.accord)}`}
 function rdvPanelHTML(p){
   const st=p.rdvForm&&p.rdvForm.status==='validé'?'validée':p.rdvForm?'en cours':'';
-  return `<details class="card" style="margin:10px 0"${p.stage==='rdv'||p.prep||p.rdvOut?' open':''}><summary><b>Rendez-vous : recherche et fiche à partager</b>${st?` <span class="chip">${st}</span>`:''}</summary><div class="row" style="margin:8px 0;flex-wrap:wrap"><button class="btn sm primary" data-act="prep" data-id="${esc(p.id)}">🔎 Préparer le RDV (demander la recherche)</button><button class="btn sm" data-act="rdvopen" data-id="${esc(p.id)}">🖥 Ouvrir la fiche de RDV (à partager)</button></div><div id="prepbox">${prepHTML(p)}</div><div id="outbox">${outHTML(p)}</div></details>`}
+  return `<details class="card" style="margin:10px 0" open><summary><b>Rendez-vous : recherche et fiche à partager</b>${st?` <span class="chip">${st}</span>`:''}</summary><div class="row" style="margin:8px 0;flex-wrap:wrap"><button class="btn sm primary" data-act="prep" data-id="${esc(p.id)}">🔎 Préparer le RDV (demander la recherche)</button><button class="btn sm" data-act="rdvopen" data-id="${esc(p.id)}">🖥 Ouvrir la fiche de RDV (à partager)</button></div><div id="prepbox">${prepHTML(p)}</div><div id="outbox">${outHTML(p)}</div></details>`}
 async function runPrep(id){
   const p=byId(id);if(!p)return;
   const at=new Date().toISOString();
