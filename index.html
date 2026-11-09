@@ -230,6 +230,7 @@ h1,h2,h3,h4,.hero,.st b,.callnum,.numrow .callnum,.pill b{font-variant-numeric:l
 .tray{margin-bottom:8px}
 .callcard .cnote{min-height:110px}
 .callcard .cres2 .big{padding:18px 8px}
+.actbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}.actbar.a3{grid-template-columns:repeat(3,minmax(0,1fr))}.actbar.a3 .btn{font-size:13px;padding:11px 4px}.actbar .btn{width:100%;box-sizing:border-box;text-align:center;white-space:nowrap;padding:11px 8px;font-weight:650;font-size:14px;display:flex;align-items:center;justify-content:center;min-height:44px}
 </style></head><body>
 <div id="app"></div><div id="toast" role="status"></div><dialog id="dlg"></dialog>
 <script src="config.js"></script>
@@ -703,12 +704,12 @@ function appelsHTML(){
    ${resUI}
    ${lastH?`<div class="sm muted">Dernier : ${fdate(lastH.t)} · ${esc(ALL_RES_L[lastH.result]||lastH.result)}${lastH.note?' — '+esc(lastH.note):''}</div>`:''}
    <textarea id="cn" rows="5" class="cnote" placeholder="Note : ce que tu as appris (interlocuteur, objection, chantiers…)">${esc(S.call.note)}</textarea>
-   <div class="row" style="justify-content:space-between;margin-top:6px;flex-wrap:nowrap"><details class="sm" style="flex:1;min-width:0"${timeline(cur).length?' open':''}><summary class="muted">Historique daté, notes, enregistrement</summary>
+   <div style="margin-top:6px"><details class="sm" style="width:100%"${timeline(cur).length?' open':''}><summary class="muted">Historique daté, notes, enregistrement</summary>
     <div style="margin:6px 0"><b>Historique</b>${timelineHTML(cur,12)}</div>
     ${cur.email?`<button class="btn sm" data-act="fathom-sync" data-id="${esc(cur.id)}">Débrief Fathom (par e-mail)</button> `:''}<button class="btn sm" data-act="fathom-link" data-id="${esc(cur.id)}">Coller un lien Fathom</button>
     ${cur.notes?`<div class="sm muted" style="white-space:pre-wrap">${esc(cur.notes)}</div>`:''}
     <label class="f" for="ca">Lien de l'enregistrement (Drive), si enregistré</label><input id="ca" style="width:100%" placeholder="https://drive.google.com/…" value="${esc(S.call.audio)}">
-    <label class="ck sm"><input type="checkbox" id="ci"${S.call.informed?' checked':''}> J'ai informé l'interlocuteur de l'enregistrement</label></details><span style="display:flex;gap:6px"><button class="btn sm" data-act="callskip" title="Passer cette fiche sans rien enregistrer">Passer</button><button class="btn sm" data-act="open" data-id="${esc(cur.id)}">Ouvrir la fiche</button></span></div><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)"><button class="btn" data-act="prep" data-id="${esc(cur.id)}">🔎 Préparer le RDV</button><button class="btn" data-act="rdvopen" data-id="${esc(cur.id)}">🖥 Fiche de RDV (à partager)</button></div></div>`;
+    <label class="ck sm"><input type="checkbox" id="ci"${S.call.informed?' checked':''}> J'ai informé l'interlocuteur de l'enregistrement</label></details><div class="actbar"><button class="btn" data-act="prep" data-id="${esc(cur.id)}">🔎 Préparer le RDV</button><button class="btn" data-act="rdvopen" data-id="${esc(cur.id)}">🖥 Fiche de RDV</button><button class="btn" data-act="open" data-id="${esc(cur.id)}">Ouvrir la fiche</button><button class="btn" data-act="callskip" title="Passer cette fiche sans rien enregistrer">Passer</button></div></div>`;
   const right=`<div class="card scriptcard"><div class="row" style="flex-wrap:nowrap"><select id="cang" aria-label="Angle de script (sert aux statistiques)">${Object.entries(sc.scripts).map(([k,v])=>`<option value="${esc(k)}"${k===ang?' selected':''}>${esc(v.name)}</option>`).join('')}</select></div>
    <div class="script">${esc(fillScript((sc.scripts[ang]||{}).text,cur))}</div>
    <div class="sm muted"><b>Information d'enregistrement</b><br>${esc(sc.recordText)}</div></div>`;
@@ -838,7 +839,7 @@ function outreachHTML(){
    <label class="f" for="or">RDV (si pris)</label><input type="datetime-local" id="or" value="${esc(S.out.rdvAt)}">
    ${hist.length?`<div class="sm muted" style="margin-top:8px"><b>Historique</b><br>${hist.map(h=>`${fdate(h.t)} · ${esc(CH_L[h.channel||'appel'])} · ${esc(ALL_RES_L[h.result]||h.result)}${h.note?' — '+esc(h.note):''}`).join('<br>')}</div>`:''}
    <div class="res">${OUT_RES.map(([k,l,c])=>`<button class="btn ${c}" data-act="outres" data-r="${k}">${l}</button>`).join('')}<button class="btn" data-act="outskip">Passer</button></div>
-   <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"><button class="btn sm" data-act="open" data-id="${esc(cur.id)}">Ouvrir la fiche</button><button class="btn" data-act="prep" data-id="${esc(cur.id)}">🔎 Préparer le RDV</button><button class="btn" data-act="rdvopen" data-id="${esc(cur.id)}">🖥 Fiche de RDV (à partager)</button></div></div>`;
+   <div class="actbar a3"><button class="btn" data-act="prep" data-id="${esc(cur.id)}">🔎 Préparer le RDV</button><button class="btn" data-act="rdvopen" data-id="${esc(cur.id)}">🖥 Fiche de RDV</button><button class="btn" data-act="open" data-id="${esc(cur.id)}">Ouvrir la fiche</button></div></div>`;
   const text=fillOut(v.text,cur);
   const right=`<div class="card"><h3>${esc(v.name)}</h3><div class="script" id="otext">${esc(text)}</div><button class="btn sm" data-act="copy">Copier le message</button>
    <p class="muted sm" style="margin-top:10px">${isVid?'Vidéo : une par prospect, adressée à lui, avec sa fiche Google à l\'écran. Tu l\'envoies seulement s\'il a répondu « oui, envoie » ou en première approche si tu préfères.':'DM : le but de la première phrase est de déclencher une réponse, pas de vendre. Aucune promesse de chantiers, aucune fausse référence, aucun faux profil.'}</p></div>`;
