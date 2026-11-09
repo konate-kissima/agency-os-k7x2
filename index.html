@@ -1021,12 +1021,13 @@ function targetsHTML(LC,from,to){
 function statsHTML(){
   const days=S.st.days;let from,to='9999-99-99';
   if(days==='w')from=weekStart(today());else if(days==='m')from=today().slice(0,8)+'01';else if(days==='c'){from=S.st.from||'0000-00-00';to=S.st.to||'9999-99-99'}else from=days>0?addDays(today(),-(days-1)):'0000-00-00';
-  const L=S.calls.filter(c=>{const d=String(c.t).slice(0,10);return d>=from&&d<=to});
+  const ln=S.st.line||'all',lineOk=c=>{if(ln==='all')return true;if(!isCall(c))return false;const p=byId(c.prospectId),m=p?isMobile(p.phone):false;return ln==='mobile'?m:!m};
+  const L=S.calls.filter(c=>{const d=String(c.t).slice(0,10);return d>=from&&d<=to&&lineOk(c)});
   const LA=L,LC=L.filter(isCall);L.length;const j=LC.filter(isAns),rdv=LA.filter(c=>isRdvRes(c.result));
   const pct=(a,b)=>b?Math.round(1000*a/b)/10+' %':'—';
   const done=S.prospects.filter(p=>['rdv_fait','pilote','signe'].includes(p.stage)).length;
   const signed=S.prospects.filter(p=>p.stage==='signe').length;
-  const sel=`<div class="row" style="margin-bottom:12px"><select id="stdays">${[[1,'Aujourd\'hui'],['w','Cette semaine'],['m','Ce mois-ci'],[7,'7 jours'],[14,'14 jours'],[30,'30 jours'],[0,'Depuis le début'],['c','Période choisie…']].map(([v,l])=>`<option value="${v}"${days===v?' selected':''}>${l}</option>`).join('')}</select>${days==='c'?`<input type="date" id="stfrom" value="${S.st.from||''}"> → <input type="date" id="stto" value="${S.st.to||''}">`:''}<button class="btn sm" data-act="exp-calls">Exporter les appels (CSV)</button></div>`;
+  const sel=`<div class="row" style="margin-bottom:12px"><select id="stdays">${[[1,'Aujourd\'hui'],['w','Cette semaine'],['m','Ce mois-ci'],[7,'7 jours'],[14,'14 jours'],[30,'30 jours'],[0,'Depuis le début'],['c','Période choisie…']].map(([v,l])=>`<option value="${v}"${days===v?' selected':''}>${l}</option>`).join('')}</select><select id="stline" aria-label="Type de ligne"><option value="all"${ln==='all'?' selected':''}>Tous les numéros</option><option value="mobile"${ln==='mobile'?' selected':''}>Mobiles (06/07)</option><option value="fixe"${ln==='fixe'?' selected':''}>Fixes</option></select>${days==='c'?`<input type="date" id="stfrom" value="${S.st.from||''}"> → <input type="date" id="stto" value="${S.st.to||''}">`:''}<button class="btn sm" data-act="exp-calls">Exporter les appels (CSV)</button></div>`;
   const kp=`<div class="kpis"><div class="kpi"><b>${LC.length}</b><span>appels</span></div><div class="kpi"><b>${j.length}</b><span>conversations (${pct(j.length,LC.length)})</span></div><div class="kpi"><b>${L.length-LC.length}</b><span>DM / vidéos / emails</span></div><div class="kpi"><b>${rdv.length}</b><span>RDV (tous canaux)</span></div><div class="kpi"><b>${done}</b><span>RDV faits ou plus loin (total)</span></div><div class="kpi"><b>${signed}</b><span>signés (total)</span></div></div>`;
   const grp=(keyFn,title,minJ=30,src=LC)=>{const m={};src.forEach(c=>{const k=keyFn(c)||'—';(m[k]=m[k]||{n:0,j:0,r:0});m[k].n++;if(cj(c))m[k].j++;if(isRdvRes(c.result))m[k].r++});
     const rows=Object.entries(m).sort((a,b)=>b[1].n-a[1].n).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="r">${v.n}</td><td class="r">${v.j}</td><td class="r">${v.r}</td><td class="r"><b>${pct(v.r,v.j)}</b>${v.j<minJ?` <span class="muted sm">(${v.j} conv. : trop peu pour conclure)</span>`:''}</td></tr>`).join('');
@@ -1710,6 +1711,7 @@ document.addEventListener('change',e=>{
   if(t.id==='cang'){S.call.angle=t.value;const keep={note:$('#cn')?$('#cn').value:'',obj:$('#co')?$('#co').value:'—',audio:$('#ca')?$('#ca').value:'',informed:$('#ci')?$('#ci').checked:false};Object.assign(S.call,keep);render()}
   else if(t.dataset&&t.dataset.act==='mobsel'){S.call.mob=t.value;S.call.pid='';render()}
   else if(t.id==='och'||t.id==='ovar'){S.out.note=$('#on')?$('#on').value:S.out.note;S.out.handle='';if(t.id==='och')S.out.ch=t.value;else S.out.variant=t.value;render()}
+  else if(t.id==='stline'){S.st.line=t.value;render()}
   else if(t.id==='stdays'){S.st.days=isNaN(+t.value)?t.value:+t.value;render()}
   else if(t.id==='stfrom'||t.id==='stto'){S.st[t.id==='stfrom'?'from':'to']=t.value;render()}
   else if(t.id==='pdept'){S.pf.dept=t.value;render()}
