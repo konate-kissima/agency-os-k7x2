@@ -617,7 +617,7 @@ function dueBanner(sk){
   due.forEach(x=>{h+=`<div class="banner">Revue J+14 à faire : <b>${esc(x.c.name)}</b> (campagne lancée le ${fdate(x.c.checklist.launch)}). <button class="btn sm" data-act="cli-open" data-id="${esc(x.c.id)}">Ouvrir</button></div>`});
   soon.forEach(x=>{h+=`<div class="banner info">Revue J+14 le ${fdate(x.d)} : ${esc(x.c.name)} (ne pas toucher la campagne avant).</div>`});
   const cut=new Date(Date.now()-30*60000);
-  (sk?[]:S.prospects).filter(p=>p.stage==='rdv'&&p.rdvAt&&new Date(p.rdvAt)>=cut&&p.rdvAt.slice(0,10)<=addDays(t,1)).sort((a,b)=>a.rdvAt.localeCompare(b.rdvAt)).forEach(p=>{h+=`<div class="banner info">RDV ${RDV_T[p.rdvType||'visio']} ${fdate(p.rdvAt)} : <b>${esc(p.name)}</b> ${esc(fmtPhone(p.phone))} <button class="btn sm" data-act="open" data-id="${esc(p.id)}">Fiche</button></div>`});
+  (sk?[]:S.prospects).filter(p=>p.stage==='rdv'&&p.rdvAt&&new Date(p.rdvAt)>=cut&&p.rdvAt.slice(0,10)<=addDays(t,1)).sort((a,b)=>a.rdvAt.localeCompare(b.rdvAt)).forEach(p=>{h+=`<div class="banner info">RDV ${RDV_T[p.rdvType||'visio']} ${fdate(p.rdvAt)} : <b>${esc(p.name)}</b> ${esc(fmtPhone(p.phone))} <button class="btn sm" data-act="open" data-id="${esc(p.id)}">Fiche</button> <button class="btn sm" data-act="prep" data-id="${esc(p.id)}">🔎 Préparer</button> <button class="btn sm" data-act="rdvopen" data-id="${esc(p.id)}">🖥 Fiche de RDV</button></div>`});
   (sk?[]:remindDue()).forEach(x=>{h+=`<div class="banner">Rappel à envoyer (${x.k==='r24'?'veille':'2 h avant'}) : <b>${esc(x.p.name)}</b>, RDV ${esc(rdvWhen(x.p))} <button class="btn sm primary" data-act="rem-open" data-id="${esc(x.p.id)}" data-k="${x.k}">Préparer</button></div>`});
   return h;
 }
@@ -915,6 +915,7 @@ function openProspect(id){
   d.innerHTML=`<h2>${esc(p.name)}</h2><div class="muted sm">${esc(p.address||'')} ${p.mapsUrl?`· <a href="${esc(p.mapsUrl)}" target="_blank" rel="noopener">Google</a>`:''} ${p.website?`· <a href="${esc(p.website)}" target="_blank" rel="noopener">site</a>`:''}</div>
   <div class="row"><div><label class="f">Téléphone</label><input id="fp-phone" value="${esc(p.phone||'')}"></div><div><label class="f">Étape</label><select id="fp-stage">${STAGES.map(([k,l])=>`<option value="${k}"${(p.stage||'a_contacter')===k?' selected':''}>${l}</option>`).join('')}</select></div><div><label class="f">Rappel</label><input type="date" id="fp-next" value="${esc(p.nextDate||'')}"></div><div><label class="f">Heure</label><input type="time" id="fp-nt" value="${esc(p.nextTime||'')}"></div><div><label class="f">RDV</label><input type="datetime-local" id="fp-rdv" value="${esc(p.rdvAt||'')}"></div></div>
   ${p.stage==='rdv'?`<details class="card" style="margin:10px 0"><summary><b>Préparer le rendez-vous</b> (trame en 6 temps + offre)</summary><div class="script" style="white-space:pre-wrap;font-size:13px;margin-top:8px">${esc(rdvFill(settings().rdvText||DEF_RDV))}\n\n${esc(rdvFill(settings().offerText||DEF_OFFER))}</div></details>`:''}
+  ${rdvPanelHTML(p)}
   <label class="f">Email</label><input id="fp-email" style="width:100%" value="${esc(p.email||'')}">
   <label class="f">Notes</label><textarea id="fp-notes" rows="5">${esc(p.notes||'')}</textarea>
   <h3 style="margin-top:12px">Historique daté</h3>${timelineHTML(p)}${p.email?`<button class="btn sm" data-act="fathom-sync" data-id="${esc(id)}">Débrief Fathom (par e-mail)</button> `:''}<button class="btn sm" data-act="fathom-link" data-id="${esc(id)}">Coller un lien Fathom</button>
@@ -1516,6 +1517,7 @@ const TABS=[['auj','🔥 Aujourd\'hui'],['appels','📞 Appels'],['outreach','�
 function render(){
   const app=$('#app');
   if(DB.mode==='cloud'&&!S.user){loginHTML();return}
+  if(S.rdvOnly){rfRender();return}
   const active=document.activeElement&&document.activeElement.id;
   let body='';
   if(!S.loaded)body='<div class="card">Chargement…</div>';
@@ -1584,7 +1586,7 @@ function soonItems(){const now=new Date(),t=today(),hm=nowHM(),lim=new Date(now.
     if(p.stage==='contacte'&&p.nextDate===t&&p.nextTime&&p.nextTime>hm&&p.nextTime<=hm5)out.push({id:p.id,k:p.rdvType==='tel'?'RDV téléphonique':'Rappel',time:p.nextTime,p});
     if(p.stage==='rdv'&&p.rdvAt&&p.rdvAt.slice(0,10)===t){const tt=p.rdvAt.slice(11,16);if(tt>hm&&tt<=hm5)out.push({id:p.id,k:'RDV '+RDV_T[p.rdvType||'visio'],time:tt,p})}});
   return out.filter(x=>!S.soonSeen[x.id+x.time])}
-function soonCheck(){let el=document.getElementById('soon');const L=S.loaded&&!S.err?soonItems():[];
+function soonCheck(){if(S.rdvOnly)return;let el=document.getElementById('soon');const L=S.loaded&&!S.err?soonItems():[];
   if(!L.length){if(el)el.remove();return}
   const html=L.map(x=>`<div class="srow"><div><b>Dans 5 min · ${esc(x.time.replace(':','h'))}</b><br>${esc(x.k)} · <b>${esc(x.p.name)}</b><br><span class="sm muted">${esc(fmtPhone(x.p.phone))}</span></div><div class="btns"><button class="btn sm primary" data-act="soon-open" data-id="${esc(x.id)}" data-k="${esc(x.id+x.time)}">Ouvrir la fiche</button><button class="btn sm" data-act="soon-ok" data-k="${esc(x.id+x.time)}">Compris</button></div></div>`).join('');
   if(!el){el=document.createElement('div');el.id='soon';document.body.appendChild(el)}
@@ -1652,7 +1654,7 @@ async function rqDo(d){
     return rqSave(p,ent('tenu',{out:'rap'}),{rdvShow:'tenu',stage:'contacte',nextDate:dt,nextTime:v('rq-tm')||'10:00'},`R${n} tenu, il réfléchit : rappel le ${fdate(dt)}`)}
   if(d==='perdu'){const ob=v('rq-ob')||'Pas intéressé';return rqSave(p,ent('tenu',{out:'perdu',why:ob}),{rdvShow:'tenu',stage:'perdu',lostReason:ob},`R${n} tenu, perdu : ${ob}`)}
 }
-function alarmCheck(){
+function alarmCheck(){if(S.rdvOnly)return;
   rdvqCheck();
   if(!S.loaded||S.err)return;
   soonCheck();
@@ -1770,6 +1772,276 @@ document.addEventListener('input',e=>{
   else if(t.id==='cq'){S.call.q=t.value;render()}
 });
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lgp'){$('[data-act=login]').click()}});
+
+/* ================= fiche de RDV (fenêtre partageable, sans menu) ================= */
+S.rdvOnly=(()=>{const m=String(location.hash||'').match(/^#rdv=(.+)$/);try{return m?decodeURIComponent(m[1]):''}catch(e){return ''}})();
+const RDVO={n:15,jours:90,f1:1500,f2:1500,min:30,prol:30,garantie:'rembourse'};
+const rdvOffer=()=>({...RDVO,...(settings().rdvOffer||{})});
+const RQ=[
+ {g:'Votre activité',items:[
+  {id:'prio',t:'chips',l:'Quelles prestations voulez-vous vendre en priorité ?',o:['PAC air/eau','Isolation extérieure','Rénovation d\'ampleur','Photovoltaïque','Autre']},
+  {id:'panier',t:'num',l:'Panier moyen d\'un chantier',u:'€'},
+  {id:'marge',t:'num',l:'Marge brute moyenne sur un chantier',u:'%'},
+  {id:'taux',t:'num',l:'Taux de signature sur vos devis (3 sur 10 = 30 %)',w:'Avec le panier moyen, cela chiffre ce que valent les demandes.',u:'%'},
+  {id:'capa',t:'num',l:'Combien de chantiers supplémentaires pouvez-vous poser par mois ?',w:'Nous réglons le volume de demandes sur ce que vos équipes absorbent.',u:'par mois'},
+  {id:'zone',t:'text',l:'Votre zone d\'intervention',w:'Les annonces se ciblent par zone.'}]},
+ {g:'Vos demandes aujourd\'hui',items:[
+  {id:'sources',t:'chips',l:'D\'où viennent vos devis aujourd\'hui ?',o:['Google Ads','Effy','helloArtisan','Bouche-à-oreille','Site','Autre']},
+  {id:'coutactuel',t:'area',l:'Combien vous coûte une demande aujourd\'hui ?',w:'C\'est notre point de comparaison.'},
+  {id:'rappel',t:'area',l:'Qui rappelle les demandes, comment, et sous quel délai ?',w:'Le premier qui rappelle gagne souvent le chantier.'}]},
+ {g:'Pour démarrer',items:[
+  {id:'acces',t:'chips1',l:'Accès à votre Page, Instagram et compte publicitaire',o:['Aujourd\'hui','Sous 48 h','À voir','Non']},
+  {id:'valideur',t:'text',l:'Qui valide les annonces sous 48 h ?'},
+  {id:'miseenligne',t:'text',l:'Date de mise en ligne souhaitée'},
+  {id:'decision',t:'chips1',l:'Décision',o:['Accord aujourd\'hui','Il réfléchit','Refus','Autre interlocuteur']},
+  {id:'rdvdate',t:'text',l:'Prochain échange (date et heure)'}]}];
+const RCRITS=[
+ ['1. Statut','Propriétaire occupant d\'une maison individuelle, résidence principale.'],
+ ['2. Logement','Maison de plus de 15 ans.'],
+ ['3. Chauffage','Remplace un système de chauffage existant (gaz, fioul, électrique).'],
+ ['4. Zone','Dans la zone d\'intervention fixée au cadrage.'],
+ ['5. Projet','Projet de travaux, devis souhaité sous 3 mois, la personne décide.'],
+ ['6. Contact','Téléphone et email valides, demande de rappel cochée, numéro vérifié.']];
+const RSCEN=[['Prudent',50,30],['Normal',35,45],['Favorable',25,60]];
+const rcheck=()=>{const o=rdvOffer();return [
+ 'Zone d\'intervention du pilote','Capacité de chantiers par mois, et qui pose','Rappel de chaque demande dans l\'heure ouvrée','Accès aux comptes publicitaires','Annonces validées sous 48 h','Date de mise en ligne',
+ `Engagement : ${o.n} demandes qualifiées en ${o.jours} jours, prolongation de ${o.prol} jours sans frais`,
+ `Honoraires : ${money(o.f1)} à la signature, ${money(o.f2)} à la ${o.n}e demande, par virement. Budget Meta minimum ${o.min} € par jour, payé directement à Meta`]};
+const rfn=(f,k,d)=>{const v=parseFloat(f[k]);return isFinite(v)&&v>=0?v:d};
+function rfSim(f,strict){
+  const o=rdvOffer(),bud=rfn(f,'sim_budget',strict?NaN:o.min),pan=rfn(f,'panier',strict?NaN:12000),mar=rfn(f,'marge',strict?NaN:20)/100,sig=rfn(f,'taux',strict?NaN:25)/100;
+  if([bud,pan,mar,sig].some(x=>!isFinite(x)))return null;
+  const total=bud*o.jours,fee=o.f1+o.f2;
+  return RSCEN.map((s,i)=>{const cpl=rfn(f,'cpl'+i,s[1])||1,q=rfn(f,'qual'+i,s[2])/100,raw=total/cpl,qual=raw*q,signed=qual*sig,ca=signed*pan,gm=ca*mar;
+    return {name:s[0],cpl,qp:Math.round(q*100),qual,cpq:qual>0?total/qual:0,signed,ca,gm,net:gm-total-fee,total,ok:qual>=o.n}});
+}
+function rfChipsH(it,k,opts,multi){return `<div class="rf-chips" data-k="${k}" data-multi="${multi?1:0}">${opts.map(x=>`<button type="button" class="rf-chip" data-v="${esc(x)}" aria-pressed="false">${esc(x)}</button>`).join('')}</div>`}
+function rfFieldH(it){
+  let h=`<div class="rf-q"><label class="rf-ql" for="f_${it.id}">${esc(it.l)}</label>${it.w?`<p class="rf-why">${esc(it.w)}</p>`:''}`;
+  if(it.t==='text')h+=`<input type="text" id="f_${it.id}" data-k="${it.id}">`;
+  else if(it.t==='area')h+=`<textarea id="f_${it.id}" data-k="${it.id}" rows="2"></textarea>`;
+  else if(it.t==='num')h+=`<div class="rf-unit"><input type="number" inputmode="decimal" id="f_${it.id}" data-k="${it.id}"><span>${esc(it.u||'')}</span></div>`;
+  else h+=rfChipsH(it,it.id,it.o,it.t==='chips');
+  return h+'</div>'}
+const RFCSS=`<style id="rfcss">body{background:var(--bg)}.rf{max-width:860px;margin:0 auto;padding:18px 18px 80px}.rf h1{font:700 28px var(--f-disp,Georgia,serif);margin:4px 0 6px;color:var(--ink)}.rf h2{font-size:20px;margin:30px 0 8px;color:var(--accent)}.rf h3{font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:18px 0 6px}.rf .eyebrow{font-size:13px;color:var(--muted)}.rf .lede{color:var(--ink);margin:6px 0 0;font-size:15px}.rf-top{position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 0;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center;justify-content:space-between}.rf-prog{height:6px;background:var(--surface2);border-radius:9px;flex:1;overflow:hidden}.rf-prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}.rf-state{font-size:12px;color:var(--muted);white-space:nowrap}.rf-nav{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}.rf-nav button{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:5px 12px;font:600 13px var(--f-body);cursor:pointer;color:var(--ink)}.rf-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}.rf-fact{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}.rf-fact small{color:var(--muted);font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.05em}.rf-fact p{margin:4px 0 0;font-size:14px}.rf-q{margin:12px 0}.rf-ql{display:block;font-weight:650;margin-bottom:3px}.rf-why{margin:0 0 5px;color:var(--muted);font-size:13px}.rf input[type=text],.rf input[type=number],.rf textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:10px 12px;font:15px var(--f-body)}.rf-unit{display:flex;align-items:center;gap:8px;max-width:260px}.rf-unit span{color:var(--muted);white-space:nowrap;font-size:14px}.rf-chips{display:flex;flex-wrap:wrap;gap:7px}.rf-chip{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:8px 14px;font:600 14px var(--f-body);cursor:pointer;color:var(--ink)}.rf-chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink,#fff)}.rf-crit{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0}.rf-crit b{display:block}.rf-crit p{margin:2px 0 8px;color:var(--muted);font-size:14px}.rf-crit input[type=text]{margin-top:7px}.rf-sc{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-top:10px}.rf-scen{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px}.rf-scen.n{border-color:var(--accent)}.rf-scen h3{margin:0 0 6px}.rf-scen table{width:100%;border-collapse:collapse;font-size:14px}.rf-scen td{padding:4px 0;border-top:1px solid var(--line)}.rf-scen td:last-child{text-align:right;font-weight:650}.rf-scen .key td{font-weight:800}.rf-pos{color:var(--good)}.rf-neg{color:var(--bad)}.rf-badge{display:inline-block;margin-top:6px;font-size:12px;padding:2px 9px;border-radius:99px;background:var(--surface2);border:1px solid var(--line)}.rf-hyp{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.rf-hyp label{font-size:12px;color:var(--muted);display:block}.rf-checks label{display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--line);cursor:pointer;align-items:flex-start}.rf-checks label:first-child{border-top:0}.rf-note{font-size:12px;color:var(--muted)}.rf-done{display:none;margin-top:12px;padding:12px 14px;border-radius:12px;background:color-mix(in srgb,var(--good) 14%,var(--surface));border:1px solid color-mix(in srgb,var(--good) 30%,transparent)}.rf-done.on{display:block}.rf-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px}.rf-unitrow{display:flex;gap:18px;flex-wrap:wrap}</style>`;
+function rfHTML(p){
+  const o=rdvOffer(),pr=p.prep||{},reg=pr.registre||{};
+  const facts=[];
+  if(pr.points_forts&&pr.points_forts.length)facts.push(['Vos atouts',pr.points_forts.join(' ; ')]);
+  const bits=[];if(reg.creation)bits.push('Créée en '+String(reg.creation).slice(0,4));if(p.rating)bits.push(p.rating+' sur 5 sur Google ('+(p.reviews||'?')+' avis)');if(bits.length)facts.push(['Votre entreprise',bits.join(' · ')]);
+  if(pr.activite)facts.push(['Votre activité',pr.activite]);
+  const qh=RQ.map(g=>`<div><h3>${esc(g.g)}</h3>${g.items.map(rfFieldH).join('')}</div>`).join('');
+  const ch=RCRITS.map((c,i)=>`<div class="rf-crit"><b>${esc(c[0])}</b><p>${esc(c[1])}</p>${rfChipsH(null,'crit'+i,['Validé','À modifier','Refusé'],false)}<input type="text" data-k="critnote${i}" placeholder="Ce que vous souhaitez changer" aria-label="Note critère ${i+1}"></div>`).join('');
+  const ck=rcheck().map((c,i)=>`<label><input type="checkbox" data-k="chk${i}"><span>${esc(c)}</span></label>`).join('');
+  const sc=RSCEN.map((s,i)=>`<div class="rf-scen${i===1?' n':''}"><h3>${s[0]}</h3><table id="rs${i}"></table><div id="rb${i}"></div><details style="margin-top:8px"><summary class="rf-note" style="cursor:pointer">Ajuster les hypothèses</summary><div class="rf-hyp"><div><label for="cpl${i}">Coût par demande brute (€)</label><input type="number" inputmode="decimal" id="cpl${i}" data-k="cpl${i}" placeholder="${s[1]}"></div><div><label for="qual${i}">Demandes qualifiées (%)</label><input type="number" inputmode="decimal" id="qual${i}" data-k="qual${i}" placeholder="${s[2]}"></div></div></details></div>`).join('');
+  return RFCSS+`<div class="rf"><div class="rf-top"><b>${esc(p.name)}</b><div class="rf-prog"><i id="rfprog"></i></div><span class="rf-state" id="rfstate">…</span></div>
+  <header><div class="rf-eyebrow eyebrow">${esc([p.address,p.dirigeant||p.contact].filter(Boolean).join(' · '))}</div><h1>Fiche de rendez-vous ${esc(p.name)}</h1><p class="lede">L'objectif est simple : vous apporter plus de clients, sous forme de demandes de devis qualifiées. Cette page se remplit ensemble, en quelques minutes.</p></header>
+  <nav class="rf-nav">${[['rfq','Questions'],['rfc','Demande qualifiée'],['rfs','Simulation'],['rfk','Cadre'],['rff','Fin']].map(n=>`<button type="button" data-go="${n[0]}">${n[1]}</button>`).join('')}</nav>
+  ${facts.length?`<section><h2>Où vous en êtes aujourd'hui</h2><div class="rf-facts">${facts.map(f=>`<div class="rf-fact"><small>${esc(f[0])}</small><p>${esc(f[1])}</p></div>`).join('')}</div></section>`:''}
+  <section id="rfq"><h2>Quelques questions</h2><p class="rf-why">Une réponse courte suffit.</p>${qh}</section>
+  <section id="rfc"><h2>La demande qualifiée : critère par critère</h2><p class="rf-why">Une demande qualifiée remplit ces six critères. Chacun vous convient-il ?</p>${ch}
+   <div class="rf-q"><span class="rf-ql">Vérification du numéro (critère 6)</span><p class="rf-why">Option 1 : code SMS dans notre formulaire. Option 2 : votre équipe confirme par rappel (recommandée, aucun coût).</p>${rfChipsH(null,'verif',['Option 1 · code SMS','Option 2 · confirmation par rappel','À trancher plus tard'],false)}</div></section>
+  <section id="rfs"><h2>Simulation avec vos chiffres</h2><p class="rf-why">Ce que peuvent représenter ${o.n} demandes avec vos chiffres (valeurs d'exemple tant que vos réponses sont vides).</p>
+   <div class="rf-card rf-unitrow"><div><label class="rf-ql" for="sim_budget">Budget Meta par jour</label><div class="rf-unit"><input type="number" inputmode="decimal" id="sim_budget" data-k="sim_budget" placeholder="${o.min}"><span>€</span></div></div><div><span class="rf-ql">Durée</span><div class="rf-unit"><span>${o.jours} jours · honoraires ${money(o.f1+o.f2)}</span></div></div></div>
+   <div class="rf-sc">${sc}</div><p class="rf-note">Estimations de travail, pas des promesses.</p></section>
+  <section id="rfk"><h2>Ce que nous validons</h2><p class="rf-why">Les points validés sont cochés.</p><div class="rf-card rf-checks">${ck}</div></section>
+  <section id="rff"><h2>Fin de rendez-vous</h2><div class="rf-q"><label class="rf-ql" for="f_notes_libres">Remarques et points de vigilance</label><textarea id="f_notes_libres" data-k="notes_libres" rows="4"></textarea></div>
+   <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn primary" type="button" id="rfval">Valider les réponses</button><button class="btn" type="button" id="rfreopen" hidden>Rouvrir pour modifier</button></div>
+   <div class="rf-done" id="rfdone"><b>Réponses validées.</b> Elles sont enregistrées.</div></section></div>`}
+const RF={fields:{},status:'en cours',mounted:'',timer:0};
+const rfCur=()=>byId(S.rdvOnly);
+function rfRender(){
+  const app=$('#app');
+  if(!S.loaded){app.innerHTML='<div class="card" style="margin:20px">Chargement…</div>';return}
+  if(S.err){app.innerHTML=`<div class="banner">Erreur de données : ${esc(S.err)}</div>`;return}
+  const p=rfCur();
+  if(!p){app.innerHTML='<div class="card" style="margin:20px">Fiche introuvable.</div>';return}
+  if(RF.mounted===p.id)return;
+  document.title='Fiche de rendez-vous – '+p.name;
+  RF.mounted=p.id;const fm=p.rdvForm||{};RF.fields={...(fm.fields||{})};RF.status=fm.status||'en cours';
+  app.innerHTML=rfHTML(p);
+  document.querySelectorAll('.rf input[data-k],.rf textarea[data-k]').forEach(el=>{const v=RF.fields[el.dataset.k];if(el.type==='checkbox')el.checked=!!v;else el.value=v==null?'':v});
+  rfPaint();rfState(fm.updatedAt?'Enregistré':'Prêt');
+}
+function rfState(t){const e=$('#rfstate');if(e)e.textContent=t}
+function rfPaint(){
+  const f=RF.fields;
+  document.querySelectorAll('.rf-chips[data-k]').forEach(box=>{const v=f[box.dataset.k];box.querySelectorAll('.rf-chip').forEach(b=>b.setAttribute('aria-pressed',(Array.isArray(v)?v.includes(b.dataset.v):v===b.dataset.v)?'true':'false'))});
+  const sims=rfSim(f,false);
+  if(sims)sims.forEach((s,i)=>{
+    const rows=[['Demandes qualifiées',s.qual.toFixed(0)],['Coût par demande qualifiée',s.qual>0?money(s.cpq):'–'],['Devis signés',s.signed.toFixed(1)],['Chiffre d\'affaires',money(s.ca)]];
+    $('#rs'+i).innerHTML=rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')+`<tr class="key"><td>Résultat après pub et honoraires</td><td class="${s.net>=0?'rf-pos':'rf-neg'}">${s.net>=0?'+':'−'}${money(Math.abs(s.net))}</td></tr>`;
+    $('#rb'+i).innerHTML=`<span class="rf-badge">${s.ok?rdvOffer().n+' demandes atteintes':rdvOffer().n+' demandes non atteintes : prolongation'}</span>`});
+  const keys=[];RQ.forEach(g=>g.items.forEach(i=>keys.push(i.id)));RCRITS.forEach((c,i)=>keys.push('crit'+i));rcheck().forEach((c,i)=>keys.push('chk'+i));
+  const n=keys.filter(k=>{const v=f[k];return Array.isArray(v)?v.length:(v!==undefined&&v!==''&&v!==false)}).length;
+  const pg=$('#rfprog');if(pg)pg.style.width=Math.round(100*n/keys.length)+'%';
+  const v=RF.status==='validé';const a=$('#rfval'),b=$('#rfreopen'),d=$('#rfdone');if(a)a.hidden=v;if(b)b.hidden=!v;if(d)d.classList.toggle('on',v);
+}
+function rfChanged(){RF.dirty=true;rfState('Enregistrement…');clearTimeout(RF.timer);RF.timer=setTimeout(rfSave,700)}
+async function rfSave(extra){
+  const p=rfCur();if(!p)return;
+  const form={fields:RF.fields,status:RF.status,updatedAt:new Date().toISOString(),...(extra||{})};
+  const ok=await saveP(p.id,{rdvForm:{...(p.rdvForm||{}),...form}});
+  rfState(ok?'Enregistré':'Erreur d\'enregistrement');if(ok)RF.dirty=false}
+document.addEventListener('click',e=>{
+  if(!S.rdvOnly)return;
+  const go=e.target.closest('[data-go]');if(go){const el=document.getElementById(go.dataset.go);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});return}
+  const c=e.target.closest('.rf-chip');
+  if(c){const box=c.closest('.rf-chips'),k=box.dataset.k,v=c.dataset.v;
+    if(box.dataset.multi==='1'){const a=RF.fields[k]||[];RF.fields[k]=a.includes(v)?a.filter(x=>x!==v):a.concat(v)}else RF.fields[k]=RF.fields[k]===v?'':v;
+    rfPaint();rfChanged();return}
+  if(e.target.id==='rfval'){rfValidate();return}
+  if(e.target.id==='rfreopen'){RF.status='en cours';rfPaint();rfSave({reopenedAt:new Date().toISOString()})}
+});
+document.addEventListener('input',e=>{
+  if(!S.rdvOnly)return;const t=e.target,k=t.dataset&&t.dataset.k;if(!k||t.type==='checkbox')return;
+  RF.fields[k]=t.value;rfPaint();rfChanged()});
+document.addEventListener('change',e=>{
+  if(!S.rdvOnly)return;const t=e.target,k=t.dataset&&t.dataset.k;if(!k||t.type!=='checkbox')return;
+  RF.fields[k]=t.checked;rfPaint();rfChanged()});
+window.addEventListener('beforeunload',()=>{if(S.rdvOnly&&RF.dirty){clearTimeout(RF.timer);rfSave()}});
+
+/* ---- textes générés à la validation (modèles, aucun appel IA) ---- */
+const rfList=v=>Array.isArray(v)?v.join(', '):String(v||'');
+const rfFirst=p=>String(p.dirigeant||p.contact||'').replace(/\(.*?\)/g,'').trim().split(/\s+/)[0]||'';
+function rfCR(p,f){
+  const o=rdvOffer(),L=[],add=(l,v)=>{if(v!==undefined&&v!==''&&!(Array.isArray(v)&&!v.length))L.push(l+' : '+rfList(v))};
+  L.push('Compte rendu, '+p.name+', '+new Date().toLocaleDateString('fr-FR')+(p.dirigeant?' ('+p.dirigeant+')':''));
+  add('Décision',f.decision);add('Prestations prioritaires',f.prio);
+  if(f.panier||f.marge||f.taux)L.push('Chiffres : panier '+(f.panier?money(f.panier):'?')+', marge '+(f.marge?f.marge+' %':'?')+', signature '+(f.taux?f.taux+' %':'?'));
+  add('Capacité',f.capa&&f.capa+' chantiers par mois');add('Zone',f.zone);add('Origine des devis',f.sources);add('Coût actuel par demande',f.coutactuel);add('Rappel des demandes',f.rappel);
+  add('Accès aux comptes',f.acces);add('Validation des annonces',f.valideur);add('Mise en ligne',f.miseenligne);add('Vérification du numéro',f.verif);
+  const mods=RCRITS.map((c,i)=>f['crit'+i]&&f['crit'+i]!=='Validé'?c[0]+' : '+f['crit'+i]+(f['critnote'+i]?' ('+f['critnote'+i]+')':''):'').filter(Boolean);
+  const notes=RCRITS.map((c,i)=>f['crit'+i]==='Validé'&&f['critnote'+i]?c[0]+' : '+f['critnote'+i]:'').filter(Boolean);
+  if(mods.length)L.push('Critères à reprendre : '+mods.join(' ; '));
+  if(notes.length)L.push('Précisions : '+notes.join(' ; '));
+  const sim=rfSim(f,true);
+  if(sim){const s=sim[0];L.push('Simulation prudente : '+s.qual.toFixed(0)+' demandes qualifiées, environ '+s.signed.toFixed(1)+' chantiers, '+money(s.ca)+' de chiffre d\'affaires, '+money(s.gm)+' de marge brute, '+money(s.total)+' de publicité et '+money(o.f1+o.f2)+' d\'honoraires, soit '+(s.net>=0?'+':'−')+money(Math.abs(s.net))+' de résultat.')}
+  const ok=rcheck().filter((c,i)=>f['chk'+i]),no=rcheck().filter((c,i)=>!f['chk'+i]);
+  if(ok.length)L.push('Points validés : '+ok.join(' ; '));
+  if(no.length)L.push('Points non abordés : '+no.join(' ; '));
+  add('Remarques',f.notes_libres);add('Prochain échange',f.rdvdate);
+  return L.join('\n')}
+function rfMsg(p,f){
+  const o=rdvOffer(),pn=rfFirst(p),hi='Bonjour'+(pn?' '+pn:'')+', '+SIGN+'.';
+  const prod=Array.isArray(f.prio)&&f.prio.length?f.prio.join(', '):'';
+  const L=[hi,'','Merci pour l\'échange, voici le récapitulatif pour garder une trace claire :',''];
+  L.push('*Objectif*',o.n+' demandes de devis qualifiées en '+o.jours+' jours'+(prod||f.zone?' ('+[prod,f.zone?'zone : '+f.zone:''].filter(Boolean).join(', ')+')':'')+'.','');
+  L.push('*Tri des demandes*','Seules les demandes conformes aux critères validés ensemble comptent'+(f.verif?' ; numéro vérifié : '+String(f.verif).replace(/^Option \d · /,'')+'.':'.'),'');
+  L.push('*Ce que je gère*','Créatives, annonces, formulaire et suivi. Vous validez les annonces sous 48 h. Tous les 14 jours, j\'analyse les créatives : j\'optimise celles qui fonctionnent, j\'arrête les autres et j\'en lance de nouvelles. Bilans à 30, 60 et 90 jours.','');
+  L.push('*Budget publicitaire*','À votre charge, directement auprès de Meta'+(f.sim_budget?' (simulé à '+f.sim_budget+' € par jour)':' (minimum '+o.min+' € par jour)')+'. Il est plafonné par jour et je le suis chaque semaine.','');
+  L.push('*Honoraires*',money(o.f1)+' au lancement, '+money(o.f2)+' à la '+o.n+'e demande qualifiée.','');
+  L.push('*Garantie*',o.garantie==='rembourse'?`Si les ${o.n} demandes ne sont pas atteintes (${o.jours} jours + ${o.prol} jours de prolongation), je vous rembourse les ${money(o.f1)} du lancement.`:`Si les ${o.n} demandes ne sont pas atteintes (${o.jours} jours + ${o.prol} jours de prolongation), le second versement n'est pas dû.`,'');
+  const sim=rfSim(f,true);
+  if(sim){const s=sim[0];L.push('*Simulation prudente*','Hypothèses : '+Math.round(s.cpl)+' € par demande brute, '+s.qp+' % de demandes qualifiées, '+(f.taux||'?')+' % de signature. Environ '+money(s.gm)+' de marge brute, moins environ '+money(s.total)+' de publicité et '+money(o.f1+o.f2)+' d\'honoraires, soit environ '+money(Math.max(0,s.net))+' de bénéfice.','')}
+  if(f.rdvdate)L.push('Prochain échange : '+f.rdvdate+'.','');
+  L.push('Je reste disponible quand vous voulez avancer.');
+  return L.join('\n')}
+function rfAccord(p,f){
+  const o=rdvOffer(),crit=RCRITS.map((c,i)=>{let t=c[1];if(i===3)t='Située dans la zone d\'intervention : '+(f.zone||'[à compléter]')+'.';if(i===5)t='Téléphone et email valides, demande de rappel cochée, numéro vérifié par '+(/Option 1/.test(f.verif||'')?'code SMS dans le formulaire.':/Option 2/.test(f.verif||'')?'confirmation lors du rappel.':'[à compléter].');if(f['crit'+i]==='À modifier'&&f['critnote'+i])t+=' [à ajuster : '+f['critnote'+i]+']';return (i+1)+'. '+t}).join('\n');
+  const prod=Array.isArray(f.prio)&&f.prio.length?f.prio.join(', '):'[à compléter]';
+  const rep=[p.dirigeant||p.contact,p.dirigeant_role].filter(Boolean).join(', ').replace(/\s*\(.*?\)/g,'');
+  const garantie=o.garantie==='rembourse'?`le Prestataire rembourse le premier versement de ${money(o.f1)} et le second n'est pas dû`:`le second versement n'est pas dû`;
+  return `ACCORD DE COLLABORATION – PLAN PILOTE DE DEMANDES DE DEVIS
+
+Entre Kissima Konaté, [adresse à compléter], ci-après « le Prestataire »,
+et ${p.name}${p.siren?' (SIREN '+String(p.siren).replace(/(\d{3})(?=\d)/g,'$1 ').trim()+')':''}${p.address?', '+p.address:''}${rep?', représentée par '+rep:''}, ci-après « le Client ».
+
+1. Objet
+Le Prestataire conçoit et diffuse pour le Client des publicités Meta (Facebook et Instagram) qui apportent des demandes de devis qualifiées (${prod}), pendant ${o.jours} jours à compter de la mise en ligne des annonces${f.miseenligne?' (mise en ligne prévue : '+f.miseenligne+')':''}.
+
+2. La demande de devis qualifiée
+Une demande est qualifiée lorsqu'elle remplit les six critères suivants :
+${crit}
+
+Ne comptent pas : locataire, copropriété, hors zone, doublon (même personne sous ${o.jours} jours), faux numéro, simple curiosité, projet déjà signé ailleurs.
+Une demande est comptée dès sa réception et la vérification du numéro. Le Client dispose de 5 jours pour la contester, avec un motif écrit. Chaque demande est exclusive : elle n'est transmise qu'au Client.
+
+3. Engagement
+Le Prestataire s'engage sur ${o.n} demandes de devis qualifiées en ${o.jours} jours. Si l'objectif n'est pas atteint, la période est prolongée de ${o.prol} jours sans frais. S'il n'est toujours pas atteint, ${garantie}, sous réserve que le Client ait respecté les engagements de l'article 6.
+
+4. Honoraires
+${money(o.f1+o.f2)} en deux versements par virement : ${money(o.f1)} à la signature, puis ${money(o.f2)} à la ${o.n}e demande qualifiée. TVA : [à compléter].
+
+5. Budget publicitaire
+Minimum ${o.min} € par jour (environ ${money(o.min*o.jours)} sur ${o.jours} jours), payé directement à Meta par le Client.
+
+6. Engagements du Client
+- Donner accès à sa Page, son Instagram et son compte publicitaire sous 48 h.
+- Valider chaque annonce sous 48 h${f.valideur?' (validation par : '+f.valideur+')':''}.
+- Rappeler chaque demande dans l'heure ouvrée (le Prestataire recommande 30 minutes).
+- Maintenir le budget minimum.
+Si l'une de ces conditions n'est pas respectée, les délais sont suspendus.
+
+7. Engagements du Prestataire
+- Préparer les annonces et le formulaire, et suivre la campagne chaque semaine, avec des bilans à 30, 60 et 90 jours.
+- Tous les 14 jours, analyser les créatives, optimiser celles qui fonctionnent, arrêter celles qui ne fonctionnent pas et en lancer de nouvelles.
+- Recueillir le consentement au rappel par une case non pré-cochée qui nomme le Client, horodatée, et conserver cette preuve.
+- Respecter l'encadrement de la publicité en rénovation énergétique : aucune promesse de gratuité ni de lien avec l'État.
+
+8. Limites
+Le Prestataire ne garantit ni le nombre de devis signés ni le chiffre d'affaires, qui dépendent de la suite donnée aux demandes par le Client.
+
+Fait à __________, le __________, en deux exemplaires.
+
+Le Prestataire : Kissima Konaté        Le Client : ${rep||p.name}
+Signature :                              Signature :`}
+async function rfValidate(){
+  const p=rfCur();if(!p)return;const f=RF.fields,now=new Date().toISOString();
+  const out={cr:rfCR(p,f),msg:rfMsg(p,f),accord:rfAccord(p,f),at:now};
+  const d=f.decision||'';
+  const patch={rdvForm:{...(p.rdvForm||{}),fields:f,status:'validé',updatedAt:now,validatedAt:now},rdvOut:out,rdvShow:'tenu',
+    rdvs:(p.rdvs||[]).map((e,i,a)=>i===a.length-1?{...e,show:'tenu',out:d==='Il réfléchit'?'rap':d==='Refus'?'perdu':''}:e)};
+  if(d==='Accord aujourd\'hui')Object.assign(patch,{stage:'pilote'});
+  else if(d==='Il réfléchit')Object.assign(patch,{stage:'contacte',nextDate:addDays(today(),21),nextTime:'10:00'});
+  else if(d==='Refus')Object.assign(patch,{stage:'perdu',lostReason:f.notes_libres||'Refus au rendez-vous'});
+  else Object.assign(patch,{stage:'rdv_fait'});
+  RF.status='validé';rfPaint();rfState('Enregistrement…');
+  const ok=await saveP(p.id,patch);rfState(ok?'Enregistré':'Erreur d\'enregistrement');
+  if(ok)logEv(p,'rdv','Fiche de RDV validée'+(d?' : '+d:''));
+  else{RF.status='en cours';rfPaint()}
+}
+
+/* ---- vue privée dans la fiche prospect (jamais dans la fenêtre partagée) ---- */
+const copyTxt=async t=>{try{await navigator.clipboard.writeText(t);toast('Copié.')}catch(e){const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy');toast('Copié.')}catch(_){toast('Copie impossible.')}a.remove()}};
+function prepHTML(p){
+  if(S.prepBusy===p.id)return '<p class="muted sm">⏳ Recherche en cours (registre officiel, site web, résumé)… 20 à 40 secondes.</p>';
+  const r=p.prep;if(!r)return '<p class="muted sm">Aucune recherche pour l\'instant.</p>';
+  const li=a=>a&&a.length?`<ul style="margin:4px 0 8px 18px">${a.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'';
+  const reg=r.registre||{};const regL=[reg.nom,reg.creation&&('créée le '+reg.creation),reg.effectif&&('effectif '+reg.effectif),reg.ca&&reg.ca.ca&&('CA '+money(reg.ca.ca)+' ('+reg.ca.annee+')'),(reg.dirigeants||[]).length&&('dirigeants : '+reg.dirigeants.join(' ; ')),reg.rge].filter(Boolean);
+  return `<div class="sm"><div class="muted">Recherche du ${esc(fdt(r.at))}</div>${regL.length?`<p><b>Registre :</b> ${esc(regL.join(' · '))}</p>`:''}${r.activite?`<p><b>Activité :</b> ${esc(r.activite)}</p>`:''}${r.anciennete?`<p><b>Ancienneté :</b> ${esc(r.anciennete)}</p>`:''}${r.positionnement?`<p><b>Positionnement :</b> ${esc(r.positionnement)}</p>`:''}${r.points_forts&&r.points_forts.length?`<b>Points forts</b>${li(r.points_forts)}`:''}${r.publicite?`<p><b>Publicité :</b> ${esc(r.publicite)}</p>`:''}${(r.tags||[]).length?`<p>${r.tags.map(t=>`<span class="chip">${esc(t)}</span>`).join('')}</p>`:''}${r.accroches&&r.accroches.length?`<b>Accroches possibles</b>${li(r.accroches)}`:''}${r.questions&&r.questions.length?`<b>Questions à poser</b>${li(r.questions)}`:''}${r.vigilance&&r.vigilance.length?`<b>À vérifier</b>${li(r.vigilance)}`:''}${r.sources&&r.sources.length?`<details><summary class="muted">Sources (${r.sources.length})</summary>${r.sources.map(s=>/^https?:/.test(s)?`<div><a href="${esc(s)}" target="_blank" rel="noopener">${esc(s)}</a></div>`:`<div>${esc(s)}</div>`).join('')}</details>`:''}</div>`}
+function outHTML(p){
+  const o=p.rdvOut;if(!o)return '';
+  const blk=(t,k,txt)=>`<details class="card" style="margin:8px 0"><summary><b>${t}</b></summary><pre style="white-space:pre-wrap;font:13px/1.45 var(--f-body);margin:8px 0">${esc(txt)}</pre><div class="row" style="flex-wrap:wrap">${k==='msg'?msgButtons(p,txt,''):''}<button class="btn sm" data-act="rdvcopy" data-id="${esc(p.id)}" data-k="${k}">Copier</button>${k==='accord'?`<button class="btn sm" data-act="rdvdl" data-id="${esc(p.id)}">Télécharger (.txt)</button>`:''}</div></details>`;
+  return `<h4 style="margin:12px 0 4px">Après le rendez-vous (généré le ${esc(fdt(o.at))})</h4>${blk('Compte rendu','cr',o.cr)}${blk('Message WhatsApp de récapitulatif','msg',o.msg)}${blk('Accord','accord',o.accord)}`}
+function rdvPanelHTML(p){
+  const st=p.rdvForm&&p.rdvForm.status==='validé'?'validée':p.rdvForm?'en cours':'';
+  return `<details class="card" style="margin:10px 0"${p.stage==='rdv'||p.prep||p.rdvOut?' open':''}><summary><b>Rendez-vous : recherche et fiche à partager</b>${st?` <span class="chip">${st}</span>`:''}</summary><div class="row" style="margin:8px 0;flex-wrap:wrap"><button class="btn sm primary" data-act="prep" data-id="${esc(p.id)}">🔎 Préparer le RDV (recherche)</button><button class="btn sm" data-act="rdvopen" data-id="${esc(p.id)}">🖥 Ouvrir la fiche de RDV (à partager)</button></div><div id="prepbox">${prepHTML(p)}</div><div id="outbox">${outHTML(p)}</div></details>`}
+async function runPrep(id){
+  const p=byId(id);if(!p)return;const cfg=window.AOS_CONFIG||{};
+  if(!window.__sb){toast('La recherche demande le mode connecté.');return}
+  S.prepBusy=id;{const b=$('#prepbox');if(b)b.innerHTML=prepHTML(p)}
+  try{
+    const {data}=await window.__sb.auth.getSession();const tok=data.session&&data.session.access_token;
+    const res=await fetch(cfg.url+'/functions/v1/recherche-prospect',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:cfg.key,'Content-Type':'application/json'},body:JSON.stringify({name:p.name,siren:p.siren,website:p.website,city:p.city,dept:p.dept,dirigeant:p.dirigeant||p.contact,rating:p.rating,reviews:p.reviews,instagram:p.instagram,facebook:p.facebook,notes:p.notes})});
+    const j=await res.json();
+    S.prepBusy='';
+    if(j.error&&!j.registre&&!j.activite){toast(j.message||'Recherche impossible.');const b=$('#prepbox');if(b)b.innerHTML=prepHTML(p)+`<p class="sm" style="color:var(--bad)">${esc(j.message||'Recherche impossible.')}</p>`;return}
+    await saveP(id,{prep:j});toast('Recherche terminée, dossier enregistré.');
+  }catch(e){S.prepBusy='';toast('Recherche impossible : '+(e.message||e))}
+  const b=$('#prepbox');if(b)b.innerHTML=prepHTML(byId(id)||p);
+}
+function rdvOpenWin(id){
+  const u=location.href.split('#')[0]+'#rdv='+encodeURIComponent(id);
+  const w=window.open(u,'rdv_'+id,'popup=yes,width=1180,height=860');
+  if(!w)window.open(u,'_blank')}
+document.addEventListener('click',e=>{
+  if(S.rdvOnly)return;const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
+  if(a==='prep'){runPrep(b.dataset.id);return}
+  if(a==='rdvopen'){rdvOpenWin(b.dataset.id);return}
+  if(a==='rdvcopy'){const p=byId(b.dataset.id);if(p&&p.rdvOut)copyTxt(p.rdvOut[b.dataset.k]||'');return}
+  if(a==='rdvdl'){const p=byId(b.dataset.id);if(!p||!p.rdvOut)return;const u=URL.createObjectURL(new Blob([p.rdvOut.accord],{type:'text/plain;charset=utf-8'}));const l=document.createElement('a');l.href=u;l.download='Accord - '+p.name+'.txt';document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),2000)}
+});
 
 /* ================= démarrage ================= */
 async function start(){
