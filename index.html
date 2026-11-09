@@ -510,10 +510,12 @@ const SLOT_L={m:'matin tôt (avant 11 h)',d:'midi / après-midi (11 h–17 h)',s
 const slotOf=h=>h<11?'m':h<17?'d':'s';
 function rappelsToday(){const t=today(),first={};S.calls.forEach(c=>{if(isCall(c)&&(first[c.prospectId]===undefined||c.t<first[c.prospectId]))first[c.prospectId]=c.t});return S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t&&c.t>first[c.prospectId]).length}
 function callQueue(){
-  const t=today(),sk=S.call.skip,mob=S.call.mob,cap=rappelsToday()>=RAPPEL_CAP,slot=slotOf(new Date().getHours());
+  const t=today(),sk=S.call.skip,mob=S.call.mob,cap=rappelsToday()>=RAPPEL_CAP,nw=new Date(),slot=slotOf(nw.getHours()),hm5=(d=>pad(d.getHours())+':'+pad(d.getMinutes()))(new Date(nw.getTime()+5*60000));
+  // un rappel à heure fixe n'entre dans la file que 5 minutes avant son heure ; il passe alors devant tout
+  const timed=p=>p.stage==='contacte'&&p.nextDate===t&&!!p.nextTime,notYet=p=>timed(p)&&p.nextTime>hm5,dueNow=p=>timed(p)&&p.nextTime<=hm5;
   // ordre : rappels du créneau en cours, autres rappels dus, nouvelles fiches (ou nouvelles d'abord une fois le quota de rappels atteint)
-  const rank=p=>p.stage==='contacte'?(cap?1:(!p.slots||!p.slots.length||p.slots.includes(slot)?0:1)):(cap?0:2);
-  return S.prospects.filter(p=>!p.optout&&hasPhone(p.phone)&&!sk.includes(p.id)&&(p.stage==='a_contacter'||(p.stage==='contacte'&&(!p.nextDate||p.nextDate<=t)))
+  const rank=p=>dueNow(p)?-1:p.stage==='contacte'?(cap?1:(!p.slots||!p.slots.length||p.slots.includes(slot)?0:1)):(cap?0:2);
+  return S.prospects.filter(p=>!p.optout&&hasPhone(p.phone)&&!sk.includes(p.id)&&(p.stage==='a_contacter'||(p.stage==='contacte'&&(!p.nextDate||p.nextDate<=t)))&&!notYet(p)
     &&(mob==='all'||(mob==='fixe'&&!isMobile(p.phone))||(mob==='mobile'&&isMobile(p.phone))))
    .sort((a,b)=>rank(a)-rank(b)||(a.stage==='contacte'&&b.stage==='contacte'?String(a.nextDate||'').localeCompare(String(b.nextDate||'')):0)||(+b.score||0)-(+a.score||0)||(+b.reviews||0)-(+a.reviews||0)||String(a.name).localeCompare(String(b.name)));
 }

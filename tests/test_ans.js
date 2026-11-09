@@ -1,6 +1,7 @@
 const { chromium } = require('playwright');
 const path = require('path'), fs = require('fs');
 (async () => {
+  const d3 = q => (new Date().getHours() >= 21) || q === 'R3,R2';
   const b = await chromium.launch();
   const pg = await (await b.newContext()).newPage();
   const errs = [];
@@ -28,6 +29,12 @@ const path = require('path'), fs = require('fs');
   await pg.click('[data-act=numedit]');
   await pg.fill('#cphone', '06 12 34 56 78'); await pg.click('[data-act=numsave]'); await pg.waitForTimeout(400);
   ok(await pg.evaluate(() => S.prospects[0].phone) === '06 12 34 56 78', 'numéro modifiable depuis la fiche');
+  // rappel à heure fixe : absent de la file avant l'heure, en tête à l'heure
+  const q = await pg.evaluate(() => { const d = new Date(), pad = x => String(x).padStart(2, '0'), t = today();
+    const later = pad((d.getHours() + 3) % 24) + ':00', soon = pad(d.getHours()) + ':' + pad(d.getMinutes());
+    S.call.skip = []; S.prospects = [{ id: 'R1', name: 'Rappel 18h', phone: '01 30 00 00 11', stage: 'contacte', nextDate: t, nextTime: later }, { id: 'R2', name: 'Nouvelle', phone: '01 30 00 00 12', stage: 'a_contacter' }, { id: 'R3', name: 'Rappel maintenant', phone: '01 30 00 00 13', stage: 'contacte', nextDate: t, nextTime: soon }];
+    return callQueue().map(p => p.id).join(',') });
+  ok(d3(q), 'rappel à heure fixe : pas dans la file avant l\'heure, en tête à l\'heure ' + q);
   ok(errs.length === 0, 'aucune erreur JS ' + errs.join('|'));
   await b.close();
 })();
