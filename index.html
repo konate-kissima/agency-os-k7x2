@@ -594,12 +594,24 @@ function planItems(){
   });
   return items.sort((a,b)=>a.time.localeCompare(b.time));
 }
+function waList(q){
+  q=String(q||'').trim().toLowerCase();if(q.length<2)return '<p class="muted sm" style="margin:8px 0 0">Tape au moins 2 lettres du nom, ou le numéro.</p>';
+  const dq=q.replace(/\D/g,'');
+  const L=S.prospects.filter(p=>(p.name||'').toLowerCase().includes(q)||(p.contact||p.dirigeant||'').toLowerCase().includes(q)||(dq.length>=4&&normPhone(p.phone).includes(dq))).slice(0,6);
+  if(!L.length)return '<p class="muted sm" style="margin:8px 0 0">Aucune fiche trouvée.</p>';
+  return L.map(p=>`<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:8px 0;margin-top:6px;gap:8px;flex-wrap:wrap"><span><b>${esc(p.name)}</b> <span class="muted sm">${esc(p.city||'')} · ${esc(fmtPhone(p.phone))}${p.waReply?' · déjà : '+(p.waReply==='yes'?'intéressé':'pas intéressé'):''}</span></span><span style="display:flex;gap:8px"><button class="btn sm primary" data-act="wa-yes" data-id="${esc(p.id)}">✅ Intéressé</button><button class="btn sm" data-act="wa-no" data-id="${esc(p.id)}">❌ Pas intéressé</button></span></div>`).join('')}
+async function waReply(id,yes){
+  const p=byId(id);if(!p)return;const at=new Date().toISOString();
+  const patch=yes?{stage:'contacte',nextDate:today(),nextTime:'',waReply:'yes',waAt:at,optout:false}:{stage:'perdu',lostReason:'Pas intéressé (réponse WhatsApp)',waReply:'no',waAt:at};
+  if(await saveP(id,patch)){logEv(p,'msg','Réponse WhatsApp : '+(yes?'intéressé, à rappeler':'pas intéressé'));toast(yes?p.name+' : intéressé, à rappeler aujourd\'hui.':p.name+' : retiré de la file (pas intéressé).');S.call.waq='';render()}
+}
 function trayBtns(){
   const n=planItems().length,m=remindDue().length;
-  return (n?`<button class="btn sm${S.call.showDay?' primary':''}" data-act="day-toggle">📅 Aujourd'hui (${n})</button>`:'')+(m?`<button class="btn sm${S.call.showRem?' primary':''}" data-act="rem-toggle">⏰ Rappels à envoyer (${m})</button>`:'');
+  return `<button class="btn sm${S.call.showWa?' primary':''}" data-act="wa-toggle">💬 Réponse WhatsApp</button>`+(n?`<button class="btn sm${S.call.showDay?' primary':''}" data-act="day-toggle">📅 Aujourd'hui (${n})</button>`:'')+(m?`<button class="btn sm${S.call.showRem?' primary':''}" data-act="rem-toggle">⏰ Rappels à envoyer (${m})</button>`:'');
 }
 function trayPanels(){
   let h='';
+  if(S.call.showWa)h+=`<div class="card tray"><div class="row" style="justify-content:space-between"><b>Réponse WhatsApp</b><button class="btn sm" data-act="wa-toggle">Fermer</button></div><input id="waq" style="width:100%;margin-top:8px" placeholder="Nom ou numéro de la personne qui a répondu" value="${esc(S.call.waq||'')}" autocomplete="off"><div id="wares">${waList(S.call.waq||'')}</div></div>`;
   if(S.call.showDay){const it=planItems();h+=`<div class="card tray"><div class="row" style="justify-content:space-between"><b>Au programme aujourd'hui</b><button class="btn sm" data-act="day-toggle">Fermer</button></div>${it.map(x=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:6px 0"><span><b>${esc(x.time.replace(':','h'))}</b> · ${x.k} · <b>${esc(x.p.name)}</b> <span class="muted sm">${esc(fmtPhone(x.p.phone))}</span></span><button class="btn sm" data-act="al-open" data-id="${esc(x.p.id)}">Ouvrir</button></div>`).join('')||'<p class="muted sm">Rien de prévu.</p>'}</div>`}
   if(S.call.showRem){const R=remindDue();h+=`<div class="card tray"><div class="row" style="justify-content:space-between"><b>Rappels de rendez-vous à envoyer</b><button class="btn sm" data-act="rem-toggle">Fermer</button></div>${R.map(x=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:6px 0"><span>${x.k==='r24'?'Veille':'2 h avant'} · <b>${esc(x.p.name)}</b> <span class="muted sm">RDV ${esc(rdvWhen(x.p))}</span></span><button class="btn sm primary" data-act="rem-open" data-id="${esc(x.p.id)}" data-k="${x.k}">Préparer</button></div>`).join('')||'<p class="muted sm">Aucun rappel à envoyer.</p>'}</div>`}
   return h;
@@ -1701,6 +1713,8 @@ document.addEventListener('click',async e=>{
   if(a==='callpanel'){S.call.panel=b.dataset.r||'';render();return}
   if(a==='callstep'){S.call.step=b.dataset.s||'';S.call.panel='';render();if(S.call.step==='ans'&&window.__sb&&!S.rec.on&&!S.rec.busy)recStart();return}
   if(a==='rapl-toggle'){S.call.showRap=!S.call.showRap;render();return}
+  if(a==='wa-toggle'){S.call.showWa=!S.call.showWa;if(!S.call.showWa)S.call.waq='';render();if(S.call.showWa){const e=$('#waq');if(e)e.focus()}return}
+  if(a==='wa-yes'||a==='wa-no'){await waReply(b.dataset.id,a==='wa-yes');return}
   if(a==='day-toggle'){S.call.showDay=!S.call.showDay;render();return}
   if(a==='rem-toggle'){S.call.showRem=!S.call.showRem;render();return}
   if(a==='sstep'){S.call.sstep=Math.max(0,parseInt(b.dataset.i,10)||0);render();return}
@@ -1765,6 +1779,7 @@ document.addEventListener('change',e=>{
 });
 document.addEventListener('input',e=>{
   const t=e.target;
+  if(t.id==='waq'){S.call.waq=t.value;const r=$('#wares');if(r)r.innerHTML=waList(t.value);return}
   const SCK={cl:'place',cv:'link',pt1:'pt1',pt2:'pt2',pt3:'pt3',cd:'date',ct:'time',cr:'rdvAt',co:'obj'};
   if(SCK[t.id]){S.call[SCK[t.id]]=t.value;return}
   if(t.id==='rdvmsgbox'){const pp=S.lastRDV&&byId(S.lastRDV);if(pp){pp.rdvMsgAI=t.value;pp.rdvMsgFor=pp.rdvAt;const bx=$('#rdvbtns');if(bx)bx.innerHTML=rdvBtns(pp,t.value)}return}

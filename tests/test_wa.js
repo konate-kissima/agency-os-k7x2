@@ -1,0 +1,32 @@
+const { chromium } = require('playwright');
+const path = require('path'), fs = require('fs');
+(async () => {
+  const b = await chromium.launch();
+  const pg = await (await b.newContext({ viewport: { width: 1300, height: 900 } })).newPage();
+  const errs = []; pg.on('pageerror', e => errs.push(e.message));
+  const tmp = fs.mkdtempSync('/tmp/aos-');
+  fs.copyFileSync(path.resolve(__dirname, '../index.html'), tmp + '/index.html');
+  fs.writeFileSync(tmp + '/config.js', 'window.AOS_CONFIG={url:"",key:""};');
+  await pg.goto('file://' + tmp + '/index.html'); await pg.waitForSelector('.chal'); await pg.evaluate(() => { S.chal = false; render() });
+  await pg.waitForSelector('nav.tabs');
+  const ok = (c, m) => { if (!c) { console.log('FAIL', m); process.exitCode = 1; } else console.log('ok  ', m); };
+  await pg.evaluate(async () => {
+    await DB.set('prospects', 'A1', { name: 'Alpha Plomberie', city: 'Triel', phone: '06 12 34 56 78', stage: 'contacte', nextDate: addDays(today(), 1) });
+    await DB.set('prospects', 'B1', { name: 'Beta Chauffage', city: 'Poissy', phone: '07 11 22 33 44', stage: 'contacte', nextDate: addDays(today(), 1) });
+    await loadAll(); S.tab = 'appels'; render();
+  });
+  await pg.click('[data-act=wa-toggle]');
+  ok(await pg.locator('#waq').count() === 1, 'panneau Réponse WhatsApp ouvert');
+  await pg.fill('#waq', 'alph');
+  ok(await pg.locator('#wares [data-act=wa-yes]').count() === 1 && /Alpha/.test(await pg.locator('#wares').innerText()), 'recherche par nom');
+  await pg.fill('#waq', '0711');
+  ok(/Beta/.test(await pg.locator('#wares').innerText()), 'recherche par numéro');
+  await pg.fill('#waq', 'alph'); await pg.click('#wares [data-act=wa-yes]'); await pg.waitForTimeout(300);
+  ok(await pg.evaluate(() => { const p = byId('A1'); return p.stage === 'contacte' && p.nextDate === today() && p.waReply === 'yes' && (p.log || []).some(l => /intéressé/.test(l.txt)) }), 'Intéressé : à rappeler aujourd\'hui + historique');
+  ok(await pg.locator('#waq').count() === 1, 'panneau reste ouvert pour la réponse suivante'); await pg.fill('#waq', 'beta'); await pg.click('#wares [data-act=wa-no]'); await pg.waitForTimeout(300);
+  ok(await pg.evaluate(() => { const p = byId('B1'); return p.stage === 'perdu' && p.waReply === 'no' && /WhatsApp/.test(p.lostReason) }), 'Pas intéressé : fiche perdue, motif WhatsApp');
+  ok(await pg.evaluate(() => !callQueue().some(p => p.id === 'B1') && callQueue().some(p => p.id === 'A1')), 'Pas intéressé sorti de la file, intéressé dans la file');
+  ok(errs.length === 0, 'aucune erreur JS ' + errs.join('|'));
+  await pg.screenshot({ path: '/tmp/claude-0/-home-claude/dd0cf2b0-e23b-5843-b399-a5aac481cebb/scratchpad/wa.png' });
+  await b.close();
+})();
