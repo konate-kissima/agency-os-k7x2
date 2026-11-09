@@ -662,7 +662,7 @@ function appelsHTML(){
     <label class="f" for="ca">Lien de l'enregistrement (Drive), si enregistré</label><input id="ca" style="width:100%" placeholder="https://drive.google.com/…" value="${esc(S.call.audio)}">
     <label class="ck sm"><input type="checkbox" id="ci"${S.call.informed?' checked':''}> J'ai informé l'interlocuteur de l'enregistrement</label></details><span style="display:flex;gap:6px"><button class="btn sm" data-act="callskip" title="Passer cette fiche sans rien enregistrer">Passer</button><button class="btn sm" data-act="open" data-id="${esc(cur.id)}">Ouvrir la fiche</button></span></div></div>`;
   const right=`<div class="card scriptcard"><div class="row" style="flex-wrap:nowrap"><select id="cang" aria-label="Angle de script (sert aux statistiques)">${Object.entries(sc.scripts).map(([k,v])=>`<option value="${esc(k)}"${k===ang?' selected':''}>${esc(v.name)}</option>`).join('')}</select></div>
-   ${scriptSteps(fillScript((sc.scripts[ang]||{}).text,cur))}
+   <div class="script">${esc(fillScript((sc.scripts[ang]||{}).text,cur))}</div>
    <div class="sm muted"><b>Information d'enregistrement</b><br>${esc(sc.recordText)}</div></div>`;
   return above+bar+trayPanels()+rapPanelHTML()+`<div class="callgrid">${left}${right}</div>`;
 }
