@@ -34,7 +34,9 @@ const fs = require('fs');
 
   // appel 1 : Dupont (score 100) -> RDV
   await pg.click('[data-v=appels]');
-  ok(await pg.locator('h2:has-text("Dupont Plomberie")').count() === 1, 'file triée par score : Dupont en premier');
+  ok(await pg.evaluate(() => callQueue()[0].name) !== 'Dupont Plomberie', 'mobiles (06/07) passent avant les fixes dans la file');
+  await pg.evaluate(() => { const d = S.prospects.find(p => p.name === 'Dupont Plomberie'); S.call.open = d.id; S.call.pid = d.id; render() });
+  ok(await pg.locator('h2:has-text("Dupont Plomberie")').count() === 1, 'fiche Dupont ouverte');
   ok(await pg.locator('.script:has-text("20 à 30 chantiers")').count() === 1, 'script court P affiché');
   await pg.fill('#cn', 'Gérant sympa, 2 techniciens');
   await pg.click('[data-act=callstep][data-s=ans]');

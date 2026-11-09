@@ -516,8 +516,8 @@ function callQueue(){
   // ordre : rappels du créneau en cours, autres rappels dus, nouvelles fiches (ou nouvelles d'abord une fois le quota de rappels atteint)
   const rank=p=>dueNow(p)?-1:p.stage==='contacte'?(cap?1:(!p.slots||!p.slots.length||p.slots.includes(slot)?0:1)):(cap?0:2);
   return S.prospects.filter(p=>!p.optout&&hasPhone(p.phone)&&!sk.includes(p.id)&&(p.stage==='a_contacter'||(p.stage==='contacte'&&(!p.nextDate||p.nextDate<=t)))&&!notYet(p)
-    &&(mob==='all'||(mob==='fixe'&&!isMobile(p.phone))||(mob==='mobile'&&isMobile(p.phone))))
-   .sort((a,b)=>rank(a)-rank(b)||(a.stage==='contacte'&&b.stage==='contacte'?String(a.nextDate||'').localeCompare(String(b.nextDate||'')):0)||(+b.score||0)-(+a.score||0)||(+b.reviews||0)-(+a.reviews||0)||String(a.name).localeCompare(String(b.name)));
+    &&(mob==='all'||(mob==='fixe'&&!isMobile(p.phone))||(mob==='mobile'&&isMobile(p.phone))||(mob==='m06'&&/^06/.test(normPhone(p.phone)))||(mob==='p01'&&/^01/.test(normPhone(p.phone)))))
+   .sort((a,b)=>rank(a)-rank(b)||(+isMobile(b.phone)-+isMobile(a.phone))||(a.stage==='contacte'&&b.stage==='contacte'?String(a.nextDate||'').localeCompare(String(b.nextDate||'')):0)||(+b.score||0)-(+a.score||0)||(+b.reviews||0)-(+a.reviews||0)||String(a.name).localeCompare(String(b.name)));
 }
 function callsOf(pid){return S.calls.filter(c=>c.prospectId===pid)}
 function todayStats(){const t=today();const L=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t);return{n:L.length,j:L.filter(c=>JOINT.includes(c.result)).length,conv:L.filter(isAns).length,real:L.filter(c=>JOINT.includes(c.result)).length,r:L.filter(c=>isRdvRes(c.result)).length}}
@@ -645,7 +645,8 @@ function appelsHTML(){
   const ang=S.call.angle||sc.angle;
   const gc=goals().conv,zc=zoneOf(st.conv,gc[0],Math.round(gc[0]/2));
   const kp=`<span class="pill" title="Décroché = une personne qui a répondu (même si elle raccroche). Objectif non négociable : ${gc[0]} par jour."><i class="zdot" style="background:${ZONE_C[zc]}"></i><b>${st.conv}</b> / ${gc[0]} décrochés</span><span class="pill" title="Vraie conversation = il a décroché et vous avez réellement échangé (hors raccroché au nez)."><b>${st.real}</b> vraies conversations</span><span class="pill"><b>${st.r}</b> RDV</span><span class="pill muted"><b>${st.n}</b> appels passés</span><span class="pill"><b>${Q.length}</b> à appeler</span><button class="btn sm${S.call.showRap?' primary':''}" data-act="rapl-toggle">À rappeler (${rapList().length})</button>`+trayBtns();
-  const filt=`<select data-act="mobsel" aria-label="Type de ligne" class="sm"><option value="all"${S.call.mob==='all'?' selected':''}>Toutes lignes</option><option value="fixe"${S.call.mob==='fixe'?' selected':''}>Fixes</option><option value="mobile"${S.call.mob==='mobile'?' selected':''}>Mobiles</option></select>`;
+  const MOBO=[['all','Toutes (06/07 d\'abord)'],['m06','06 uniquement'],['mobile','Mobiles 06/07'],['p01','01 uniquement'],['fixe','Tous fixes (01 à 05, 09)']];
+  const filt=`<select data-act="mobsel" aria-label="Type de ligne" class="sm">${MOBO.map(([v,l])=>`<option value="${v}"${S.call.mob===v?' selected':''}>${l}</option>`).join('')}</select>`;
   const bar=callSearchHTML(kp+filt);
   const above=dueBanner(1)+rdvCard()+remindCard()+nrCard()+(S.lastRes?`<div class="lastres">Dernier appel : ${S.lastRes}</div>`:'');
   if(!cur)return above+bar+trayPanels()+rapPanelHTML()+`<div class="card"><b>Plus personne à appeler pour l'instant.</b><div class="muted sm">Importe une liste (onglet Données) ou attends les rappels programmés.</div></div>`;
