@@ -221,6 +221,15 @@ input:focus,select:focus,textarea:focus{border-color:#b8893b;outline:3px solid r
 .res .btn[data-r=rap]{background:#fbf3df!important;border-color:#ecd9a8!important;color:#6b4c12!important}
 
 h1,h2,h3,h4,.hero,.st b,.callnum,.numrow .callnum,.pill b{font-variant-numeric:lining-nums;font-feature-settings:"lnum" 1,"tnum" 1}
+.sstepnav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0}.sstepnav .btn{flex:0 0 auto;padding:10px 14px}
+.sstep{display:block;width:100%;text-align:left;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin:6px 0;font:inherit;font-size:13.5px;color:var(--muted);cursor:pointer}
+.sstep:hover{border-color:var(--accent)}
+.sstep.on{background:color-mix(in srgb,var(--accent) 7%,var(--surface));border-left:3px solid var(--accent);color:var(--ink);cursor:default;padding:12px 14px}
+.sstep.on .stitle{font-weight:700;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px}
+.sstep.on .sbody{white-space:pre-wrap;font-size:17px;line-height:1.55}
+.tray{margin-bottom:8px}
+.callcard .cnote{min-height:110px}
+.callcard .cres2 .big{padding:18px 8px}
 </style></head><body>
 <div id="app"></div><div id="toast" role="status"></div><dialog id="dlg"></dialog>
 <script src="config.js"></script>
@@ -539,6 +548,24 @@ function todayPlanHTML(){
   if(!items.length)return '';
   items.sort((a,b)=>a.time.localeCompare(b.time));
   return `<details class="card" open><summary><b>Au programme aujourd'hui (${items.length})</b></summary>${items.map(x=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:6px 0"><span><b>${esc(x.time.replace(':','h'))}</b> · ${x.k} · <b>${esc(x.p.name)}</b> <span class="muted sm">${esc(fmtPhone(x.p.phone))}</span></span><button class="btn sm" data-act="al-open" data-id="${esc(x.p.id)}">Ouvrir</button></div>`).join('')}</details>`}
+function planItems(){
+  const t=today(),items=[];
+  S.prospects.forEach(p=>{
+    if(p.stage==='contacte'&&p.nextDate===t&&p.nextTime&&!p.optout)items.push({time:p.nextTime,p,k:p.rdvType==='tel'?'RDV téléphonique':'Rappel'});
+    if(p.stage==='rdv'&&p.rdvAt&&p.rdvAt.slice(0,10)===t)items.push({time:p.rdvAt.slice(11,16),p,k:'RDV '+RDV_T[p.rdvType||'visio']});
+  });
+  return items.sort((a,b)=>a.time.localeCompare(b.time));
+}
+function trayBtns(){
+  const n=planItems().length,m=remindDue().length;
+  return (n?`<button class="btn sm${S.call.showDay?' primary':''}" data-act="day-toggle">📅 Aujourd'hui (${n})</button>`:'')+(m?`<button class="btn sm${S.call.showRem?' primary':''}" data-act="rem-toggle">⏰ Rappels à envoyer (${m})</button>`:'');
+}
+function trayPanels(){
+  let h='';
+  if(S.call.showDay){const it=planItems();h+=`<div class="card tray"><div class="row" style="justify-content:space-between"><b>Au programme aujourd'hui</b><button class="btn sm" data-act="day-toggle">Fermer</button></div>${it.map(x=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:6px 0"><span><b>${esc(x.time.replace(':','h'))}</b> · ${x.k} · <b>${esc(x.p.name)}</b> <span class="muted sm">${esc(fmtPhone(x.p.phone))}</span></span><button class="btn sm" data-act="al-open" data-id="${esc(x.p.id)}">Ouvrir</button></div>`).join('')||'<p class="muted sm">Rien de prévu.</p>'}</div>`}
+  if(S.call.showRem){const R=remindDue();h+=`<div class="card tray"><div class="row" style="justify-content:space-between"><b>Rappels de rendez-vous à envoyer</b><button class="btn sm" data-act="rem-toggle">Fermer</button></div>${R.map(x=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:6px 0"><span>${x.k==='r24'?'Veille':'2 h avant'} · <b>${esc(x.p.name)}</b> <span class="muted sm">RDV ${esc(rdvWhen(x.p))}</span></span><button class="btn sm primary" data-act="rem-open" data-id="${esc(x.p.id)}" data-k="${x.k}">Préparer</button></div>`).join('')||'<p class="muted sm">Aucun rappel à envoyer.</p>'}</div>`}
+  return h;
+}
 function rapList(){return S.prospects.filter(p=>p.stage==='contacte'&&!p.optout&&p.nextDate&&hasPhone(p.phone)).sort((a,b)=>(a.nextDate+(a.nextTime||'99:99')).localeCompare(b.nextDate+(b.nextTime||'99:99')))}
 function rapPanelHTML(){
   if(!S.call.showRap)return '';
@@ -546,15 +573,15 @@ function rapPanelHTML(){
   const G=[['En retard',x=>x.nextDate<t],['Aujourd\'hui',x=>x.nextDate===t],['Plus tard',x=>x.nextDate>t]];
   const body=G.map(([l,f])=>{const it=L.filter(f);return it.length?`<div class="muted sm" style="margin-top:8px">${l} (${it.length})</div>`+it.map(p=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:6px 0"><span><b>${esc(p.name)}</b> <span class="muted sm">${p.nextDate<t?fdate(p.nextDate)+' ':''}${p.nextTime?esc(p.nextTime.replace(':','h')):''} · ${esc(fmtPhone(p.phone))}${p.rdvType==='tel'?' · RDV téléphonique':''}</span></span><button class="btn sm primary" data-act="al-open" data-id="${esc(p.id)}">Appeler</button></div>`).join(''):''}).join('');
   return `<div class="card"><div class="row" style="justify-content:space-between"><b>À rappeler (${L.length})</b><button class="btn sm" data-act="rapl-toggle">Fermer</button></div>${body||'<p class="muted sm">Personne à rappeler.</p>'}</div>`}
-function dueBanner(){
+function dueBanner(sk){
   const t=today();const items=S.clients.filter(c=>c.status!=='fini'&&c.checklist&&c.checklist.launch&&!c.checklist.j14).map(c=>({c,d:addDays(c.checklist.launch,14)}));
   const due=items.filter(x=>x.d<=t);const soon=items.filter(x=>x.d>t&&x.d<=addDays(t,3));
   let h='';
   due.forEach(x=>{h+=`<div class="banner">Revue J+14 à faire : <b>${esc(x.c.name)}</b> (campagne lancée le ${fdate(x.c.checklist.launch)}). <button class="btn sm" data-act="cli-open" data-id="${esc(x.c.id)}">Ouvrir</button></div>`});
   soon.forEach(x=>{h+=`<div class="banner info">Revue J+14 le ${fdate(x.d)} : ${esc(x.c.name)} (ne pas toucher la campagne avant).</div>`});
   const cut=new Date(Date.now()-30*60000);
-  S.prospects.filter(p=>p.stage==='rdv'&&p.rdvAt&&new Date(p.rdvAt)>=cut&&p.rdvAt.slice(0,10)<=addDays(t,1)).sort((a,b)=>a.rdvAt.localeCompare(b.rdvAt)).forEach(p=>{h+=`<div class="banner info">RDV ${RDV_T[p.rdvType||'visio']} ${fdate(p.rdvAt)} : <b>${esc(p.name)}</b> ${esc(fmtPhone(p.phone))} <button class="btn sm" data-act="open" data-id="${esc(p.id)}">Fiche</button></div>`});
-  remindDue().forEach(x=>{h+=`<div class="banner">Rappel à envoyer (${x.k==='r24'?'veille':'2 h avant'}) : <b>${esc(x.p.name)}</b>, RDV ${esc(rdvWhen(x.p))} <button class="btn sm primary" data-act="rem-open" data-id="${esc(x.p.id)}" data-k="${x.k}">Préparer</button></div>`});
+  (sk?[]:S.prospects).filter(p=>p.stage==='rdv'&&p.rdvAt&&new Date(p.rdvAt)>=cut&&p.rdvAt.slice(0,10)<=addDays(t,1)).sort((a,b)=>a.rdvAt.localeCompare(b.rdvAt)).forEach(p=>{h+=`<div class="banner info">RDV ${RDV_T[p.rdvType||'visio']} ${fdate(p.rdvAt)} : <b>${esc(p.name)}</b> ${esc(fmtPhone(p.phone))} <button class="btn sm" data-act="open" data-id="${esc(p.id)}">Fiche</button></div>`});
+  (sk?[]:remindDue()).forEach(x=>{h+=`<div class="banner">Rappel à envoyer (${x.k==='r24'?'veille':'2 h avant'}) : <b>${esc(x.p.name)}</b>, RDV ${esc(rdvWhen(x.p))} <button class="btn sm primary" data-act="rem-open" data-id="${esc(x.p.id)}" data-k="${x.k}">Préparer</button></div>`});
   return h;
 }
 const NR_SMS="Bonjour {contact}, c'est Kissima, j'ai essayé de vous joindre. {Accroche}.{Valeur} Cela m'a donné envie de faire votre connaissance. Auriez-vous 5 minutes cette semaine pour échanger sur votre activité ? Dites-moi simplement le moment qui vous arrange le mieux. Au plaisir d'avoir votre retour. Très cordialement, Kissima";
@@ -581,20 +608,29 @@ function callSearchHTML(extra){
   const open=S.call.open&&byId(S.call.open)?`<p class="sm" style="margin:6px 0 0">Fiche ouverte : <b>${esc(byId(S.call.open).name)}</b> <button class="btn sm" data-act="callclose">Revenir à la file</button></p>`:'';
   return `<div class="callbar"><input type="search" id="cq" placeholder="Quelqu'un te rappelle ? Tape son numéro ou son nom" value="${esc(q)}" autocomplete="off" inputmode="search">${extra||''}</div>${rows||none||open?`<div class="card" style="padding:8px 12px">${rows}${none}${open}</div>`:''}`;
 }
+function scriptSteps(txt){
+  const B=String(txt||'').split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean);
+  if(B.length<2)return `<div class="script">${esc(txt)}</div>`;
+  const si=Math.max(0,Math.min(S.call.sstep||0,B.length-1));
+  const list=B.map((b,i)=>{const L=b.split('\n'),title=L[0],body=L.slice(1).join('\n');
+    if(i===si)return `<div class="sstep on"><div class="stitle">${esc(title)}</div>${body?`<div class="sbody">${esc(body)}</div>`:''}</div>`;
+    return `<button type="button" class="sstep" data-act="sstep" data-i="${i}">${esc(title.length>64?title.slice(0,64)+'…':title)}</button>`}).join('');
+  return `<div class="sstepnav"><button type="button" class="btn" data-act="sstep" data-i="${si-1}"${si?'':' disabled'}>← Précédent</button><span class="muted sm">${si+1} / ${B.length}</span><button type="button" class="btn primary" data-act="sstep" data-i="${si+1}"${si<B.length-1?'':' disabled'}>Suivant →</button></div>${list}<details class="sm" style="margin-top:8px"><summary class="muted">Voir tout le script</summary><div class="script">${esc(txt)}</div></details>`;
+}
 function appelsHTML(){
   const Q=callQueue(),st=todayStats(),sc=settings();
   const forced=S.call.open?byId(S.call.open):null;
   let cur=forced||(S.call.pid?byId(S.call.pid):null);
   if(!forced&&(!cur||!Q.some(x=>x.id===cur.id)))cur=Q[0]||null;
-  if(cur&&S.call.pid!==cur.id){S.call.pid=cur.id;S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0}
+  if(cur&&S.call.pid!==cur.id){S.call.pid=cur.id;S.call.sstep=0;S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0}
   if(!cur)S.call.pid='';
   const ang=S.call.angle||sc.angle;
   const gc=goals().conv,zc=zoneOf(st.conv,gc[0],Math.round(gc[0]/2));
-  const kp=`<span class="pill" title="Décroché = une personne qui a répondu (même si elle raccroche). Objectif non négociable : ${gc[0]} par jour."><i class="zdot" style="background:${ZONE_C[zc]}"></i><b>${st.conv}</b> / ${gc[0]} décrochés</span><span class="pill" title="Vraie conversation = il a décroché et vous avez réellement échangé (hors raccroché au nez)."><b>${st.real}</b> vraies conversations</span><span class="pill"><b>${st.r}</b> RDV</span><span class="pill muted"><b>${st.n}</b> appels passés</span><span class="pill"><b>${Q.length}</b> à appeler</span><button class="btn sm${S.call.showRap?' primary':''}" data-act="rapl-toggle">À rappeler (${rapList().length})</button>`;
+  const kp=`<span class="pill" title="Décroché = une personne qui a répondu (même si elle raccroche). Objectif non négociable : ${gc[0]} par jour."><i class="zdot" style="background:${ZONE_C[zc]}"></i><b>${st.conv}</b> / ${gc[0]} décrochés</span><span class="pill" title="Vraie conversation = il a décroché et vous avez réellement échangé (hors raccroché au nez)."><b>${st.real}</b> vraies conversations</span><span class="pill"><b>${st.r}</b> RDV</span><span class="pill muted"><b>${st.n}</b> appels passés</span><span class="pill"><b>${Q.length}</b> à appeler</span><button class="btn sm${S.call.showRap?' primary':''}" data-act="rapl-toggle">À rappeler (${rapList().length})</button>`+trayBtns();
   const filt=`<select data-act="mobsel" aria-label="Type de ligne" class="sm"><option value="all"${S.call.mob==='all'?' selected':''}>Toutes lignes</option><option value="fixe"${S.call.mob==='fixe'?' selected':''}>Fixes</option><option value="mobile"${S.call.mob==='mobile'?' selected':''}>Mobiles</option></select>`;
   const bar=callSearchHTML(kp+filt);
-  const above=todayPlanHTML()+dueBanner()+rdvCard()+remindCard()+nrCard()+(S.lastRes?`<div class="lastres">Dernier appel : ${S.lastRes}</div>`:'');
-  if(!cur)return above+bar+rapPanelHTML()+`<div class="card"><b>Plus personne à appeler pour l'instant.</b><div class="muted sm">Importe une liste (onglet Données) ou attends les rappels programmés.</div></div>`;
+  const above=dueBanner(1)+rdvCard()+remindCard()+nrCard()+(S.lastRes?`<div class="lastres">Dernier appel : ${S.lastRes}</div>`:'');
+  if(!cur)return above+bar+trayPanels()+rapPanelHTML()+`<div class="card"><b>Plus personne à appeler pour l'instant.</b><div class="muted sm">Importe une liste (onglet Données) ou attends les rappels programmés.</div></div>`;
   const hist=callsOf(cur.id).slice(-4).reverse();
   const mob=isMobile(cur.phone);
   const lastH=hist[0];
@@ -616,9 +652,9 @@ function appelsHTML(){
    <div class="sm" style="margin:4px 0">${adsBlock(cur)}</div>
    ${companyLine(cur)}
    <div class="numrow"><button type="button" class="callnum" data-act="copynum" data-n="${esc(normPhone(cur.phone))}" title="Clique pour copier le numéro, puis colle-le dans ton application d'appel (Onoff…)">${esc(fmtPhone(cur.phone))}</button><span class="numact"><a class="btn sm" href="tel:${esc(normPhone(cur.phone))}" title="Ouvre l'app téléphone du Mac (FaceTime) ou de l'iPhone">Appel Mac</a></span></div>
-   ${lastH?`<div class="sm muted">Dernier : ${fdate(lastH.t)} · ${esc(ALL_RES_L[lastH.result]||lastH.result)}${lastH.note?' — '+esc(lastH.note):''}</div>`:''}
-   <textarea id="cn" rows="9" class="cnote" placeholder="Note : ce que tu as appris (interlocuteur, objection, chantiers…)">${esc(S.call.note)}</textarea>
    ${resUI}
+   ${lastH?`<div class="sm muted">Dernier : ${fdate(lastH.t)} · ${esc(ALL_RES_L[lastH.result]||lastH.result)}${lastH.note?' — '+esc(lastH.note):''}</div>`:''}
+   <textarea id="cn" rows="5" class="cnote" placeholder="Note : ce que tu as appris (interlocuteur, objection, chantiers…)">${esc(S.call.note)}</textarea>
    <div class="row" style="justify-content:space-between;margin-top:6px;flex-wrap:nowrap"><details class="sm" style="flex:1;min-width:0"${timeline(cur).length?' open':''}><summary class="muted">Historique daté, notes, enregistrement</summary>
     <div style="margin:6px 0"><b>Historique</b>${timelineHTML(cur,12)}</div>
     ${cur.email?`<button class="btn sm" data-act="fathom-sync" data-id="${esc(cur.id)}">Débrief Fathom (par e-mail)</button> `:''}<button class="btn sm" data-act="fathom-link" data-id="${esc(cur.id)}">Coller un lien Fathom</button>
@@ -626,9 +662,9 @@ function appelsHTML(){
     <label class="f" for="ca">Lien de l'enregistrement (Drive), si enregistré</label><input id="ca" style="width:100%" placeholder="https://drive.google.com/…" value="${esc(S.call.audio)}">
     <label class="ck sm"><input type="checkbox" id="ci"${S.call.informed?' checked':''}> J'ai informé l'interlocuteur de l'enregistrement</label></details><span style="display:flex;gap:6px"><button class="btn sm" data-act="callskip" title="Passer cette fiche sans rien enregistrer">Passer</button><button class="btn sm" data-act="open" data-id="${esc(cur.id)}">Ouvrir la fiche</button></span></div></div>`;
   const right=`<div class="card scriptcard"><div class="row" style="flex-wrap:nowrap"><select id="cang" aria-label="Angle de script (sert aux statistiques)">${Object.entries(sc.scripts).map(([k,v])=>`<option value="${esc(k)}"${k===ang?' selected':''}>${esc(v.name)}</option>`).join('')}</select></div>
-   <div class="script">${esc(fillScript((sc.scripts[ang]||{}).text,cur))}</div>
+   ${scriptSteps(fillScript((sc.scripts[ang]||{}).text,cur))}
    <div class="sm muted"><b>Information d'enregistrement</b><br>${esc(sc.recordText)}</div></div>`;
-  return above+bar+rapPanelHTML()+`<div class="callgrid">${left}${right}</div>`;
+  return above+bar+trayPanels()+rapPanelHTML()+`<div class="callgrid">${left}${right}</div>`;
 }
 
 async function callResult(r){
@@ -1589,6 +1625,9 @@ document.addEventListener('click',async e=>{
   if(a==='rec-stop'){if(S.rec.mr&&S.rec.mr.state!=='inactive')S.rec.mr.stop();return}
   if(a==='callstep'){S.call.step=b.dataset.s||'';render();return}
   if(a==='rapl-toggle'){S.call.showRap=!S.call.showRap;render();return}
+  if(a==='day-toggle'){S.call.showDay=!S.call.showDay;render();return}
+  if(a==='rem-toggle'){S.call.showRem=!S.call.showRem;render();return}
+  if(a==='sstep'){S.call.sstep=Math.max(0,parseInt(b.dataset.i,10)||0);render();return}
   if(a==='rem-open'){S.remind={id:b.dataset.id,k:b.dataset.k};S.tab='appels';render();window.scrollTo(0,0);return}
   if(a==='remdone'){const p=byId(b.dataset.id),k=b.dataset.k==='r24'?'rem24':'rem2';if(p){p[k]=true;DB.update('prospects',p.id,{[k]:true});logEv(p,'msg','Rappel RDV '+(k==='rem24'?'(veille)':'(2 h avant)')+' préparé')}S.remind=null;if(b.tagName==='BUTTON'){render()}else setTimeout(render,50);return}
   if(a==='rdv-tenu'||a==='rdv-abs'){const p=byId(b.dataset.id);if(p){const ty0=RDV_T[p.rdvType||'visio'];const patch=a==='rdv-tenu'?{rdvShow:'tenu',stage:'rdv_fait'}:{rdvShow:'absent',stage:'contacte',nextDate:workday(1),nextTime:'10:00',rdvType:''};await guard(()=>DB.update('prospects',p.id,patch));Object.assign(p,patch);logEv(p,'rdv','RDV '+ty0+(a==='rdv-tenu'?' tenu':' : absent'));toast(a==='rdv-tenu'?'RDV tenu enregistré.':'Absence enregistrée : rappel prévu demain à 10 h.');render()}return}
