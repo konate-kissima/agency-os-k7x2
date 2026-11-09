@@ -54,6 +54,13 @@ const path = require('path'), fs = require('fs');
   const p2 = await pg.evaluate(() => byId('P2'));
   ok(p2.stage === 'contacte' && p2.rdvType === 'tel' && p2.nextDate === '2026-11-12' && p2.nextTime === '10:00', 'RDV téléphonique : rappel daté');
   ok((await pg.textContent('main')).includes('plus de devis qualifiés'), 'confirmation du RDV téléphonique avec le résumé de l\'appel');
+  // conversation complète + message rédigé à partir de la conversation
+  await pg.evaluate(() => { const p = byId('P2'); p.rdvMsgAI = 'Bonjour Paul, voici le message rédigé à partir de la conversation.'; p.rdvMsgFor = p.rdvAt; S.lastRDV = 'P2'; S.tab = 'appels'; render() });
+  ok(await pg.locator('#rdvmsgbox').inputValue() === 'Bonjour Paul, voici le message rédigé à partir de la conversation.', 'message du RDV rédigé à partir de la conversation affiché et modifiable');
+  await pg.fill('#rdvmsgbox', 'Bonjour, version modifiée'); 
+  ok((await pg.locator('#rdvbtns [data-act=copysms]').getAttribute('data-m')).includes('version modifiée'), 'boutons mis à jour avec le texte modifié');
+  await pg.evaluate(() => { S.calls.push({ id: 'tx1', channel: 'appel', prospectId: 'P2', t: new Date().toISOString(), result: 'rdvt', transcript: 'Bonjour, ceci est la conversation complète de test avec beaucoup de mots.', audioPath: '2026-11/P2-1.webm' }); S.lastRDV = ''; render() });
+  ok((await pg.evaluate(() => timelineHTML(byId('P2')))).includes('Conversation complète') && (await pg.evaluate(() => timelineHTML(byId('P2')))).includes('Réécouter'), 'historique : conversation complète + réécoute');
   // RDV physique exige lieu
   await pg.evaluate(() => { S.call.pid = 'P3'; S.call.open = 'P3'; S.call.step = 'ans'; render() });
   await pg.click('[data-act=callpanel][data-r=rdvp]'); await pg.fill('#cr', '2026-11-12T10:00'); await pg.click('[data-act=callres][data-r=rdvp]');

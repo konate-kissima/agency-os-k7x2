@@ -545,13 +545,31 @@ function msgButtons(p,msg,after){
   const gm=p.email?'https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(p.email)+'&su='+encodeURIComponent('Notre échange')+'&body='+e+(from?'&authuser='+encodeURIComponent(from):''):'';
   const A=after||'';
   return (wa?`<a class="btn primary" href="${wa}" ${A}>WhatsApp</a>`:'')+(mob?`<a class="btn" href="sms:${esc(ph)}?&body=${e}" ${A}>SMS</a>`:'')+(gm?`<a class="btn" href="${gm}" target="_blank" rel="noopener" ${A}>E-mail (Gmail)</a>`:'')+`<button type="button" class="btn" data-act="copysms" data-m="${esc(msg)}">Copier</button>`+(!mob?'<span class="muted sm"> Numéro fixe : pas de WhatsApp ni de SMS.</span>':'')}
+async function genRdvMsg(pid,tr,ty,rdvAt,place,link){
+  const p=byId(pid);if(!p||!tr||tr.trim().length<40||!window.__sb)return;
+  S.msgBusy=pid;render();
+  try{
+    const cfg=window.AOS_CONFIG||{};const {data}=await window.__sb.auth.getSession();const tok=data.session&&data.session.access_token;
+    const res=await fetch(cfg.url+'/functions/v1/resume-appel',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:cfg.key,'Content-Type':'application/json'},body:JSON.stringify({mode:'message',transcript:tr,type:ty,quand:rdvWhen({rdvAt}),lieu:place||'',lien:link||'',prenom:String(p.dirigeant||'').trim().split(/\s+/)[0]||''})});
+    const j=await res.json().catch(()=>({}));
+    if(j.message){const patch={rdvMsgAI:j.message,rdvMsgFor:rdvAt};Object.assign(p,patch);await guard(()=>DB.update('prospects',pid,patch))}
+    else toast(j.message||'Message indisponible : modèle standard utilisé.')
+  }catch(e){toast('Message indisponible : modèle standard utilisé.')}
+  S.msgBusy='';render();
+}
+function rdvGcal(p){
+  const ty=p.rdvType||'visio';if(ty==='tel')return '';
+  const d=new Date(p.rdvAt),dur=ty==='physique'?60:30,e=new Date(d.getTime()+dur*60000),title=ty==='physique'?'Rendez-vous avec ':'Visio avec ';
+  return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(title+p.name)+'&dates='+icsDate(d)+'/'+icsDate(e)+'&ctz=Europe/Paris&details='+encodeURIComponent(ty==='physique'?'Rendez-vous.':'Échange en visio.')+(ty==='physique'&&p.rdvPlace?'&location='+encodeURIComponent(p.rdvPlace):'')+(p.email?'&add='+encodeURIComponent(p.email):'')}
+function rdvBtns(p,msg){const g=rdvGcal(p);return `${g?`<a class="btn" href="${g}" target="_blank" rel="noopener">Invitation Google (ajoute Meet)</a>`:''}${msgButtons(p,msg)}<button class="btn sm" data-act="rdvdone">OK, fait</button>`}
 function rdvCard(){
   const p=S.lastRDV?byId(S.lastRDV):null;if(!p||!p.rdvAt)return '';
-  const ty=p.rdvType||'visio',d=new Date(p.rdvAt),dur=ty==='physique'?60:ty==='tel'?15:30,e=new Date(d.getTime()+dur*60000);
-  const msg=rdvMsg(p,'conf');
-  const title=ty==='tel'?'Appel avec ':ty==='physique'?'Rendez-vous avec ':'Visio avec ';
-  const gcal=ty==='tel'?'':'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(title+p.name)+'&dates='+icsDate(d)+'/'+icsDate(e)+'&ctz=Europe/Paris&details='+encodeURIComponent(ty==='physique'?'Rendez-vous.':'Échange en visio.')+(ty==='physique'&&p.rdvPlace?'&location='+encodeURIComponent(p.rdvPlace):'')+(p.email?'&add='+encodeURIComponent(p.email):'');
-  return `<div class="card" style="border:2px solid var(--ok,#2a7)"><b>RDV ${RDV_T[ty]} pris : ${esc(p.name)}, ${esc(rdvWhen(p))}.</b> Envoie la confirmation :<p class="sm" style="white-space:pre-wrap;margin:6px 0">${esc(msg)}</p><div class="row" style="margin-top:8px;flex-wrap:wrap">${gcal?`<a class="btn" href="${gcal}" target="_blank" rel="noopener">Invitation Google (ajoute Meet)</a>`:''}${msgButtons(p,msg)}<button class="btn sm" data-act="rdvdone">OK, fait</button></div>${ty==='visio'&&!p.rdvLink?'<p class="muted sm" style="margin-top:6px">Dans Google Agenda, clique « Ajouter Google Meet », enregistre, puis remplace [lien Meet] dans le message.</p>':''}</div>`}
+  const ty=p.rdvType||'visio';
+  const ai=p.rdvMsgAI&&p.rdvMsgFor===p.rdvAt?p.rdvMsgAI:'';
+  const msg=ai||rdvMsg(p,'conf');
+  const busy=S.msgBusy===p.id;
+  const box=busy?'<p class="muted sm" style="margin:8px 0">⏳ Rédaction du message à partir de la conversation complète…</p>':`<div class="muted sm" style="margin-top:6px">${ai?'Rédigé à partir de la conversation. Relis et modifie si besoin :':'Message standard (aucune conversation enregistrée pour ce RDV). Tu peux le modifier :'}</div><textarea id="rdvmsgbox" rows="8" style="width:100%;margin:4px 0">${esc(msg)}</textarea>`;
+  return `<div class="card" style="border:2px solid var(--ok,#2a7)"><b>RDV ${RDV_T[ty]} pris : ${esc(p.name)}, ${esc(rdvWhen(p))}.</b> Envoie la confirmation :${box}<div class="row" id="rdvbtns" style="margin-top:8px;flex-wrap:wrap">${busy?'':rdvBtns(p,msg)}</div>${ty==='visio'&&!p.rdvLink?'<p class="muted sm" style="margin-top:6px">Dans Google Agenda, clique « Ajouter Google Meet », enregistre, puis remplace [lien Meet] dans le message.</p>':''}</div>`}
 function remindDue(){const now=Date.now();return S.prospects.filter(p=>p.stage==='rdv'&&p.rdvAt&&(p.rdvType||'visio')!=='tel').map(p=>({p,h:(new Date(p.rdvAt)-now)/36e5})).map(x=>{if(x.h>2.5&&x.h<=30&&!x.p.rem24)return {...x,k:'r24'};if(x.h>-0.25&&x.h<=2.5&&!x.p.rem2)return {...x,k:'r2'};return null}).filter(Boolean)}
 function remindCard(){
   const r=S.remind,p=r?byId(r.id):null;if(!p||!p.rdvAt)return '';
@@ -640,7 +658,7 @@ function appelsHTML(){
   const forced=S.call.open?byId(S.call.open):null;
   let cur=forced||(S.call.pid?byId(S.call.pid):null);
   if(!forced&&(!cur||!Q.some(x=>x.id===cur.id)))cur=Q[0]||null;
-  if(cur&&S.call.pid!==cur.id){S.call.pid=cur.id;S.call.sstep=0;S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0}
+  if(cur&&S.call.pid!==cur.id){S.call.pid=cur.id;S.call.sstep=0;S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0}
   if(!cur)S.call.pid='';
   const ang=S.call.angle||sc.angle;
   const gc=goals().conv,zc=zoneOf(st.conv,gc[0],Math.round(gc[0]/2));
@@ -707,15 +725,16 @@ async function callResult(r){
   if(isRdvRes(r)&&!rdvAt){toast('Renseigne la date et l\'heure du RDV.');return}
   if(r==='rdvp'&&!place){toast('Indique le lieu du rendez-vous physique.');return}
   const now=new Date();
+  const transcript=S.call.transcript||'',audioPath=S.call.audioPath||'';
   const ty=r==='rdvt'?'tel':r==='rdvp'?'physique':'visio';
-  const call={channel:'appel',prospectId:p.id,prospectName:p.name,t:now.toISOString(),hour:now.getHours(),result:r,angle:S.call.angle||sc.angle,obj:obj==='—'||r!=='no'?'':obj,note,audio,informed,dept:p.dept||'',joint:JOINT.includes(r),answered:ANSWERED.includes(r),dur:S.call.dur||0};
+  const call={channel:'appel',prospectId:p.id,prospectName:p.name,t:now.toISOString(),hour:now.getHours(),result:r,angle:S.call.angle||sc.angle,obj:obj==='—'||r!=='no'?'':obj,note,audio,informed,dept:p.dept||'',joint:JOINT.includes(r),answered:ANSWERED.includes(r),dur:S.call.dur||0,...(transcript?{transcript}:{}),...(audioPath?{audioPath}:{})};
   if(isRdvRes(r)){call.rdvType=ty;call.rdvAt=rdvAt}
   const id='c'+uid();
   const touches=(p.touches||0)+1;
   const base={touches,lastCall:call.t,lastResult:r,rdvType:'',notes:note?((p.notes?p.notes+'\n':'')+today()+' : '+note):(p.notes||'')};
   let patch;
-  if(r==='rdv'||r==='rdvv'||r==='rdvp')patch={...base,stage:'rdv',rdvAt,rdvType:ty,rdvPlace:ty==='physique'?place:'',rdvLink:link,pts,nextDate:'',rdvShow:'',rem24:false,rem2:false};
-  else if(r==='rdvt')patch={...base,stage:'contacte',rdvAt,rdvType:'tel',pts,nextDate:rdvAt.slice(0,10),rdvShow:''};
+  if(r==='rdv'||r==='rdvv'||r==='rdvp')patch={...base,stage:'rdv',rdvAt,rdvType:ty,rdvPlace:ty==='physique'?place:'',rdvLink:link,pts,rdvMsgAI:'',nextDate:'',rdvShow:'',rem24:false,rem2:false};
+  else if(r==='rdvt')patch={...base,stage:'contacte',rdvAt,rdvType:'tel',pts,rdvMsgAI:'',nextDate:rdvAt.slice(0,10),rdvShow:''};
   else if(r==='rap'||r==='ans')patch={...base,stage:'contacte',nextDate:date};
   else if(r==='nr'||r==='rep'){const joined=callsOf(p.id).some(c=>c.joint);const ctries=callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).length+1;
     const slots=['m','d','s'].filter(x=>x!==slotOf(call.hour));
@@ -727,7 +746,7 @@ async function callResult(r){
   else patch={...base,stage:'stop',optout:true};
   patch.nextTime=r==='rdvt'?rdvAt.slice(11,16):(r==='rap'||r==='ans')?ntime:'';
   const ok=await guard(async()=>{await DB.set('calls',id,call);await DB.update('prospects',p.id,patch)});
-  if(ok){S.calls.push({id,...call});Object.assign(p,patch);S.call.pid='';S.call.open='';S.call.q='';S.call.step='';if(r==='nr'||r==='rep')S.lastNR=isMobile(p.phone)?p.id:'';if(isRdvRes(r))S.lastRDV=p.id;
+  if(ok){S.calls.push({id,...call});Object.assign(p,patch);S.call.pid='';S.call.open='';S.call.q='';S.call.step='';if(r==='nr'||r==='rep')S.lastNR=isMobile(p.phone)?p.id:'';if(isRdvRes(r)){S.lastRDV=p.id;genRdvMsg(p.id,transcript,ty,rdvAt,place,link)}
     const nth=touches===1?'1er appel':touches+'e appel',tr=callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).length;
     const nxt=isRdvRes(r)?'RDV '+RDV_T[ty]+' le '+fdate(rdvAt):patch.stage==='perdu'?'fiche classée perdue':patch.stage==='stop'?'ne plus appeler':patch.nextDate?'prochain essai le '+fdate(patch.nextDate):'';
     S.lastRes=`<b>${esc(p.name)}</b> : ${esc(RES_L[r])} · ${nth}${(r==='nr'||r==='rep')&&!callsOf(p.id).some(c=>c.joint)?' ('+tr+'/'+MAX_TRIES+' dans cette série)':''}${nxt?' · '+nxt:''}`;
@@ -879,13 +898,13 @@ function pipelineHTML(){
 const fdt=t=>{const d=new Date(t);return isNaN(d)?String(t||''):d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})+' '+pad(d.getHours())+'h'+pad(d.getMinutes())};
 const LOG_L={rdv:'RDV',msg:'Message',fathom:'Fathom',note:'Note'};
 function timeline(p){
-  const ev=callsOf(p.id).map(c=>({t:c.t,k:CH_L[c.channel||'appel'],r:ALL_RES_L[c.result]||c.result,x:[c.obj,c.note].filter(Boolean).join(' — '),a:c.audio}));
+  const ev=callsOf(p.id).map(c=>({t:c.t,k:CH_L[c.channel||'appel'],r:ALL_RES_L[c.result]||c.result,x:[c.obj,c.note].filter(Boolean).join(' — '),a:c.audio,tr:c.transcript,ap:c.audioPath}));
   (p.log||[]).forEach(l=>ev.push({t:l.t,k:LOG_L[l.k]||l.k,r:'',x:l.txt||'',u:l.url}));
   return ev.sort((a,b)=>String(b.t).localeCompare(String(a.t)));
 }
 function timelineHTML(p,max){
   const ev=timeline(p).slice(0,max||200);if(!ev.length)return '<p class="muted sm">Aucune action pour l\'instant.</p>';
-  return `<div class="sm tl">${ev.map(e=>`<div style="border-top:1px solid var(--line);padding:5px 0"><b>${esc(fdt(e.t))}</b> · ${esc(e.k)}${e.r?' · '+esc(e.r):''}${e.x?`<div class="muted" style="white-space:pre-wrap">${esc(e.x)}</div>`:''}${e.u?`<a href="${esc(e.u)}" target="_blank" rel="noopener">Ouvrir</a>`:''}${e.a?` <a href="${esc(e.a)}" target="_blank" rel="noopener">audio</a>`:''}</div>`).join('')}</div>`}
+  return `<div class="sm tl">${ev.map(e=>`<div style="border-top:1px solid var(--line);padding:5px 0"><b>${esc(fdt(e.t))}</b> · ${esc(e.k)}${e.r?' · '+esc(e.r):''}${e.x?`<div class="muted" style="white-space:pre-wrap">${esc(e.x)}</div>`:''}${e.u?`<a href="${esc(e.u)}" target="_blank" rel="noopener">Ouvrir</a>`:''}${e.a?` <a href="${esc(e.a)}" target="_blank" rel="noopener">audio</a>`:''}${e.ap?` <button type="button" class="btn sm" data-act="playaudio" data-path="${esc(e.ap)}">▶ Réécouter l'appel</button>`:''}${e.tr?`<details style="margin-top:4px"><summary class="muted">Conversation complète</summary><div class="muted" style="white-space:pre-wrap;margin-top:4px">${esc(e.tr)}</div></details>`:''}</div>`).join('')}</div>`}
 async function logEv(p,k,txt,url){const l={t:new Date().toISOString(),k,txt:txt||'',...(url?{url}:{})};p.log=[...(p.log||[]),l];try{await DB.update('prospects',p.id,{log:p.log})}catch(e){}}
 function openProspect(id){
   const p=byId(id);if(!p)return;const d=$('#dlg');
@@ -1513,18 +1532,35 @@ function loginHTML(){
 /* ================= rappels horaires (pop-up qui revient) ================= */
 S.snooze=(()=>{try{const o=JSON.parse(localStorage.getItem('aos_snooze')||'{}');Object.keys(o).forEach(k=>{if(o[k]<Date.now())delete o[k]});return o}catch(e){return {}}})();
 S.rec={on:false,busy:false,msg:'',mr:null,chunks:[]};
+async function uploadAudio(blob,pid,name){
+  const sb=window.__sb;if(!sb||!sb.storage||!pid)return '';
+  const ext=/\.(m4a|mp3|mp4|wav|ogg)$/i.test(name||'')?(name.match(/\.(\w+)$/)[1].toLowerCase()):'webm';
+  const path=new Date().toISOString().slice(0,7)+'/'+pid+'-'+Date.now()+'.'+ext;
+  const {error}=await sb.storage.from('appels').upload(path,blob,{contentType:blob.type||'audio/webm'});
+  return error?'':path}
+async function purgeAudios(){
+  const sb=window.__sb;if(!sb||!sb.storage)return;
+  try{if(localStorage.getItem('aos-purge')===today())return;localStorage.setItem('aos-purge',today())}catch(e){}
+  const cutoff=Date.now()-183*864e5,bk=sb.storage.from('appels');
+  const {data:dirs}=await bk.list('',{limit:100});if(!dirs)return;
+  for(const d of dirs){if(d.id)continue;
+    const {data:fs}=await bk.list(d.name,{limit:1000});
+    const old=(fs||[]).filter(f=>f.created_at&&new Date(f.created_at).getTime()<cutoff).map(f=>d.name+'/'+f.name);
+    if(old.length)await bk.remove(old)}}
 async function recSend(blob,name){
   const cfg=window.AOS_CONFIG||{};S.rec.busy=true;S.rec.on=false;S.rec.msg='';render();
+  const pid0=S.call.pid;
   try{
     const {data}=await window.__sb.auth.getSession();const tok=data.session&&data.session.access_token;
+    const up=uploadAudio(blob,pid0,name);
     const fd=new FormData();fd.append('file',blob,name||'appel.webm');
     const res=await fetch(cfg.url+'/functions/v1/resume-appel',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:cfg.key},body:fd});
     const j=await res.json().catch(()=>({}));
+    const apath=await up.catch(()=>'');if(S.call.pid===pid0){S.call.audioPath=apath;if(j.text)S.call.transcript=j.text}
     if(!res.ok){S.rec.msg=j.message||('Erreur '+res.status);toast(S.rec.msg)}
     else{
       if(j.besoin)S.call.pt1=j.besoin;if(j.objectif)S.call.pt2=j.objectif;if(j.sensible)S.call.pt3=j.sensible;
-      const parts=[j.resume,j.chiffres&&'Chiffres : '+j.chiffres,j.engagements&&'Engagements : '+j.engagements,j.prochaine_etape&&'Prochaine étape : '+j.prochaine_etape].filter(Boolean);if(parts.length)S.call.note=((S.call.note?S.call.note+'\n':'')+'Résumé auto : '+parts.join('\n'));
-      if(j.error==='summary_failed'&&j.text){S.call.note=((S.call.note?S.call.note+'\n':'')+'Transcription brute : '+j.text)}
+      const parts=[j.resume,j.chiffres&&'Chiffres :\n'+j.chiffres,j.engagements&&'Engagements : '+j.engagements,j.prochaine_etape&&'Prochaine étape : '+j.prochaine_etape].filter(Boolean);if(parts.length)S.call.note=((S.call.note?S.call.note+'\n':'')+'Résumé auto : '+parts.join('\n'));
       S.call.step='ans';S.rec.msg=j.error==='summary_failed'?(j.message||'Résumé indisponible.'):j.text&&j.text.trim().length>=20?'Résumé prêt : relis les champs puis choisis le résultat.':'Audio trop court ou inaudible.';toast(S.rec.msg)}
   }catch(e){S.rec.msg='Échec : '+e.message;toast(S.rec.msg)}
   S.rec.busy=false;render();
@@ -1656,6 +1692,7 @@ document.addEventListener('click',async e=>{
   if(a==='numedit'){const p=byId(S.call.pid);S.call.editNum=S.call.editNum===(p&&p.id)?'':(p?p.id:'');render();return}
   if(a==='numsave'){const p=byId(S.call.pid),v=(($('#cphone')||{}).value||'').trim();if(!p)return;if(normPhone(v).replace(/\D/g,'').length<9){toast('Numéro trop court.');return}
     const ok=await guard(async()=>{await DB.update('prospects',p.id,{phone:v,badPhone:false})});if(ok){Object.assign(p,{phone:v,badPhone:false});S.call.editNum='';toast('Numéro modifié : '+fmtPhone(v));render()}return}
+  if(a==='playaudio'){const path=b.dataset.path;try{const {data,error}=await window.__sb.storage.from('appels').createSignedUrl(path,3600);if(error||!data)throw 0;b.outerHTML='<audio controls autoplay src="'+data.signedUrl+'" style="vertical-align:middle;max-width:100%"></audio>'}catch(e){toast('Audio introuvable : les enregistrements sont supprimés après 6 mois.')}return}
   if(a==='callpanel'){S.call.panel=b.dataset.r||'';render();return}
   if(a==='callstep'){S.call.step=b.dataset.s||'';S.call.panel='';render();if(S.call.step==='ans'&&window.__sb&&!S.rec.on&&!S.rec.busy)recStart();return}
   if(a==='rapl-toggle'){S.call.showRap=!S.call.showRap;render();return}
@@ -1665,10 +1702,10 @@ document.addEventListener('click',async e=>{
   if(a==='rem-open'){S.remind={id:b.dataset.id,k:b.dataset.k};S.tab='appels';render();window.scrollTo(0,0);return}
   if(a==='remdone'){const p=byId(b.dataset.id),k=b.dataset.k==='r24'?'rem24':'rem2';if(p){p[k]=true;DB.update('prospects',p.id,{[k]:true});logEv(p,'msg','Rappel RDV '+(k==='rem24'?'(veille)':'(2 h avant)')+' préparé')}S.remind=null;if(b.tagName==='BUTTON'){render()}else setTimeout(render,50);return}
   if(a==='rdv-tenu'||a==='rdv-abs'){const p=byId(b.dataset.id);if(p){const ty0=RDV_T[p.rdvType||'visio'];const patch=a==='rdv-tenu'?{rdvShow:'tenu',stage:'rdv_fait'}:{rdvShow:'absent',stage:'contacte',nextDate:workday(1),nextTime:'10:00',rdvType:''};await guard(()=>DB.update('prospects',p.id,patch));Object.assign(p,patch);logEv(p,'rdv','RDV '+ty0+(a==='rdv-tenu'?' tenu':' : absent'));toast(a==='rdv-tenu'?'RDV tenu enregistré.':'Absence enregistrée : rappel prévu demain à 10 h.');render()}return}
-  if(a==='al-open'){const id=b.dataset.id;S.snooze[id]=Date.now()+10*60000;S.tab='appels';S.call.open=id;S.call.pid=id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0;alarmCheck();render();window.scrollTo(0,0);return}
+  if(a==='al-open'){const id=b.dataset.id;S.snooze[id]=Date.now()+10*60000;S.tab='appels';S.call.open=id;S.call.pid=id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0;alarmCheck();render();window.scrollTo(0,0);return}
   if(a==='copysms'){const t=b.dataset.m||'';const done=()=>toast('SMS copié. Colle-le dans Onoff (iPhone).');try{navigator.clipboard.writeText(t).then(done,()=>toast('Copie impossible.'))}catch(e){toast('Copie impossible.')}}
   if(a==='copynum'){const n=b.dataset.n||'';const done=()=>toast('Numéro copié : '+n+'. Colle-le dans ton application d\'appel.');try{navigator.clipboard.writeText(n).then(done,()=>{const t=document.createElement('textarea');t.value=n;document.body.appendChild(t);t.select();try{document.execCommand('copy')}catch(e){}t.remove();done()})}catch(e){done()}}
-  else if(a==='callopen'){S.call.open=b.dataset.id;S.call.pid=b.dataset.id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0;render();window.scrollTo(0,0)}
+  else if(a==='callopen'){S.call.open=b.dataset.id;S.call.pid=b.dataset.id;S.call.q='';S.call.note='';S.call.obj='—';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0;render();window.scrollTo(0,0)}
   else if(a==='callclose'){S.call.open='';S.call.pid='';render()}
   else if(a==='chal-ok'){S.chal=false;S.tab='appels';render()}
   else if(a==='tab'){S.tab=b.dataset.v;render()}
@@ -1704,6 +1741,7 @@ document.addEventListener('click',async e=>{
   else if(a==='login'){const {data,error}=await DB.sb.auth.signInWithPassword({email:$('#lgm').value.trim(),password:$('#lgp').value});if(error){$('#lge').textContent='Connexion impossible : '+error.message;return}S.user=data.user;await start()}
 });
 document.addEventListener('change',e=>{
+  if(e.target.id==='rdvmsgbox'){const pp=S.lastRDV&&byId(S.lastRDV);if(pp)DB.update('prospects',pp.id,{rdvMsgAI:pp.rdvMsgAI,rdvMsgFor:pp.rdvMsgFor}).catch(()=>{});return}
   if(e.target.id==='adsm'){const t=e.target,p=byId(t.dataset.id);if(p){const v=t.value,at=v?new Date().toISOString():'';p.adsMeta=v;p.adsMetaAt=at;DB.update('prospects',p.id,{adsMeta:v,adsMetaAt:at}).then(()=>toast('Vérification enregistrée.')).catch(()=>toast('Enregistrement impossible, réessaie.'));const a=t.parentNode.querySelector('a');if(a)a.textContent=(v==='oui'?'Pub Meta : vue le '+fdate(at):v==='non'?'Pub Meta : aucune vue le '+fdate(at):'Pub Meta potentielle')+' ↗'}return}
   const t=e.target;
   if(t.id==='ci'){S.call.informed=t.checked;return}
@@ -1724,6 +1762,7 @@ document.addEventListener('input',e=>{
   const t=e.target;
   const SCK={cl:'place',cv:'link',pt1:'pt1',pt2:'pt2',pt3:'pt3',cd:'date',ct:'time',cr:'rdvAt',co:'obj'};
   if(SCK[t.id]){S.call[SCK[t.id]]=t.value;return}
+  if(t.id==='rdvmsgbox'){const pp=S.lastRDV&&byId(S.lastRDV);if(pp){pp.rdvMsgAI=t.value;pp.rdvMsgFor=pp.rdvAt;const bx=$('#rdvbtns');if(bx)bx.innerHTML=rdvBtns(pp,t.value)}return}
   if(t.id==='cn')S.call.note=t.value;else if(t.id==='ca')S.call.audio=t.value;else if(t.id==='on')S.out.note=t.value;else if(t.id==='oh')S.out.handle=t.value;
   else if(t.id==='pq'){S.pf.q=t.value;render()}
   else if(t.id==='cq'){S.call.q=t.value;render()}
@@ -1739,6 +1778,7 @@ async function start(){
   }catch(e){S.err=String(e.message||e);S.loaded=true}
   S.chal=true;
   render();
+  purgeAudios().catch(()=>{});
 }
 (async function boot(){
   const cfg=window.AOS_CONFIG||{};
