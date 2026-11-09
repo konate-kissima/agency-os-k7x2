@@ -644,18 +644,23 @@ function dueBanner(sk){
 }
 const SIGN="Konaté Kissima, Instinct Agency";
 const NR_Q="J'aide des artisans à recevoir plus de demandes de devis qualifiées. Seriez-vous disponible aujourd'hui ou demain pour 5 minutes d'échange ?";
+function nrCoName(p){
+  let n=String(p.name||'').replace(/\b(SARL|SAS|SASU|EURL|SA|EI|SCOP)\b\.?/gi,'').replace(/\s+/g,' ').trim();
+  if(!n||n.length>38||/\d/.test(n)||/[-–|/]/.test(n))return '';
+  return n;
+}
 function nrMessage(p){
   const fn=String(p.dirigeant||'').replace(/\(.*?\)/g,'').trim().split(/\s+/)[0]||'';
   const first=fn?fn.charAt(0).toUpperCase()+fn.slice(1).toLowerCase():'';
-  const yr=p.created_co?+String(p.created_co).slice(0,4):0,y=new Date().getFullYear();
+  const co=nrCoName(p),yr=p.created_co?+String(p.created_co).slice(0,4):0,y=new Date().getFullYear();
   let c;
   if(+p.reviews>=10&&+p.rating>=4.5)c="j'ai vu vos "+p.reviews+" avis à "+String(p.rating).replace('.',',')+"/5 sur Google, c'est du beau travail.";
   else if(p.instagram)c="j'ai vu votre compte Instagram, ça donne une belle image de votre travail.";
-  else if(yr&&yr<=y-10)c=(p.name||'Votre entreprise')+" existe depuis "+yr+", ça se respecte.";
-  else c="j'ai vu "+(p.name||'votre entreprise')+(p.city?' à '+p.city:'')+", belle activité.";
-  return "Bonjour"+(first?' '+first:'')+", "+SIGN+". Je viens d'essayer de vous joindre : "+c+" "+NR_Q;
+  else if(yr&&yr<=y-10)c="votre entreprise existe depuis "+yr+", ça se respecte.";
+  else c="j'ai vu votre activité"+(p.city?' à '+p.city:'')+", belle présence.";
+  return "Bonjour"+(first?' '+first:'')+", "+SIGN+". Je viens d'essayer de "+(co?'joindre '+co:'vous joindre')+" : "+c+" "+NR_Q;
 }
-const NR_SMS=nrMessage({name:'{nom}'});
+const NR_SMS=nrMessage({});
 function nrCard(){
   const p=S.lastNR?byId(S.lastNR):null;if(!p)return '';
   const msg=settings().nrText?fillScript(settings().nrText,p).replace('monsieur/madame','').replace('Bonjour ,','Bonjour,'):nrMessage(p);
