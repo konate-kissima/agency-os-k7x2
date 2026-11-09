@@ -49,7 +49,7 @@ const fs = require('fs');
   await pg.click('[data-act=callres][data-r=rdvv]');
   try{await pg.waitForSelector('h2:has-text("Martin Chauffage")',{timeout:5000})}catch(e){console.log('DIAG toast=',await pg.textContent('#toast'),'| cr=',await pg.inputValue('#cr').catch(()=>'-'),'| h2=',await pg.$$eval('h2',h=>h.map(x=>x.textContent)).catch(()=>'-'));process.exitCode=1}
   ok(true, 'fiche suivante après RDV');
-  ok(/RDV visio pris : Dupont/.test(await pg.textContent('main')) && await pg.locator('a[href^="https://calendar.google.com"]').count()===1 && await pg.locator('a[href^="https://wa.me"]').count()===0 && (await pg.textContent('main')).includes('Numéro fixe'), 'carte confirmation RDV (Google Agenda, pas de WhatsApp sur fixe)');
+  ok(/RDV visio pris : Dupont/.test(await pg.textContent('main')) && await pg.locator('a[href^="https://calendar.google.com"]').count()===1 && await pg.locator('a[href^="whatsapp://"]').count()===0 && (await pg.textContent('main')).includes('Numéro fixe'), 'carte confirmation RDV (Google Agenda, pas de WhatsApp sur fixe)');
 
   // appel 2 : Martin -> pas de réponse (reprogrammé) puis plus personne
   await pg.selectOption('#cang', 'B');

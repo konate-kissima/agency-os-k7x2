@@ -540,11 +540,11 @@ function rdvMsg(p,kind){
   return `Bonjour${n}, c'est Kissima. Petit rappel pour notre visio ${jour} à ${h} : ${lien}. On se retrouve ${jour==='demain'?'demain':'tout à l\'heure'}, j'ai hâte d'échanger avec vous !`}
 function msgButtons(p,msg,after){
   const ph=normPhone(p.phone),e=encodeURIComponent(msg),mob=isMobile(p.phone);
-  const wa=mob?'https://wa.me/'+(ph.startsWith('0')?'33'+ph.slice(1):ph.replace('+',''))+'?text='+e:'';
+  const wa=mob?'whatsapp://send?phone='+(ph.startsWith('0')?'33'+ph.slice(1):ph.replace('+',''))+'&text='+e:'';
   const from=settings().mailFrom||'';
   const gm=p.email?'https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(p.email)+'&su='+encodeURIComponent('Notre échange')+'&body='+e+(from?'&authuser='+encodeURIComponent(from):''):'';
   const A=after||'';
-  return (wa?`<a class="btn primary" href="${wa}" target="_blank" rel="noopener" ${A}>WhatsApp</a>`:'')+(mob?`<a class="btn" href="sms:${esc(ph)}?&body=${e}" ${A}>SMS</a>`:'')+(gm?`<a class="btn" href="${gm}" target="_blank" rel="noopener" ${A}>E-mail (Gmail)</a>`:'')+`<button type="button" class="btn" data-act="copysms" data-m="${esc(msg)}">Copier</button>`+(!mob?'<span class="muted sm"> Numéro fixe : pas de WhatsApp ni de SMS.</span>':'')}
+  return (wa?`<a class="btn primary" href="${wa}" ${A}>WhatsApp</a>`:'')+(mob?`<a class="btn" href="sms:${esc(ph)}?&body=${e}" ${A}>SMS</a>`:'')+(gm?`<a class="btn" href="${gm}" target="_blank" rel="noopener" ${A}>E-mail (Gmail)</a>`:'')+`<button type="button" class="btn" data-act="copysms" data-m="${esc(msg)}">Copier</button>`+(!mob?'<span class="muted sm"> Numéro fixe : pas de WhatsApp ni de SMS.</span>':'')}
 function rdvCard(){
   const p=S.lastRDV?byId(S.lastRDV):null;if(!p||!p.rdvAt)return '';
   const ty=p.rdvType||'visio',d=new Date(p.rdvAt),dur=ty==='physique'?60:ty==='tel'?15:30,e=new Date(d.getTime()+dur*60000);
@@ -607,8 +607,8 @@ function nrCard(){
   const p=S.lastNR?byId(S.lastNR):null;if(!p)return '';
   const msg=fillScript(settings().nrText||NR_SMS,p).replace('monsieur/madame','').replace('Bonjour ,','Bonjour,');
   const ph=normPhone(p.phone),e=encodeURIComponent(msg);
-  const wa=ph?'https://wa.me/'+(ph.startsWith('0')?'33'+ph.slice(1):ph.replace('+',''))+'?text='+e:'';
-  return `<div class="card nrfloat" style="position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:60;width:min(94vw,620px);margin:0;border:2px solid var(--ok,#2a7);box-shadow:0 10px 34px rgba(0,0,0,.28);background:var(--card,#fff)"><b>${p.lastResult==='rep'?'Répondeur':'Pas de réponse'} : ${esc(p.name)}.</b> Envoie-lui un message (double contact) :<div class="row" style="margin-top:8px;flex-wrap:wrap"><button type="button" class="btn primary" data-act="copysms" data-m="${esc(msg)}" title="Copie le SMS, puis colle-le dans Onoff (Presse-papiers universel Mac → iPhone)">Copier le SMS</button>${ph?`<a class="btn" href="sms:${esc(ph)}?&body=${e}" data-act="nrdone" title="Ouvre Messages (ton numéro perso, pas Onoff)">SMS Mac</a><a class="btn" href="${wa}" target="_blank" rel="noopener" data-act="nrdone">WhatsApp</a>`:''}${p.email?`<a class="btn" href="mailto:${esc(p.email)}?subject=${encodeURIComponent('Suite à mon appel')}&body=${e}" data-act="nrdone">Email</a>`:''}<button class="btn sm" data-act="nrdone">Ignorer</button></div><p class="muted sm" style="margin-top:6px">${esc(msg)}</p></div>`}
+  const wa=ph?'whatsapp://send?phone='+(ph.startsWith('0')?'33'+ph.slice(1):ph.replace('+',''))+'&text='+e:'';
+  return `<div class="card nrfloat" style="position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:60;width:min(94vw,620px);margin:0;border:2px solid var(--ok,#2a7);box-shadow:0 10px 34px rgba(0,0,0,.28);background:var(--card,#fff)"><b>${p.lastResult==='rep'?'Répondeur':'Pas de réponse'} : ${esc(p.name)}.</b> Envoie-lui un message (double contact) :<div class="row" style="margin-top:8px;flex-wrap:wrap"><button type="button" class="btn primary" data-act="copysms" data-m="${esc(msg)}" title="Copie le SMS, puis colle-le dans Onoff (Presse-papiers universel Mac → iPhone)">Copier le SMS</button>${ph?`<a class="btn" href="sms:${esc(ph)}?&body=${e}" data-act="nrdone" title="Ouvre Messages (ton numéro perso, pas Onoff)">SMS Mac</a><a class="btn" href="${wa}" data-act="nrdone">WhatsApp</a>`:''}${p.email?`<a class="btn" href="mailto:${esc(p.email)}?subject=${encodeURIComponent('Suite à mon appel')}&body=${e}" data-act="nrdone">Email</a>`:''}<button class="btn sm" data-act="nrdone">Ignorer</button></div><p class="muted sm" style="margin-top:6px">${esc(msg)}</p></div>`}
 function phoneKey(v){let d=String(v||'').replace(/\D/g,'');if(d.startsWith('0033'))d=d.slice(4);else if(d.startsWith('33')&&d.length>9)d=d.slice(2);return d.replace(/^0/,'')}
 function callSearch(q){
   q=String(q||'').trim();if(!q)return [];
