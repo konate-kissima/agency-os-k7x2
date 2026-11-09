@@ -35,7 +35,7 @@ const path = require('path'), fs = require('fs');
   await pg.evaluate(async () => { document.getElementById('cn').value = 'test'; await callResult('nr') });
   const st = await pg.evaluate(() => ({ nt: byId('A').nextTime, n: dueCallbacks().length }));
   ok(st.nt === '' && st.n === 0, 'résultat enregistré : heure effacée, plus de pop-up');
-  await pg.evaluate(async () => { S.call.open = 'A'; S.call.pid = 'A'; S.call.step = 'ans'; render(); document.getElementById('cd').value = addDays(today(), 1); document.getElementById('ct').value = '14:30'; await callResult('rap') });
+  await pg.evaluate(async () => { S.call.open = 'A'; S.call.pid = 'A'; S.call.step = 'ans'; S.call.panel = 'rap'; render(); document.getElementById('cd').value = addDays(today(), 1); document.getElementById('ct').value = '14:30'; await callResult('rap') });
   const st2 = await pg.evaluate(() => ({ d: byId('A').nextDate, t: byId('A').nextTime }));
   ok(st2.t === '14:30' && st2.d === (await pg.evaluate(() => addDays(today(), 1))), 'rappel : date + heure enregistrées');
   ok(errs.length === 0, 'aucune erreur JS ' + errs.join('|'));

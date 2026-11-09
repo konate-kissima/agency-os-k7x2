@@ -39,8 +39,9 @@ const path = require('path'), fs = require('fs');
   ok(await pg.evaluate(() => S.calls.length === 1 && S.calls[0].result === 'nr' && !S.calls[0].answered), 'Pas répondu : 1 clic, pas une conversation');
   // RDV visio
   await pg.evaluate(() => { S.call.pid = 'P1'; S.call.open = 'P1'; S.call.step = 'ans'; render() });
+  await pg.click('[data-act=callpanel][data-r=rdvv]'); await pg.evaluate(() => document.querySelectorAll('.card details').forEach(d => d.open = true));
   await pg.fill('#pt1', 'pompes à chaleur'); await pg.fill('#pt2', 'plus de devis qualifiés'); await pg.fill('#pt3', 'garder leur marge');
-  await pg.fill('#cr', '2026-11-13T16:30'); await pg.click('[data-r=rdvv]'); await pg.waitForTimeout(300);
+  await pg.fill('#cr', '2026-11-13T16:30'); await pg.click('[data-act=callres][data-r=rdvv]'); await pg.waitForTimeout(300);
   const pr = await pg.evaluate(() => byId('P1'));
   ok(pr.stage === 'rdv' && pr.rdvType === 'visio' && pr.pts.objectif === 'plus de devis qualifiés', 'RDV visio enregistré avec points évoqués');
   const card = await pg.textContent('main'); 
@@ -49,15 +50,15 @@ const path = require('path'), fs = require('fs');
   ok(await pg.locator('a[href^="https://wa.me/3361234"]').count() >= 1 && await pg.locator('a[href^="sms:"]').count() >= 1 && await pg.locator('a[href^="https://mail.google.com"]').count() === 1, 'WhatsApp + SMS + Gmail sur mobile');
   // RDV tel (fixe) : stage contacte + nextDate
   await pg.evaluate(() => { S.call.pid = 'P2'; S.call.open = 'P2'; S.call.step = 'ans'; render() });
-  await pg.fill('#cr', '2026-11-12T10:00'); await pg.click('[data-r=rdvt]'); await pg.waitForTimeout(300);
+  await pg.click('[data-act=callpanel][data-r=rap]'); await pg.fill('#cd', '2026-11-12'); await pg.fill('#ct', '10:00'); await pg.click('[data-act=callres][data-r=rap]'); await pg.waitForTimeout(300);
   const p2 = await pg.evaluate(() => byId('P2'));
-  ok(p2.stage === 'contacte' && p2.rdvType === 'tel' && p2.nextDate === '2026-11-12' && p2.nextTime === '10:00', 'RDV téléphonique : rappel daté');
+  ok(p2.stage === 'contacte' && p2.nextDate === '2026-11-12' && p2.nextTime === '10:00', 'À rappeler : rappel téléphonique daté');
   // RDV physique exige lieu
   await pg.evaluate(() => { S.call.pid = 'P3'; S.call.open = 'P3'; S.call.step = 'ans'; render() });
-  await pg.fill('#cr', '2026-11-12T10:00'); await pg.click('[data-r=rdvp]');
+  await pg.click('[data-act=callpanel][data-r=rdvp]'); await pg.fill('#cr', '2026-11-12T10:00'); await pg.click('[data-act=callres][data-r=rdvp]');
   ok(/lieu/.test(await pg.textContent('#toast')), 'RDV physique exige le lieu');
   // raccroché au nez = conversation
-  await pg.click('[data-r=hu]'); await pg.waitForTimeout(300);
+  await pg.click('[data-act=callpanel][data-r=""]'); await pg.click('[data-r=hu]'); await pg.waitForTimeout(300);
   ok(await pg.evaluate(() => S.calls.some(c => c.result === 'hu' && c.answered && !c.joint)), 'Raccroché au nez compte comme répondu');
   // RDV passé : qualification obligatoire (modal)
   await pg.evaluate(() => { const p = byId('P1'); p.rdvAt = '2026-11-01T10:00'; p.rdvShow = ''; p.stage = 'rdv'; p.rdvType = 'visio'; p.rdvN = 1; alarmCheck() });
