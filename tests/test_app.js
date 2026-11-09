@@ -41,7 +41,7 @@ const fs = require('fs');
   await pg.fill('#cn', 'Gérant sympa, 2 techniciens');
   await pg.click('[data-act=callstep][data-s=ans]');
   await pg.click('[data-act=callpanel][data-r=rdvv]');
-  ok(await pg.locator('[data-act=callres][data-r=rdvt]').count() === 0, 'plus de bouton RDV téléphonique');
+  ok(await pg.locator('[data-act=callpanel][data-r=rdvt]').count() === 1, 'bouton RDV téléphonique présent');
   await pg.click('[data-act=callres][data-r=rdvv]');
   ok(/date et l'heure/.test(await pg.textContent('#toast')), 'RDV exige une date');
   await pg.waitForTimeout(600);

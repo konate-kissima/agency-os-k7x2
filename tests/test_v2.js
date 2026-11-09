@@ -50,9 +50,10 @@ const path = require('path'), fs = require('fs');
   ok(await pg.locator('a[href^="whatsapp://send?phone=3361234"]').count() >= 1 && await pg.locator('a[href^="sms:"]').count() >= 1 && await pg.locator('a[href^="https://mail.google.com"]').count() === 1, 'WhatsApp + SMS + Gmail sur mobile');
   // RDV tel (fixe) : stage contacte + nextDate
   await pg.evaluate(() => { S.call.pid = 'P2'; S.call.open = 'P2'; S.call.step = 'ans'; render() });
-  await pg.click('[data-act=callpanel][data-r=rap]'); await pg.fill('#cd', '2026-11-12'); await pg.fill('#ct', '10:00'); await pg.click('[data-act=callres][data-r=rap]'); await pg.waitForTimeout(300);
+  await pg.click('[data-act=callpanel][data-r=rdvt]'); await pg.evaluate(() => { S.call.pt2 = 'plus de devis qualifiés'; render() }); await pg.fill('#cr', '2026-11-12T10:00'); await pg.click('[data-act=callres][data-r=rdvt]'); await pg.waitForTimeout(300);
   const p2 = await pg.evaluate(() => byId('P2'));
-  ok(p2.stage === 'contacte' && p2.nextDate === '2026-11-12' && p2.nextTime === '10:00', 'À rappeler : rappel téléphonique daté');
+  ok(p2.stage === 'contacte' && p2.rdvType === 'tel' && p2.nextDate === '2026-11-12' && p2.nextTime === '10:00', 'RDV téléphonique : rappel daté');
+  ok((await pg.textContent('main')).includes('plus de devis qualifiés'), 'confirmation du RDV téléphonique avec le résumé de l\'appel');
   // RDV physique exige lieu
   await pg.evaluate(() => { S.call.pid = 'P3'; S.call.open = 'P3'; S.call.step = 'ans'; render() });
   await pg.click('[data-act=callpanel][data-r=rdvp]'); await pg.fill('#cr', '2026-11-12T10:00'); await pg.click('[data-act=callres][data-r=rdvp]');
