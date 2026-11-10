@@ -525,6 +525,7 @@ function callQueue(){
   // ordre : rappels du créneau en cours, autres rappels dus, nouvelles fiches (ou nouvelles d'abord une fois le quota de rappels atteint)
   const rank=p=>dueNow(p)?-1:p.stage==='contacte'?(cap?1:(!p.slots||!p.slots.length||p.slots.includes(slot)?0:1)):(cap?0:2);
   return S.prospects.filter(p=>!p.optout&&hasPhone(p.phone)&&!sk.includes(p.id)&&(p.stage==='a_contacter'||(p.stage==='contacte'&&(!p.nextDate||p.nextDate<=t)))&&!notYet(p)
+    &&!(p.stage==='contacte'&&p.rdvAt&&!p.rdvShow&&(p.rdvType||'visio')!=='tel'&&new Date(p.rdvAt).getTime()>Date.now()-3*36e5)
     &&(mob==='all'||(mob==='fixe'&&!isMobile(p.phone))||(mob==='mobile'&&isMobile(p.phone))))
    .sort((a,b)=>rank(a)-rank(b)||(+isMobile(b.phone)-+isMobile(a.phone))||(a.stage==='contacte'&&b.stage==='contacte'?String(a.nextDate||'').localeCompare(String(b.nextDate||'')):0)||(+b.score||0)-(+a.score||0)||(+b.reviews||0)-(+a.reviews||0)||String(a.name).localeCompare(String(b.name)));
 }
@@ -611,8 +612,9 @@ function waList(q){
   return L.map(p=>`<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:8px 0;margin-top:6px;gap:8px;flex-wrap:wrap"><span><b>${esc(p.name)}</b> <span class="muted sm">${esc(p.city||'')} · ${esc(fmtPhone(p.phone))}${p.waReply?' · déjà : '+(p.waReply==='yes'?'intéressé':'pas intéressé'):''}</span></span><span style="display:flex;gap:8px"><button class="btn sm primary" data-act="wa-yes" data-id="${esc(p.id)}">✅ Intéressé</button><button class="btn sm" data-act="wa-no" data-id="${esc(p.id)}">❌ Pas intéressé</button></span></div>`).join('')}
 async function waReply(id,yes){
   const p=byId(id);if(!p)return;const at=new Date().toISOString();
-  const patch=yes?{stage:'contacte',nextDate:today(),nextTime:'',waReply:'yes',waAt:at,optout:false}:{stage:'perdu',lostReason:'Pas intéressé (réponse WhatsApp)',waReply:'no',waAt:at};
-  if(await saveP(id,patch)){logEv(p,'msg','Réponse WhatsApp : '+(yes?'intéressé, à rappeler':'pas intéressé'));toast(yes?p.name+' : intéressé, à rappeler aujourd\'hui.':p.name+' : retiré de la file (pas intéressé).');S.call.waq='';render()}
+  const hasRdv=p.stage==='rdv'||(p.rdvAt&&!p.rdvShow&&(p.rdvType||'visio')!=='tel'&&new Date(p.rdvAt).getTime()>Date.now()-3*36e5);
+  const patch=yes?(hasRdv?{stage:'rdv',waReply:'yes',waAt:at,optout:false}:{stage:'contacte',nextDate:today(),nextTime:'',waReply:'yes',waAt:at,optout:false}):{stage:'perdu',lostReason:'Pas intéressé (réponse WhatsApp)',waReply:'no',waAt:at};
+  if(await saveP(id,patch)){logEv(p,'msg','Réponse WhatsApp : '+(yes?'intéressé, à rappeler':'pas intéressé'));toast(yes?(hasRdv?p.name+' : intéressé, le RDV reste prévu.':p.name+' : intéressé, à rappeler aujourd\'hui.'):p.name+' : retiré de la file (pas intéressé).');S.call.waq='';render()}
 }
 function trayBtns(){
   const n=planItems().length,m=remindDue().length;
