@@ -1164,7 +1164,7 @@ function chartsHTML(LC,j,rdv,from,to){
   const CW=640,CH=250,cl=40,cb=30,ct=12,cmx=Math.max(10,ca)*1.08,cx=i=>cl+(CW-cl-10)*i/(N-1),cy=v=>CH-cb-(CH-cb-ct)*v/cmx;
   const path=k=>{let p='';cd.forEach((x,i)=>{const X=cx(i),Y=cy(x[k]);if(!i)p+=`M${X},${Y}`;else{const px=cx(i-1),py=cy(cd[i-1][k]),mx=(px+X)/2;p+=` C${mx},${py} ${mx},${Y} ${X},${Y}`}});return p};
   let cu=`<svg viewBox="0 0 ${CW} ${CH}" role="img" aria-label="Cumul sur 30 jours"><defs><linearGradient id="gA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${K}" stop-opacity=".28"/><stop offset="1" stop-color="${K}" stop-opacity=".02"/></linearGradient></defs>`;
-  [0,.25,.5,.75,1].forEach(f=>{const v=Math.round(cmx/1.08*f/10)*10,yy=cy(v);cu+=`<line x1="${cl}" x2="${CW-6}" y1="${yy}" y2="${yy}" stroke="${G}"/><text x="${cl-6}" y="${yy+4}" font-size="11" fill="${M}" text-anchor="end">${v}</text>`});
+  {const raw=cmx/1.08/4,pw=Math.pow(10,Math.floor(Math.log10(Math.max(1,raw)))),st=[1,2,5,10].map(m=>m*pw).find(v=>v>=raw)||raw;for(let v=0;v<=cmx;v+=st){const yy=cy(v);cu+=`<line x1="${cl}" x2="${CW-6}" y1="${yy}" y2="${yy}" stroke="${G}"/><text x="${cl-6}" y="${yy+4}" font-size="11" fill="${M}" text-anchor="end">${v}</text>`}}
   cu+=`<path d="${path('a')} L${cx(N-1)},${cy(0)} L${cx(0)},${cy(0)} Z" fill="url(#gA)"/><path d="${path('a')}" fill="none" stroke="${K}" stroke-width="2.6"/><path d="${path('j')}" fill="none" stroke="${B}" stroke-width="2.2" stroke-dasharray="6 4"/><path d="${path('r')}" fill="none" stroke="#8f3b1f" stroke-width="2.2"/>`;
   [0,.25,.5,.75,1].map(f=>Math.round((N-1)*f)).forEach(i=>{const dt=new Date(cd[i].d+'T12:00:00');cu+=`<text x="${cx(i)}" y="${CH-8}" font-size="11" fill="${M}" text-anchor="${i===N-1?'end':'middle'}">${dt.getDate()}/${dt.getMonth()+1}</text>`});
   cu+=`<text x="${cx(N-1)-4}" y="${cy(ca)-8}" font-size="12" font-weight="800" fill="${K}" text-anchor="end">${ca}</text><text x="${cx(N-1)-4}" y="${cy(cj2)-8}" font-size="12" font-weight="800" fill="${B}" text-anchor="end">${cj2}</text><text x="${cx(N-1)-4}" y="${cy(cr)-8}" font-size="12" font-weight="800" fill="#8f3b1f" text-anchor="end">${cr}</text></svg>`;
@@ -1186,12 +1186,36 @@ function chartsHTML(LC,j,rdv,from,to){
     h3+=`<rect x="${cx-w/2}" y="${yy}" width="${w}" height="${Math.max(1,190-yy)}" rx="4" fill="${o.n<8?'#c9c29d':K}"><title>${h}h : ${o.a} décrochés sur ${o.n} appels</title></rect><text x="${cx}" y="${yy-4}" font-size="11" font-weight="700" fill="${T}" text-anchor="middle">${Math.round(p)}%</text><text x="${cx}" y="206" font-size="11" fill="${M}" text-anchor="middle">${h}h</text>`});
   h3+='</svg>';
   const chart3=`<section class="card chartcard"><h3>Quand ils décrochent</h3><p class="muted sm">Part des appels décrochés, par heure. Barre claire = moins de 8 appels, à prendre avec prudence.</p>${hl.length?h3:'<p class="muted sm">Pas encore de données.</p>'}</section>`;
+
+  // taux de décroché par jour
+  const rt=days.map(x=>x.n?100*x.a/x.n:null),tot=days.reduce((q,x)=>q+x.n,0),tota=days.reduce((q,x)=>q+x.a,0),avg=tot?100*tota/tot:0;
+  const RW=640,RH=230,rl=38,rb=30,rtp=14,rx=i=>rl+(RW-rl-10)*(DR.length>1?i/(DR.length-1):.5),ry=v=>RH-rb-(RH-rb-rtp)*v/100;
+  let c5=`<svg viewBox="0 0 ${RW} ${RH}" role="img" aria-label="Taux de décroché par jour">`;
+  [0,25,50,75,100].forEach(t=>{c5+=`<line x1="${rl}" x2="${RW-6}" y1="${ry(t)}" y2="${ry(t)}" stroke="${G}"/><text x="${rl-6}" y="${ry(t)+4}" font-size="11" fill="${M}" text-anchor="end">${t}%</text>`});
+  c5+=`<line x1="${rl}" x2="${RW-6}" y1="${ry(avg)}" y2="${ry(avg)}" stroke="${B}" stroke-dasharray="5 4"/><text x="${RW-8}" y="${ry(avg)-5}" font-size="11" font-weight="700" fill="${B}" text-anchor="end">moyenne ${Math.round(avg)}%</text>`;
+  let pp='',started=false;rt.forEach((v,i)=>{if(v===null)return;pp+=(started?' L':'M')+rx(i)+','+ry(v);started=true});
+  c5+=`<path d="${pp}" fill="none" stroke="${K}" stroke-width="2.4"/>`;
+  rt.forEach((v,i)=>{if(v===null)return;c5+=`<circle cx="${rx(i)}" cy="${ry(v)}" r="${days[i].n>=8?4.5:3}" fill="${days[i].n>=8?K:'#c9c29d'}"><title>${fdate(days[i].d)} : ${Math.round(v)} % (${days[i].a} / ${days[i].n} appels)</title></circle>`});
+  [0,.25,.5,.75,1].map(f=>Math.round((DR.length-1)*f)).forEach((i,q,arr)=>{if(arr.indexOf(i)!==q)return;const dt=new Date(DR[i]+'T12:00:00');c5+=`<text x="${rx(i)}" y="${RH-8}" font-size="11" fill="${M}" text-anchor="${i===DR.length-1&&DR.length>1?'end':i===0&&DR.length>1?'start':'middle'}">${dt.getDate()}/${dt.getMonth()+1}</text>`});
+  c5+='</svg>';
+  const chart5=`<section class="card chartcard"><h3>Taux de décroché par jour</h3><p class="muted sm">Part des appels où quelqu'un a décroché. Point clair = moins de 8 appels ce jour-là.</p>${tot?c5:'<p class="muted sm">Pas encore de données.</p>'}</section>`;
+  // répartition des résultats
+  const rs={};LC.forEach(c=>{const k=ALL_RES_L[c.result]||c.result||'—';rs[k]=(rs[k]||0)+1});const rl2=Object.entries(rs).sort((a,b)=>b[1]-a[1]).slice(0,9),rm=Math.max(1,...rl2.map(x=>x[1]));
+  let c6=`<svg viewBox="0 0 640 ${rl2.length*32+6}" role="img" aria-label="Résultats des appels">`;
+  rl2.forEach(([l,v],i)=>{const yy=4+i*32,w=Math.max(3,(640-330)*v/rm);c6+=`<text x="0" y="${yy+19}" font-size="12.5" fill="${T}">${esc(l.length>30?l.slice(0,29)+'…':l)}</text><rect x="230" y="${yy+3}" width="${w}" height="22" rx="5" fill="${/RDV|rdv/.test(l)?'#8f3b1f':/Pas intéress|Raccroch|Ne plus/.test(l)?'#a09878':K}"/><text x="${230+w+8}" y="${yy+19}" font-size="13" font-weight="800" fill="${T}">${v}<tspan font-weight="400" fill="${M}"> (${Math.round(100*v/Math.max(1,LC.length))}%)</tspan></text>`});c6+='</svg>';
+  const chart6=`<section class="card chartcard"><h3>Ce qui se passe à chaque appel</h3>${rl2.length?c6:'<p class="muted sm">Pas encore de données.</p>'}</section>`;
+  // par jour de la semaine
+  const wd=[1,2,3,4,5,6,0].map(dn=>({l:['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][dn],n:0,a:0}));const wmap={1:0,2:1,3:2,4:3,5:4,6:5,0:6};
+  LC.forEach(c=>{const o=wd[wmap[new Date(c.t).getDay()]];o.n++;if(isAns(c))o.a++});
+  const wm=Math.max(1,...wd.map(x=>x.n));let c7=`<svg viewBox="0 0 640 230" role="img" aria-label="Par jour de la semaine">`;
+  wd.forEach((o,i)=>{const cx=44+i*86,h=(230-60)*o.n/wm,ha=(230-60)*o.a/wm;c7+=`<rect x="${cx-26}" y="${200-h}" width="52" height="${Math.max(1,h)}" rx="5" fill="${K}"/><rect x="${cx-26}" y="${200-ha}" width="52" height="${Math.max(0,ha)}" rx="5" fill="${B}"/><text x="${cx}" y="${194-h}" font-size="12" font-weight="800" fill="${T}" text-anchor="middle">${o.n||''}</text><text x="${cx}" y="218" font-size="12" fill="${M}" text-anchor="middle">${o.l}${o.n?' · '+Math.round(100*o.a/o.n)+'%':''}</text>`});c7+='</svg>';
+  const chart7=`<section class="card chartcard"><h3>Par jour de la semaine</h3><div class="lg"><span><i style="background:${K}"></i>Appels</span><span><i style="background:${B}"></i>Décrochés (taux sous le jour)</span></div>${LC.length?c7:'<p class="muted sm">Pas encore de données.</p>'}</section>`;
   // objections
   const ob={};LC.forEach(c=>{if(c.obj)ob[c.obj]=(ob[c.obj]||0)+1});const ol=Object.entries(ob).sort((a,b)=>b[1]-a[1]).slice(0,7),om=Math.max(1,...ol.map(x=>x[1]));
   let o4=`<svg viewBox="0 0 640 ${ol.length*34+6}" role="img" aria-label="Objections">`;
   ol.forEach(([l,v],i)=>{const yy=4+i*34,w=Math.max(3,(640-300)*v/om);o4+=`<text x="0" y="${yy+19}" font-size="12.5" fill="${T}">${esc(l.length>34?l.slice(0,33)+'…':l)}</text><rect x="260" y="${yy+3}" width="${w}" height="22" rx="5" fill="${B}"/><text x="${260+w+8}" y="${yy+19}" font-size="13" font-weight="800" fill="${T}">${v}</text>`});o4+='</svg>';
   const chart4=`<section class="card chartcard"><h3>Objections les plus fréquentes</h3>${ol.length?o4:'<p class="muted sm">Aucune objection saisie sur la période.</p>'}</section>`;
-  return tiles+`<div class="chgrid">${chart0}${chart1}</div><div class="chgrid">${chart2}${chart4}</div><div class="chgrid">${chart3}</div>`;
+  return tiles+`<div class="chgrid">${chart0}${chart1}</div><div class="chgrid">${chart5}${chart6}</div><div class="chgrid">${chart7}${chart3}</div><div class="chgrid">${chart2}${chart4}</div>`;
 }
 function statsHTML(){
   const days=S.st.days;let from,to='9999-99-99';
@@ -1213,9 +1237,8 @@ function statsHTML(){
   const dayB=[];for(let i=13;i>=0;i--){const d=addDays(today(),-i);const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);dayB.push({d,n:cs.length,r:cs.filter(c=>isRdvRes(c.result)).length})}
   const mx=Math.max(1,...dayB.map(x=>x.n));
   const chart=`<section class="card"><h3>14 derniers jours (appels, RDV en doré)</h3><div class="bar">${dayB.map(x=>`<div title="${fdate(x.d)} : ${x.n} appels, ${x.r} RDV" style="height:${Math.max(2,Math.round(90*x.n/mx))}px"><span class="b2" style="display:block;position:absolute;bottom:0;left:0;right:0;background:var(--brass);height:${x.n?Math.round(100*x.r/x.n):0}%"></span></div>`).join('')}</div></section>`;
-  return sel+chartsHTML(LC,j,rdv,from,to)+`<details class="card" style="margin:12px 0"><summary><b>Détails chiffrés</b> <span class="muted">moyennes, objectifs, records, tableaux</span></summary>`+averagesHTML(LC,from,to)+targetsHTML(LC,from,to)+recordsHTML()+kp+`${grp(c=>CH_L[c.channel||'appel'],'Par canal (appels, DM, vidéos, emails)',30,L)}<div class="grid2">${grp(c=>(sc.scripts[c.angle]||{}).name||c.angle,'Appels : par angle de script')}${grp(c=>c.hour!=null?pad(c.hour)+'h':'','Appels : par heure',20)}</div><div class="grid2">${grp(c=>ageBucket(byId(c.prospectId)||{}),'Appels : par ancienneté de l\'entreprise',20)}${grp(c=>sectorOf(byId(c.prospectId)||{}),'Appels : par secteur d\'activité',20)}</div><div class="grid2">${grp(c=>reviewBucket(byId(c.prospectId)||{}),'Appels : par nombre d\'avis Google',20)}${grp(c=>(byId(c.prospectId)||{}).website?'Avec site':'Sans site','Appels : site internet',20)}</div><div class="grid2">${grp(c=>EFF_L[(byId(c.prospectId)||{}).effectif]||'Effectif inconnu','Appels : taille de l\'entreprise',20)}<span></span></div>
-  <div class="grid2">${grp(c=>c.dept,'Appels : par département')}<section class="card"><h3>Objections</h3><table class="t"><tbody>${objT||'<tr><td class="muted">Aucune objection saisie.</td></tr>'}</tbody></table></section></div>
-  <p class="muted sm">Règle : on ne compare pas deux angles avant 30 conversations chacun. Un taux sur 10 conversations ne veut rien dire.</p></details>`;
+  const extra=`<details class="card" style="margin:12px 0"><summary><b>Stats supplémentaires</b> <span class="muted">canal, angle de script, ancienneté, secteur, avis Google, site, taille, département</span></summary>${grp(c=>CH_L[c.channel||'appel'],'Par canal (appels, DM, vidéos, emails)',30,L)}<div class="grid2">${grp(c=>(sc.scripts[c.angle]||{}).name||c.angle,'Appels : par angle de script')}${grp(c=>ageBucket(byId(c.prospectId)||{}),'Appels : par ancienneté de l\'entreprise',20)}</div><div class="grid2">${grp(c=>sectorOf(byId(c.prospectId)||{}),'Appels : par secteur d\'activité',20)}${grp(c=>reviewBucket(byId(c.prospectId)||{}),'Appels : par nombre d\'avis Google',20)}</div><div class="grid2">${grp(c=>(byId(c.prospectId)||{}).website?'Avec site':'Sans site','Appels : site internet',20)}${grp(c=>EFF_L[(byId(c.prospectId)||{}).effectif]||'Effectif inconnu','Appels : taille de l\'entreprise',20)}</div><div class="grid2">${grp(c=>c.dept,'Appels : par département')}<span></span></div><p class="muted sm">Règle : on ne compare pas deux groupes avant 30 conversations chacun. Un taux sur 10 conversations ne veut rien dire.</p></details>`;
+  return sel+chartsHTML(LC,j,rdv,from,to)+averagesHTML(LC,from,to)+targetsHTML(LC,from,to)+recordsHTML()+extra+`<h2 style="margin:22px 0 8px">🧭 Pipeline <span class="muted sm">(où en sont toutes les fiches)</span></h2>`+pipelineHTML();
 }
 
 
@@ -1793,7 +1816,7 @@ async function saveGoals(){
 }
 
 /* ================= rendu ================= */
-const TABS=[['appels','📞 Appels'],['auj','🔥 Aujourd\'hui'],['pipeline','🧭 Pipeline'],['stats','📊 Stats'],['clients','🤝 Clients'],['donnees','🗂 Données'],['outreach','💬 DM & vidéos'],['contenu','🎬 Contenu'],['scripts','📝 Scripts'],['aide','💡 Explication']];
+const TABS=[['appels','📞 Appels'],['auj','🔥 Aujourd\'hui'],['stats','📊 Stats'],['clients','🤝 Clients'],['donnees','🗂 Données'],['outreach','💬 DM & vidéos'],['contenu','🎬 Contenu'],['scripts','📝 Scripts'],['aide','💡 Explication']];
 const TAB2=['outreach','contenu','scripts','aide'];
 function render(){
   const app=$('#app');

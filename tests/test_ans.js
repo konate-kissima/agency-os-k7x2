@@ -41,7 +41,7 @@ const path = require('path'), fs = require('fs');
   await pg.evaluate(() => { S.prospects = [{ id: 'S1', name: 'Mob', phone: '06 12 00 00 31', stage: 'contacte' }, { id: 'S2', name: 'Fix', phone: '01 30 00 00 32', stage: 'contacte' }]; const t = new Date().toISOString(); S.calls = [{ id: 'x1', channel: 'appel', prospectId: 'S1', t, result: 'ans' }, { id: 'x2', channel: 'appel', prospectId: 'S2', t, result: 'nr' }, { id: 'x3', channel: 'appel', prospectId: 'S2', t, result: 'nr' }]; S.tab = 'stats'; S.st.days = 0; S.st.line = 'all'; render() });
   const stAll = await pg.textContent('main');
   await pg.selectOption('#stline', 'fixe'); const stFix = await pg.textContent('main');
-  ok(/3\s*appels/.test(stAll) && /2\s*appels/.test(stFix), 'stats filtrables par type de numéro');
+  ok(/Appels\s*3(?!\d)/.test(stAll) && /Appels\s*2(?!\d)/.test(stFix), 'stats filtrables par type de numéro');
   ok(errs.length === 0, 'aucune erreur JS ' + errs.join('|'));
   await b.close();
 })();
