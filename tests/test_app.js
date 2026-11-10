@@ -91,7 +91,7 @@ const fs = require('fs');
   ok(await pg.locator('td:has-text("Pourquoi les artisans")').count() === 1, 'publication ajoutée');
 
   // pipeline + signé + client
-  await pg.click('[data-v=pipeline]');
+  await pg.click('[data-v=stats]');
   ok(await pg.locator('section:has(h3:has-text("RDV pris")) b:has-text("Dupont")').count() === 1, 'Dupont dans RDV pris');
   await pg.click('section:has(h3:has-text("RDV pris")) [data-act=open]');
   await pg.selectOption('#fp-stage', 'signe');
