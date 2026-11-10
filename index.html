@@ -657,25 +657,25 @@ function nrCoName(p){
   if(!n||n.length>38||/\d/.test(n)||/[-–|/]/.test(n))return '';
   return n;
 }
-function nrMessage(p){
-  const fn=String(p.dirigeant||'').replace(/\(.*?\)/g,'').trim().split(/\s+/)[0]||'';
-  const first=fn?fn.charAt(0).toUpperCase()+fn.slice(1).toLowerCase():'';
-  const co=nrCoName(p),yr=p.created_co?+String(p.created_co).slice(0,4):0,y=new Date().getFullYear();
-  let c;
-  if(+p.reviews>=10&&+p.rating>=4.5)c="j'ai vu vos "+p.reviews+" avis à "+String(p.rating).replace('.',',')+"/5 sur Google, c'est du beau travail.";
-  else if(p.instagram)c="j'ai vu votre compte Instagram, ça donne une belle image de votre travail.";
-  else if(yr&&yr<=y-10)c="votre entreprise existe depuis "+yr+", ça se respecte.";
-  else c="j'ai vu votre activité"+(p.city?' à '+p.city:'')+", belle présence.";
-  return "Bonjour"+(first?' '+first:'')+", "+SIGN+". Je viens d'essayer de "+(co?'joindre '+co:'vous joindre')+" : "+c+" "+NR_Q;
-}
 const NR_SMS=nrMessage({});
+function nrComps(p){
+  const y=new Date().getFullYear(),yr=p.created_co?+String(p.created_co).slice(0,4):0,L=[];
+  if(+p.reviews>=10&&+p.rating>=4.5)L.push('Vos '+p.reviews+' avis à '+String(p.rating).replace('.',',')+'/5 sur Google, c\'est du très beau travail.');
+  if(p.instagram)L.push('Votre compte Instagram donne vraiment envie de travailler avec vous.');
+  if(yr&&yr<=y-8)L.push('Votre entreprise existe depuis '+yr+', ça montre le sérieux de votre travail.');
+  if(p.city)L.push('Votre activité à '+p.city+' a l\'air très solide.');
+  L.push('Votre entreprise a une très belle réputation.');
+  return L;
+}
 function nrVariant(p,k){
   const fn=String(p.dirigeant||'').replace(/\(.*?\)/g,'').trim().split(/\s+/)[0]||'';
-  const first=fn?fn.charAt(0).toUpperCase()+fn.slice(1).toLowerCase():'',co=nrCoName(p),hi='Bonjour'+(first?' '+first:'')+', ';
-  if(k===1)return hi+SIGN+". Je reviens vers vous"+(co?' pour '+co:'')+". Question rapide : est-ce que vous recevez déjà assez de demandes de devis, oui ou non ?";
-  if(k===2)return hi+SIGN+". J'aide des artisans à recevoir des demandes de devis de particuliers grâce à Facebook et Instagram. Est-ce que c'est un sujet pour vous en ce moment ? (oui / non)";
-  return hi+"dernier message de ma part. Si vous avez de la place pour de nouveaux chantiers ces prochains mois, répondez simplement « oui » et je vous rappelle à l'heure qui vous arrange. Sinon, aucun souci.";
+  const first=fn?fn.charAt(0).toUpperCase()+fn.slice(1).toLowerCase():'',hi='Bonjour'+(first?' '+first:'')+', ',L=nrComps(p),c=L[k%L.length];
+  if(k===0)return hi+SIGN+'. '+c+" Je vous ai appelé pour vous montrer comment recevoir plus de demandes de devis qualifiées. Je vous rappelle plutôt ce matin ou cet après-midi ?";
+  if(k===1)return hi+c+" C'est ce qui m'a donné envie de vous contacter : j'ai une idée pour vous amener des chantiers en plus. Je vous l'explique en 5 minutes demain matin ou demain après-midi ?";
+  if(k===2)return hi+c+" Les artisans avec cette réputation sont ceux qui profitent le plus des demandes de devis par Facebook et Instagram. Je vous montre comment ça marche : plutôt en visio ou par téléphone ?";
+  return hi+c+" Je ne veux pas vous déranger davantage : dites-moi simplement à quelle adresse e-mail je vous envoie le détail, je le fais aujourd'hui.";
 }
+function nrMessage(p){return nrVariant(p,0)}
 function nrCard(){
   const p=S.lastNR?byId(S.lastNR):null;if(!p)return '';
   const nk=Math.min(p.nrSent||0,3),msg=nk>0?nrVariant(p,nk):settings().nrText?fillScript(settings().nrText,p).replace('monsieur/madame','').replace('Bonjour ,','Bonjour,'):nrMessage(p);
@@ -1132,8 +1132,10 @@ function targetsHTML(LC,from,to){
   <p class="muted sm">Les targets sont des ordres de grandeur de départ, à ajuster avec tes chiffres réels (peu de données la 1re semaine).</p></section>`}
 function chartsHTML(LC,j,rdv,from,to){
   const K='#5f6b2e',B='#b8892b',G='#e7e1cf',T='#4b4636',M='#8a846e';
-  const days=[];for(let i=13;i>=0;i--){const d=addDays(today(),-i);const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);days.push({d,n:cs.length,a:cs.filter(isAns).length,r:cs.filter(c=>isRdvRes(c.result)).length})}
-  const goal=100,mx=Math.max(goal,...days.map(x=>x.n))*1.1,W=640,H=250,pl=34,pb=34,pt=14,bw=(W-pl-8)/14,y=v=>H-pb-(H-pb-pt)*v/mx;
+  const t00=today(),e0=to<t00?to:t00;let f0=from>'0000-00-00'?from:addDays(e0,-59);if(f0>addDays(e0,-6))f0=addDays(e0,-6);if(f0<addDays(e0,-59))f0=addDays(e0,-59);
+  const DR=[];for(let d=f0;d<=e0;d=addDays(d,1))DR.push(d);
+  const days=[];for(const d of DR){const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);days.push({d,n:cs.length,a:cs.filter(isAns).length,r:cs.filter(c=>isRdvRes(c.result)).length})}
+  const goal=100,mx=Math.max(goal,...days.map(x=>x.n))*1.1,W=640,H=250,pl=34,pb=34,pt=26,bw=(W-pl-8)/DR.length,y=v=>H-pb-(H-pb-pt)*v/mx;
   const ticks=[0,25,50,75,100].filter(t=>t<=mx);
   let c1=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Appels par jour sur 14 jours">`;
   ticks.forEach(t=>{c1+=`<line x1="${pl}" x2="${W-4}" y1="${y(t)}" y2="${y(t)}" stroke="${G}"/><text x="${pl-6}" y="${y(t)+4}" font-size="11" fill="${M}" text-anchor="end">${t}</text>`});
@@ -1142,10 +1144,11 @@ function chartsHTML(LC,j,rdv,from,to){
     c1+=`<rect x="${cx-w/2}" y="${y(x.n)}" width="${w}" height="${Math.max(1,H-pb-y(x.n))}" rx="4" fill="${K}"><title>${fdate(x.d)} : ${x.n} appels, ${x.a} décrochés, ${x.r} RDV</title></rect>`;
     if(x.a)c1+=`<rect x="${cx-w/2}" y="${y(x.a)}" width="${w}" height="${Math.max(1,H-pb-y(x.a))}" rx="4" fill="${B}" opacity=".92"/>`;
     if(x.n)c1+=`<text x="${cx}" y="${y(x.n)-4}" font-size="11" font-weight="700" fill="${T}" text-anchor="middle">${x.n}</text>`;
-    c1+=`<text x="${cx}" y="${H-pb+14}" font-size="10.5" fill="${M}" text-anchor="middle">${'DLMMJVS'[dt.getDay()]}</text><text x="${cx}" y="${H-pb+26}" font-size="10.5" fill="${M}" text-anchor="middle">${dt.getDate()}</text>`;
-    if(x.r)c1+=`<text x="${cx}" y="${H-pb-3}" font-size="11" text-anchor="middle" fill="#fff" font-weight="800">${x.r}</text>`});
+    const step=DR.length>31?5:DR.length>16?2:1;if(i%step===0)c1+=`<text x="${cx}" y="${H-pb+14}" font-size="10.5" fill="${M}" text-anchor="middle">${DR.length>16?'':'DLMMJVS'[dt.getDay()]}</text><text x="${cx}" y="${H-pb+26}" font-size="10.5" fill="${M}" text-anchor="middle">${dt.getDate()}/${dt.getMonth()+1}</text>`;
+    if(x.a&&H-pb-y(x.a)>15&&bw>16)c1+=`<text x="${cx}" y="${H-pb-5}" font-size="10.5" font-weight="800" fill="#fff" text-anchor="middle">${x.a}</text>`;
+    if(x.r)c1+=`<circle cx="${cx}" cy="8" r="8" fill="#8f3b1f"/><text x="${cx}" y="12" font-size="10.5" font-weight="800" fill="#fff" text-anchor="middle">${x.r}</text>`});
   c1+='</svg>';
-  const chart1=`<section class="card chartcard"><h3>Appels par jour</h3><div class="lg"><span><i style="background:${K}"></i>Appels</span><span><i style="background:${B}"></i>Décrochés</span><span>chiffre blanc = RDV pris</span></div>${c1}</section>`;
+  const chart1=`<section class="card chartcard"><h3>Appels par jour <span class="muted sm">(chiffre dans la barre dorée = décrochés)</span></h3><div class="lg"><span><i style="background:${K}"></i>Appels</span><span><i style="background:${B}"></i>Décrochés</span><span><i style="background:#8f3b1f;border-radius:50%"></i>RDV pris (rond rouge en haut)</span></div>${c1}</section>`;
 
   // tuiles chiffres + variation vs période précédente
   const t0=today(),end=to<t0?to:t0,nd=from>'0000-00-00'?Math.max(1,Math.round((new Date(end+'T12:00:00')-new Date(from+'T12:00:00'))/864e5)+1):0;
@@ -1157,20 +1160,20 @@ function chartsHTML(LC,j,rdv,from,to){
   const rate=LC.length?Math.round(100*j.length/LC.length):0;
   const tiles=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:12px">${tile('Appels',LC.length,dl(LC.length,pC.length))}${tile('Décrochés',j.length+' <span style="font-size:15px;color:'+K+'">'+rate+' %</span>',dl(j.length,pA.length))}${tile('RDV pris',rdv.length,dl(rdv.length,pR.length))}${tile('RDV par décroché',j.length?Math.round(1000*rdv.length/j.length)/10+' %':'—','<small class="muted">objectif 12 % et +</small>')}</div>`;
   // cumul 30 jours, courbe lissée avec aire
-  const N=30,cd=[];let ca=0,cj2=0,cr=0;for(let i=N-1;i>=0;i--){const d=addDays(t0,-i);const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);ca+=cs.length;cj2+=cs.filter(isAns).length;cr+=cs.filter(c=>isRdvRes(c.result)).length;cd.push({d,a:ca,j:cj2,r:cr})}
+  const N=DR.length,cd=[];let ca=0,cj2=0,cr=0;for(const d of DR){const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);ca+=cs.length;cj2+=cs.filter(isAns).length;cr+=cs.filter(c=>isRdvRes(c.result)).length;cd.push({d,a:ca,j:cj2,r:cr})}
   const CW=640,CH=250,cl=40,cb=30,ct=12,cmx=Math.max(10,ca)*1.08,cx=i=>cl+(CW-cl-10)*i/(N-1),cy=v=>CH-cb-(CH-cb-ct)*v/cmx;
   const path=k=>{let p='';cd.forEach((x,i)=>{const X=cx(i),Y=cy(x[k]);if(!i)p+=`M${X},${Y}`;else{const px=cx(i-1),py=cy(cd[i-1][k]),mx=(px+X)/2;p+=` C${mx},${py} ${mx},${Y} ${X},${Y}`}});return p};
   let cu=`<svg viewBox="0 0 ${CW} ${CH}" role="img" aria-label="Cumul sur 30 jours"><defs><linearGradient id="gA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${K}" stop-opacity=".28"/><stop offset="1" stop-color="${K}" stop-opacity=".02"/></linearGradient></defs>`;
   [0,.25,.5,.75,1].forEach(f=>{const v=Math.round(cmx/1.08*f/10)*10,yy=cy(v);cu+=`<line x1="${cl}" x2="${CW-6}" y1="${yy}" y2="${yy}" stroke="${G}"/><text x="${cl-6}" y="${yy+4}" font-size="11" fill="${M}" text-anchor="end">${v}</text>`});
   cu+=`<path d="${path('a')} L${cx(N-1)},${cy(0)} L${cx(0)},${cy(0)} Z" fill="url(#gA)"/><path d="${path('a')}" fill="none" stroke="${K}" stroke-width="2.6"/><path d="${path('j')}" fill="none" stroke="${B}" stroke-width="2.2" stroke-dasharray="6 4"/><path d="${path('r')}" fill="none" stroke="#8f3b1f" stroke-width="2.2"/>`;
-  [0,7,14,21,29].forEach(i=>{const dt=new Date(cd[i].d+'T12:00:00');cu+=`<text x="${cx(i)}" y="${CH-8}" font-size="11" fill="${M}" text-anchor="${i===29?'end':'middle'}">${dt.getDate()}/${dt.getMonth()+1}</text>`});
+  [0,.25,.5,.75,1].map(f=>Math.round((N-1)*f)).forEach(i=>{const dt=new Date(cd[i].d+'T12:00:00');cu+=`<text x="${cx(i)}" y="${CH-8}" font-size="11" fill="${M}" text-anchor="${i===N-1?'end':'middle'}">${dt.getDate()}/${dt.getMonth()+1}</text>`});
   cu+=`<text x="${cx(N-1)-4}" y="${cy(ca)-8}" font-size="12" font-weight="800" fill="${K}" text-anchor="end">${ca}</text><text x="${cx(N-1)-4}" y="${cy(cj2)-8}" font-size="12" font-weight="800" fill="${B}" text-anchor="end">${cj2}</text><text x="${cx(N-1)-4}" y="${cy(cr)-8}" font-size="12" font-weight="800" fill="#8f3b1f" text-anchor="end">${cr}</text></svg>`;
-  const chart0=`<section class="card chartcard"><h3>Ta progression sur 30 jours</h3><div class="lg"><span><i style="background:${K}"></i>Appels (cumul)</span><span><i style="background:${B}"></i>Décrochés</span><span><i style="background:#8f3b1f"></i>RDV pris</span></div>${cu}</section>`;
+  const chart0=`<section class="card chartcard"><h3>Ta progression <span class="muted sm">(${N} jours, suit la période choisie)</span></h3><div class="lg"><span><i style="background:${K}"></i>Appels (cumul)</span><span><i style="background:${B}"></i>Décrochés</span><span><i style="background:#8f3b1f"></i>RDV pris</span></div>${cu}</section>`;
   // funnel
   const conv=LC.filter(cj).length;
   const steps=[['Appels',LC.length],['Décrochés',j.length],['Vraies conversations',conv],['RDV pris',rdv.length],['RDV tenus',S.prospects.filter(p=>['rdv_fait','pilote','signe'].includes(p.stage)).length],['Signés',S.prospects.filter(p=>p.stage==='signe').length]];
   const top=Math.max(1,steps[0][1]);let f=`<svg viewBox="0 0 640 ${steps.length*42+8}" role="img" aria-label="Entonnoir">`;
-  steps.forEach(([l,v],i)=>{const yy=6+i*42,w=Math.max(3,(640-190)*v/top),prev=i?steps[i-1][1]:0;
+  steps.forEach(([l,v],i)=>{const yy=6+i*42,w=Math.max(3,(640-290)*v/top),prev=i?steps[i-1][1]:0;
     f+=`<text x="0" y="${yy+22}" font-size="13" fill="${T}">${l}</text><rect x="165" y="${yy+4}" width="${w}" height="26" rx="5" fill="${i<2?K:i<4?B:'#8f3b1f'}"/><text x="${165+w+8}" y="${yy+22}" font-size="13" font-weight="800" fill="${T}">${v}${i&&prev?`<tspan font-weight="400" fill="${M}">  (${Math.round(100*v/prev)} % de l'étape d'avant)</tspan>`:''}</text>`});
   f+='</svg>';
   const chart2=`<section class="card chartcard"><h3>Entonnoir de la période</h3>${f}</section>`;
