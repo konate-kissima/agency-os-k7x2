@@ -251,6 +251,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 const pad=n=>String(n).padStart(2,'0');
 const toISO=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
 const today=()=>toISO(new Date());
+const stamp=()=>{const d=new Date(),z=n=>String(n).padStart(2,'0');return z(d.getDate())+'/'+z(d.getMonth()+1)+' '+z(d.getHours())+':'+z(d.getMinutes())};
 const addDays=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return toISO(d)};
 const workday=n=>{let d=new Date();d.setHours(12);let k=0;while(k<n){d.setDate(d.getDate()+1);if(d.getDay()!==0)k++}return toISO(d)};
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -704,7 +705,7 @@ function appelsHTML(){
   const forced=S.call.open?byId(S.call.open):null;
   let cur=forced||(S.call.pid?byId(S.call.pid):null);
   if(!forced&&(!cur||!Q.some(x=>x.id===cur.id)))cur=Q[0]||null;
-  if(cur&&S.call.pid!==cur.id){S.call.pid=cur.id;S.call.sstep=0;S.call.note='';S.call.obj='—';S.call.obj2='';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0}
+  if(cur&&S.call.pid!==cur.id){S.call.pid=cur.id;S.call.sstep=0;S.call.note='';S.call.auto='';S.call.obj='—';S.call.obj2='';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0}
   if(!cur)S.call.pid='';
   const ang=S.call.angle||sc.angle;
   const gc=goals().conv,zc=zoneOf(st.conv,gc[0],Math.round(gc[0]/2));
@@ -760,8 +761,9 @@ function appelsHTML(){
   let hideS=false;try{hideS=localStorage.getItem('aos-hidescript')==='1'}catch(e){}
   const right=`<div class="card scriptcard"><div class="row" style="flex-wrap:nowrap"><select id="cang" aria-label="Angle de script (sert aux statistiques)">${Object.entries(sc.scripts).map(([k,v])=>`<option value="${esc(k)}"${k===ang?' selected':''}>${esc(v.name)}</option>`).join('')}</select><button type="button" class="btn sm" data-act="scripttoggle" title="Cache ou affiche le script">${hideS?'Afficher le script':'Masquer le script'}</button></div>
    ${hideS?'':`<div class="script">${esc(fillScript((sc.scripts[ang]||{}).text,cur))}</div>`}
-   <div class="csec" style="margin-top:10px">Notes</div>
-   <textarea id="cn" rows="6" class="cnote" style="width:100%" placeholder="Note : ce que tu as appris (interlocuteur, objection, chantiers…)">${esc(S.call.note)}</textarea>
+   <div class="csec" style="margin-top:10px">✍️ Mes notes <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">(enregistrées avec l'heure)</span></div>
+   <textarea id="cn" rows="5" class="cnote" style="width:100%" placeholder="Ce que tu as appris : interlocuteur, objection, chantiers…">${esc(S.call.note)}</textarea>
+   ${S.call.auto?`<div class="csec" style="margin-top:10px">🤖 Résumé automatique <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">(modifiable)</span></div><textarea id="ca2" rows="6" style="width:100%;background:var(--bg2,#f3f1ea)">${esc(S.call.auto)}</textarea>`:''}
    <div class="sm muted"><b>Information d'enregistrement</b><br>${esc(sc.recordText)}</div></div>`;
   return above+bar+trayPanels()+rapPanelHTML()+`<div class="callgrid">${left}${right}</div>`;
 }
@@ -770,7 +772,7 @@ async function callResult(r){
   const p=byId(S.call.pid);if(!p)return;
   const sc=settings();
   const V=(id,k,d)=>{const e=$('#'+id);return e?e.value:(S.call[k]||d||'')};
-  const note=V('cn','note'),obj=(V('co','obj','—')||'—').trim()||'—',audio=V('ca','audio'),informed=!!($('#ci')?$('#ci').checked:S.call.informed);
+  const auto=V('ca2','auto').trim(),note=V('cn','note'),obj=(V('co','obj','—')||'—').trim()||'—',audio=V('ca','audio'),informed=!!($('#ci')?$('#ci').checked:S.call.informed);
   const hasDate=!!V('cd','date'),date=V('cd','date')||workday(r==='ans'?3:2),ntime=V('ct','time','10:00')||'10:00',rdvAt=V('cr','rdvAt');
   const place=V('cl','place').trim(),link=V('cv','link').trim();
   const pts={besoin:V('pt1','pt1').trim(),objectif:V('pt2','pt2').trim(),sensible:V('pt3','pt3').trim()};
@@ -780,11 +782,11 @@ async function callResult(r){
   const now=new Date();
   const transcript=S.call.transcript||'',audioPath=S.call.audioPath||'';
   const ty=r==='rdvt'?'tel':r==='rdvp'?'physique':'visio';
-  const call={channel:'appel',prospectId:p.id,prospectName:p.name,t:now.toISOString(),hour:now.getHours(),result:r,angle:S.call.angle||sc.angle,obj:obj==='—'||r!=='no'?'':obj,note,audio,informed,dept:p.dept||'',joint:JOINT.includes(r),answered:ANSWERED.includes(r),dur:S.call.dur||0,...(transcript?{transcript}:{}),...(audioPath?{audioPath}:{})};
+  const call={channel:'appel',prospectId:p.id,prospectName:p.name,t:now.toISOString(),hour:now.getHours(),result:r,angle:S.call.angle||sc.angle,obj:obj==='—'||r!=='no'?'':obj,note,auto,audio,informed,dept:p.dept||'',joint:JOINT.includes(r),answered:ANSWERED.includes(r),dur:S.call.dur||0,...(transcript?{transcript}:{}),...(audioPath?{audioPath}:{})};
   if(isRdvRes(r)){call.rdvType=ty;call.rdvAt=rdvAt}
   const id='c'+uid();
   const touches=(p.touches||0)+1;
-  const base={touches,lastCall:call.t,lastResult:r,rdvType:'',notes:note?((p.notes?p.notes+'\n':'')+today()+' : '+note):(p.notes||'')};
+  const base={touches,lastCall:call.t,lastResult:r,rdvType:'',notes:[p.notes||'',note?stamp()+' ✍️ '+note:'',auto?stamp()+' 🤖 Résumé auto : '+auto:''].filter(Boolean).join('\n')};
   let patch;
   if(r==='rdv'||r==='rdvv'||r==='rdvp')patch={...base,stage:'rdv',rdvAt,rdvType:ty,rdvPlace:ty==='physique'?place:'',rdvLink:link,pts,rdvMsgAI:'',nextDate:'',rdvShow:'',rem24:false,rem2:false};
   else if(r==='rdvt')patch={...base,stage:'contacte',rdvAt,rdvType:'tel',pts,rdvMsgAI:'',nextDate:rdvAt.slice(0,10),rdvShow:''};
@@ -930,7 +932,7 @@ async function outResult(r){
   const call={channel:ch,prospectId:p.id,prospectName:p.name,t:now.toISOString(),hour:now.getHours(),result:r,angle:S.out.variant,obj:'',note,audio:ch==='video'?handle:'',informed:false,dept:p.dept||'',joint:OUT_JOINT.includes(r)};
   const id='c'+uid();
   const hk=ch==='dm_fb'?'facebook':ch==='dm_lin'?'linkedin':ch==='email'?'email':ch==='video'?'':'instagram';
-  const base={touches:(p.touches||0)+1,lastCall:call.t,notes:note?((p.notes?p.notes+'\n':'')+today()+' : '+note):(p.notes||'')};
+  const base={touches:(p.touches||0)+1,lastCall:call.t,notes:note?((p.notes?p.notes+'\n':'')+stamp()+' ✍️ '+note):(p.notes||'')};
   if(hk&&handle)base[hk]=handle;
   let patch;
   if(r==='sent'){const tries=outTries(p)+1;patch={...base,stage:p.stage==='a_contacter'?'contacte':p.stage,outNext:workday(3)};if(tries>=MAX_OUT)patch.outDone=true;
@@ -978,7 +980,7 @@ function pipelineHTML(){
 const fdt=t=>{const d=new Date(t);return isNaN(d)?String(t||''):d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})+' '+pad(d.getHours())+'h'+pad(d.getMinutes())};
 const LOG_L={rdv:'RDV',msg:'Message',fathom:'Fathom',note:'Note'};
 function timeline(p){
-  const ev=callsOf(p.id).map(c=>({t:c.t,k:CH_L[c.channel||'appel'],r:ALL_RES_L[c.result]||c.result,x:[c.obj,c.note].filter(Boolean).join(' — '),a:c.audio,tr:c.transcript,ap:c.audioPath}));
+  const ev=callsOf(p.id).map(c=>({t:c.t,k:CH_L[c.channel||'appel'],r:ALL_RES_L[c.result]||c.result,x:[c.obj,c.note&&'✍️ '+c.note,c.auto&&'🤖 '+c.auto].filter(Boolean).join('\n'),a:c.audio,tr:c.transcript,ap:c.audioPath}));
   (p.log||[]).forEach(l=>ev.push({t:l.t,k:LOG_L[l.k]||l.k,r:'',x:l.txt||'',u:l.url}));
   return ev.sort((a,b)=>String(b.t).localeCompare(String(a.t)));
 }
@@ -996,7 +998,7 @@ function openProspect(id){
   ${rdvPanelHTML(p)}
   ${p.stage==='rdv'&&p.rdvAt&&rdvGcal(p)?`<p style="margin:6px 0"><a class="btn sm" href="${rdvGcal(p)}" target="_blank" rel="noopener">Ajouter ce RDV à Google Agenda</a></p>`:''}
   <label class="f">Email</label><input id="fp-email" style="width:100%" value="${esc(p.email||'')}">
-  <label class="f">Notes</label><textarea id="fp-notes" rows="5">${esc(p.notes||'')}</textarea>
+  <label class="f">Notes (✍️ toi · 🤖 automatique, avec l'heure)</label><textarea id="fp-notes" rows="5">${esc(p.notes||'')}</textarea>
   <h3 style="margin-top:12px">Historique daté</h3>${timelineHTML(p)}${p.email?`<button class="btn sm" data-act="fathom-sync" data-id="${esc(id)}">Débrief Fathom (par e-mail)</button> `:''}<button class="btn sm" data-act="fathom-link" data-id="${esc(id)}">Coller un lien Fathom</button>
   <div class="row" style="margin-top:14px;justify-content:space-between"><span>${p.stage==='signe'&&!cli?`<button class="btn primary" data-act="mkclient" data-id="${esc(id)}">Créer le client</button>`:cli?`<button class="btn" data-act="cli-open" data-id="${esc(cli.id)}">Voir le client</button>`:''}</span><span><button class="btn primary" data-act="savep" data-id="${esc(id)}">Enregistrer</button> <button class="btn" data-act="close">Fermer</button></span></div>`;
   d.showModal();
@@ -1793,7 +1795,7 @@ async function recSend(blob,name){
     if(!res.ok){S.rec.msg=j.message||('Erreur '+res.status);toast(S.rec.msg)}
     else{
       if(j.besoin)S.call.pt1=j.besoin;if(j.objectif)S.call.pt2=j.objectif;if(j.sensible)S.call.pt3=j.sensible;
-      const parts=[j.resume,j.chiffres&&'Chiffres :\n'+j.chiffres,j.engagements&&'Engagements : '+j.engagements,j.prochaine_etape&&'Prochaine étape : '+j.prochaine_etape].filter(Boolean);if(parts.length)S.call.note=((S.call.note?S.call.note+'\n':'')+'Résumé auto : '+parts.join('\n'));
+      const parts=[j.resume,j.chiffres&&'Chiffres :\n'+j.chiffres,j.engagements&&'Engagements : '+j.engagements,j.prochaine_etape&&'Prochaine étape : '+j.prochaine_etape].filter(Boolean);if(parts.length)S.call.auto=((S.call.auto?S.call.auto+'\n':'')+parts.join('\n'));
       S.call.step='ans';S.rec.msg=j.error==='summary_failed'?(j.message||'Résumé indisponible.'):j.text&&j.text.trim().length>=20?'Résumé prêt : relis les champs puis choisis le résultat.':'Audio trop court ou inaudible.';toast(S.rec.msg)}
   }catch(e){S.rec.msg='Échec : '+e.message;toast(S.rec.msg)}
   S.rec.busy=false;render();
@@ -1903,7 +1905,7 @@ document.addEventListener('click',async e=>{
   if(a==='al-snooze'){S.snooze[b.dataset.id]=Date.now()+5*60000;saveSnooze();alarmCheck();return}
   if(a==='al-closeall'){const m=b.dataset.m;const until=m==='tomorrow'?(()=>{const d=new Date();d.setDate(d.getDate()+1);d.setHours(6,0,0,0);return +d})():Date.now()+(+m)*60000;dueCallbacks().forEach(p=>{S.snooze[p.id]=until});saveSnooze();alarmCheck();toast(m==='tomorrow'?'Rappels fermés jusqu\'à demain.':'Rappels fermés '+(m==='60'?'1 heure':m+' minutes')+'.');return}
   if(a==='soon-ok'){S.soonSeen[b.dataset.k]=1;soonCheck();return}
-  if(a==='soon-open'){S.soonSeen[b.dataset.k]=1;soonCheck();const id=b.dataset.id;S.tab='appels';S.call.open=id;S.call.pid=id;S.call.q='';S.call.note='';S.call.obj='—';S.call.obj2='';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';render();window.scrollTo(0,0);return}
+  if(a==='soon-open'){S.soonSeen[b.dataset.k]=1;soonCheck();const id=b.dataset.id;S.tab='appels';S.call.open=id;S.call.pid=id;S.call.q='';S.call.note='';S.call.auto='';S.call.obj='—';S.call.obj2='';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';render();window.scrollTo(0,0);return}
   if(a==='fathom-sync'||a==='fathom-link'){const p=byId(b.dataset.id);if(!p)return;
     let body;
     if(a==='fathom-link'){const u=(prompt('Colle le lien Fathom de la réunion (fathom.video/share/… ou /calls/…)')||'').trim();if(!u)return;body={url:u}}
@@ -1943,10 +1945,10 @@ document.addEventListener('click',async e=>{
   if(a==='rem-open'){S.remind={id:b.dataset.id,k:b.dataset.k};S.tab='appels';render();window.scrollTo(0,0);return}
   if(a==='remdone'){const p=byId(b.dataset.id),k=b.dataset.k==='r24'?'rem24':'rem2';if(p){p[k]=true;DB.update('prospects',p.id,{[k]:true});logEv(p,'msg','Rappel RDV '+(k==='rem24'?'(veille)':'(2 h avant)')+' préparé')}S.remind=null;if(b.tagName==='BUTTON'){render()}else setTimeout(render,50);return}
   if(a==='rdv-tenu'||a==='rdv-abs'){const p=byId(b.dataset.id);if(p){const ty0=RDV_T[p.rdvType||'visio'];const patch=a==='rdv-tenu'?{rdvShow:'tenu',stage:'rdv_fait'}:{rdvShow:'absent',stage:'contacte',nextDate:workday(1),nextTime:'10:00',rdvType:''};await guard(()=>DB.update('prospects',p.id,patch));Object.assign(p,patch);logEv(p,'rdv','RDV '+ty0+(a==='rdv-tenu'?' tenu':' : absent'));toast(a==='rdv-tenu'?'RDV tenu enregistré.':'Absence enregistrée : rappel prévu demain à 10 h.');render()}return}
-  if(a==='al-open'){const id=b.dataset.id;S.snooze[id]=Date.now()+10*60000;S.tab='appels';S.call.open=id;S.call.pid=id;S.call.q='';S.call.note='';S.call.obj='—';S.call.obj2='';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0;alarmCheck();render();window.scrollTo(0,0);return}
+  if(a==='al-open'){const id=b.dataset.id;S.snooze[id]=Date.now()+10*60000;S.tab='appels';S.call.open=id;S.call.pid=id;S.call.q='';S.call.note='';S.call.auto='';S.call.obj='—';S.call.obj2='';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0;alarmCheck();render();window.scrollTo(0,0);return}
   if(a==='copysms'){const t=b.dataset.m||'';const done=()=>toast('SMS copié. Colle-le dans Onoff (iPhone).');try{navigator.clipboard.writeText(t).then(done,()=>toast('Copie impossible.'))}catch(e){toast('Copie impossible.')}}
   if(a==='copynum'){const n=b.dataset.n||'';const done=()=>toast('Numéro copié : '+n+'. Colle-le dans ton application d\'appel.');try{navigator.clipboard.writeText(n).then(done,()=>{const t=document.createElement('textarea');t.value=n;document.body.appendChild(t);t.select();try{document.execCommand('copy')}catch(e){}t.remove();done()})}catch(e){done()}}
-  else if(a==='callopen'){S.call.open=b.dataset.id;S.call.pid=b.dataset.id;S.call.q='';S.call.note='';S.call.obj='—';S.call.obj2='';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0;render();window.scrollTo(0,0)}
+  else if(a==='callopen'){S.call.open=b.dataset.id;S.call.pid=b.dataset.id;S.call.q='';S.call.note='';S.call.auto='';S.call.obj='—';S.call.obj2='';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0;render();window.scrollTo(0,0)}
   else if(a==='callclose'){S.call.open='';S.call.pid='';render()}
   else if(a==='chal-ok'){S.chal=false;S.tab='appels';render()}
   else if(a==='tab'){S.tab=b.dataset.v;render()}
@@ -2005,7 +2007,7 @@ document.addEventListener('change',e=>{
 document.addEventListener('input',e=>{
   const t=e.target;
   if(t.id==='waq'){S.call.waq=t.value;const r=$('#wares');if(r)r.innerHTML=waList(t.value);return}
-  const SCK={cl:'place',cv:'link',pt1:'pt1',pt2:'pt2',pt3:'pt3',cd:'date',ct:'time',cr:'rdvAt',co:'obj'};
+  const SCK={cl:'place',cv:'link',pt1:'pt1',pt2:'pt2',pt3:'pt3',cd:'date',ct:'time',cr:'rdvAt',co:'obj',ca2:'auto'};
   if(SCK[t.id]){S.call[SCK[t.id]]=t.value;return}
   if(t.id==='rdvmsgbox'){const pp=S.lastRDV&&byId(S.lastRDV);if(pp){pp.rdvMsgAI=t.value;pp.rdvMsgFor=pp.rdvAt;const bx=$('#rdvbtns');if(bx)bx.innerHTML=rdvBtns(pp,t.value)}return}
   if(t.id==='cn')S.call.note=t.value;else if(t.id==='mt'||t.id==='ms'||t.id==='mb'){S.call.mail=S.call.mail||{};S.call.mail[{mt:'to',ms:'su',mb:'body'}[t.id]]=t.value}else if(t.id==='ca')S.call.audio=t.value;else if(t.id==='on')S.out.note=t.value;else if(t.id==='oh')S.out.handle=t.value;
