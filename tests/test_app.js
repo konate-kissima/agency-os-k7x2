@@ -104,7 +104,7 @@ const fs = require('fs');
   ok(await pg.locator('.banner:has-text("Revue J+14")').count() === 0, 'pas de revue due le jour du lancement');
   await pg.fill('#m-spend', '420'); await pg.fill('#m-leads', '21'); await pg.fill('#m-qual', '12'); await pg.fill('#m-jobs', '2');
   await pg.click('[data-act=met-add]');
-  ok((await pg.textContent('main')).includes('20 €') || (await pg.textContent('main')).includes('coût/lead 20 €'), 'coût par lead = 20 €');
+  {const mt=(await pg.textContent('main')).replace(/\s+/g,' ');ok(/20 ?€/.test(mt), 'coût par lead = 20 €');}
 
   // aujourd'hui
   await pg.click('[data-v=auj]');
