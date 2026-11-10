@@ -1883,7 +1883,7 @@ async function recSend(blob,name){
   const pid0=S.call.pid;
   try{
     const {data}=await window.__sb.auth.getSession();const tok=data.session&&data.session.access_token;
-    const up=uploadAudio(blob,pid0,name);
+    const up=Promise.resolve('');/* l'audio n'est plus conservé : seule la transcription est gardée */
     const fd=new FormData();fd.append('file',blob,name||'appel.webm');
     const res=await fetch(cfg.url+'/functions/v1/resume-appel',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:cfg.key},body:fd});
     const j=await res.json().catch(()=>({}));
