@@ -52,6 +52,42 @@ def sig(name):
     return {t for t in tokens(name) if t not in GENERIC}
 
 
+def site_confirmed(d, url):
+    """Un site n'est accepté que s'il est prouvé : nom de domaine contenant TOUS les mots distinctifs du nom, ou page (accueil, contact, mentions légales)
+    contenant le SIREN, le téléphone, ou le nom ET la ville."""
+    host = urllib.parse.urlparse(url if re.match(r"https?://", url or "") else "https://" + (url or "")).netloc.lower()
+    host = re.sub(r"^www\.", "", host)
+    if not host or "." not in host:
+        return False
+    core = re.sub(r"[^a-z0-9]", "", host.rsplit(".", 1)[0])
+    toks = [t for t in sig(d.get("name")) if len(t) >= 4]
+    nm = norm(d.get("name"))
+    if toks and all(t in core for t in toks):
+        return True
+    if not toks and len(core) >= 4 and (core in nm or nm in core):
+        return True
+    siren, tel, city = re.sub(r"\D", "", d.get("siren") or ""), digits(d.get("phone")), norm(d.get("city"))
+    base = (url if re.match(r"https?://", url) else "https://" + url).rstrip("/")
+    for path in ("", "/contact", "/mentions-legales"):
+        try:
+            if not allowed(base + path):
+                continue
+            r = requests.get(base + path, headers={"User-Agent": UA}, timeout=8)
+            if r.status_code != 200 or "text" not in r.headers.get("content-type", ""):
+                continue
+            txt = r.text[:400000].lower()
+        except Exception:
+            continue
+        dg = re.sub(r"\D", "", txt)
+        if (len(siren) == 9 and siren in dg) or (len(tel) >= 9 and tel in dg):
+            return True
+        flat = re.sub(r"[^a-z0-9]", "", txt)
+        if toks and all(t in flat for t in toks) and len(city) >= 3 and city in flat:
+            return True
+        time.sleep(0.3)
+    return False
+
+
 def postcode(addr):
     m = re.search(r"\b(\d{5})\b", addr or "")
     return m.group(1) if m else ""
@@ -328,7 +364,10 @@ def main():
             for k, v in social_from_url(u or "").items():
                 c.setdefault(k, v)
         if (not site or bad_site(site)) and g.get("gsite") and not bad_site(g["gsite"]):
-            site = g["gsite"]; patch["website"] = site
+            if site_confirmed(d, g["gsite"]):
+                site = g["gsite"]; patch["website"] = site
+            else:
+                patch["gsite_refuse"] = g["gsite"]  # site proposé par Google mais non rattaché à l'entreprise : on ne l'ajoute pas
         for k, v in crawl(site).items():
             c.setdefault(k, v)
         for k in ("instagram", "facebook", "linkedin", "email"):

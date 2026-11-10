@@ -239,7 +239,8 @@ h1,h2,h3,h4,.hero,.st b,.callnum,.numrow .callnum,.pill b{font-variant-numeric:l
 .callcard .cnote{min-height:110px}
 .callcard .cres2 .big{padding:18px 8px}
 .actbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}.actbar.a3{grid-template-columns:repeat(3,minmax(0,1fr))}.actbar.a3 .btn{font-size:13px;padding:11px 4px}.actbar .btn{width:100%;box-sizing:border-box;text-align:center;white-space:nowrap;padding:11px 8px;font-weight:650;font-size:14px;display:flex;align-items:center;justify-content:center;min-height:44px}
-</style></head><body>
+</style><script>(function(){var p=location.pathname,base=0;async function chk(){try{var b=(await (await fetch(p,{cache:"no-store"})).text()).length;if(!base){base=b;return}if(b!==base&&!document.getElementById("newv")){var d=document.createElement("div");d.id="newv";d.style.cssText="position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#101828;color:#fff;padding:10px 16px;border-radius:10px;z-index:99;font:14px sans-serif;box-shadow:0 4px 20px rgba(0,0,0,.3)";d.innerHTML="Nouvelle version disponible <button style='margin-left:10px;padding:4px 10px;border-radius:6px;border:0;cursor:pointer'>Recharger</button>";d.querySelector("button").onclick=function(){location.replace(p+"?v="+Date.now())};document.body.appendChild(d)}}catch(e){}}setTimeout(chk,5000);setInterval(chk,600000)})()</script>
+</head><body>
 <div id="app"></div><div id="toast" role="status"></div><dialog id="dlg"></dialog>
 <script src="config.js"></script>
 <script>
@@ -483,7 +484,7 @@ function localBackend(){
 }
 function cloudBackend(sb){
   return{mode:'cloud',sb,
-    async list(c){let out=[],from=0;for(;;){const{data,error}=await sb.from(c).select('id,data').range(from,from+999);if(error)throw error;out=out.concat(data.map(r=>({id:r.id,...r.data})));if(data.length<1000)break;from+=1000}return out},
+    async list(c){let out=[],from=0;for(;;){const{data,error}=await sb.from(c).select('id,data').order('id').range(from,from+999);if(error)throw error;out=out.concat(data.map(r=>({id:r.id,...r.data})));if(data.length<1000)break;from+=1000}return out},
     async set(c,id,d){const{error}=await sb.from(c).upsert({id,data:d});if(error)throw error},
     async update(c,id,p){const{error}=await sb.rpc('fusion_doc',{t:c,doc_id:id,patch:p});if(error)throw error},
     async del(c,id){const{error}=await sb.from(c).delete().eq('id',id);if(error)throw error},
@@ -509,7 +510,7 @@ async function loadAll(){
   S.content=ct.sort((a,b)=>String(b.d).localeCompare(String(a.d)));S.prospects=p;S.calls=c.sort((a,b)=>String(a.t).localeCompare(String(b.t)));S.clients=cl;
   const m=st.find(x=>x.id==='main');S.settings=m?(({id,...r})=>r)(m):{};S.loaded=true;
 }
-let rt;function refresh(){clearTimeout(rt);rt=setTimeout(async()=>{try{await loadAll()}catch(e){S.err=String(e.message||e)}render()},150)}
+let rt;function refresh(){if(S.bulk){S.bulkDirty=1;return}clearTimeout(rt);rt=setTimeout(async()=>{try{await loadAll()}catch(e){S.err=String(e.message||e)}render()},150)}
 async function guard(fn){try{await fn();return true}catch(e){toast('Erreur : '+(e.message||e));return false}}
 const saveP=(id,patch)=>guard(async()=>{await DB.update('prospects',id,patch);Object.assign(byId(id)||{},patch)});
 
@@ -568,11 +569,13 @@ async function genRdvMsg(pid,tr,ty,rdvAt,place,link){
   }catch(e){toast('Message indisponible : modèle standard utilisé.')}
   S.msgBusy='';render();
 }
+const AGENDA_EMAIL='kissima.closing@gmail.com';
 function rdvGcal(p){
-  const ty=p.rdvType||'visio';if(ty==='tel')return '';
-  const d=new Date(p.rdvAt),dur=ty==='physique'?60:30,e=new Date(d.getTime()+dur*60000),title=ty==='physique'?'Rendez-vous avec ':'Visio avec ';
-  return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(title+p.name)+'&dates='+icsDate(d)+'/'+icsDate(e)+'&ctz=Europe/Paris&details='+encodeURIComponent(ty==='physique'?'Rendez-vous.':'Échange en visio.')+(ty==='physique'&&p.rdvPlace?'&location='+encodeURIComponent(p.rdvPlace):'')+(p.email?'&add='+encodeURIComponent(p.email):'')}
-function rdvBtns(p,msg){const g=rdvGcal(p);return `${g?`<a class="btn" href="${g}" target="_blank" rel="noopener">Invitation Google (ajoute Meet)</a>`:''}${msgButtons(p,msg)}<button class="btn sm" data-act="rdvdone">OK, fait</button>`}
+  const ty=p.rdvType||'visio';if(!p.rdvAt)return '';
+  const d=new Date(p.rdvAt),dur=ty==='physique'?60:30,e=new Date(d.getTime()+dur*60000),title=ty==='physique'?'Rendez-vous avec ':ty==='tel'?'Appel avec ':'Visio avec ';
+  return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(title+p.name)+'&dates='+icsDate(d)+'/'+icsDate(e)+'&ctz=Europe/Paris&details='+encodeURIComponent(ty==='physique'?'Rendez-vous.':'Échange en visio.')+(ty==='physique'&&p.rdvPlace?'&location='+encodeURIComponent(p.rdvPlace):'')+(p.email?'&add='+encodeURIComponent(p.email):'')+'&authuser='+encodeURIComponent((settings().agendaEmail||AGENDA_EMAIL))}
+const ty0=p=>p.rdvType||'visio';
+function rdvBtns(p,msg){const g=rdvGcal(p);return `${g?`<a class="btn" href="${g}" target="_blank" rel="noopener">Ajouter à Google Agenda${ty0(p)==='visio'?' (avec Meet)':''}</a>`:''}${msgButtons(p,msg)}<button class="btn sm" data-act="rdvdone">OK, fait</button>`}
 function rdvCard(){
   const p=S.lastRDV?byId(S.lastRDV):null;if(!p||!p.rdvAt)return '';
   const ty=p.rdvType||'visio';
@@ -791,7 +794,7 @@ async function callResult(r){
   else patch={...base,stage:'stop',optout:true};
   patch.nextTime=r==='rdvt'?rdvAt.slice(11,16):(r==='rap'||r==='ans')?ntime:'';
   const ok=await guard(async()=>{await DB.set('calls',id,call);await DB.update('prospects',p.id,patch)});
-  if(ok){S.calls.push({id,...call});Object.assign(p,patch);S.call.pid='';S.call.open='';S.call.q='';S.call.step='';if(r==='nr'||r==='rep')S.lastNR=isMobile(p.phone)?p.id:'';if(isRdvRes(r)){S.lastRDV=p.id;genRdvMsg(p.id,transcript,ty,rdvAt,place,link)}
+  if(ok){S.calls.push({id,...call});Object.assign(p,patch);if((patch.stage==='perdu'&&!SIB_SKIP.test(patch.lostReason||''))||patch.optout===true)siblingsLost(p,patch.lostReason||'ne plus appeler');S.call.pid='';S.call.open='';S.call.q='';S.call.step='';if(r==='nr'||r==='rep')S.lastNR=isMobile(p.phone)?p.id:'';if(isRdvRes(r)){S.lastRDV=p.id;genRdvMsg(p.id,transcript,ty,rdvAt,place,link)}
     const nth=touches===1?'1er appel':touches+'e appel',tr=callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).length;
     const nxt=isRdvRes(r)?'RDV '+RDV_T[ty]+' le '+fdate(rdvAt):patch.stage==='perdu'?'fiche classée perdue':patch.stage==='stop'?'ne plus appeler':patch.nextDate?'prochain essai le '+fdate(patch.nextDate):'';
     S.lastRes=`<b>${esc(p.name)}</b> : ${esc(RES_L[r])} · ${nth}${(r==='nr'||r==='rep')&&!callsOf(p.id).some(c=>c.joint)?' ('+tr+'/'+MAX_TRIES+' dans cette série)':''}${nxt?' · '+nxt:''}`;
@@ -905,7 +908,7 @@ async function outResult(r){
   else if(r==='no')patch={...base,stage:'perdu',lostReason:'Pas intéressé ('+CH_L[ch]+')'};
   else patch={...base,stage:'stop',optout:true};
   const ok=await guard(async()=>{await DB.set('calls',id,call);await DB.update('prospects',p.id,patch)});
-  if(ok){S.calls.push({id,...call});Object.assign(p,patch);S.out.pid='';if(r==='rdv')S.lastRDV=p.id;toast(ALL_RES_L[r]+' enregistré.');render()}
+  if(ok){S.calls.push({id,...call});Object.assign(p,patch);if((patch.stage==='perdu'&&!SIB_SKIP.test(patch.lostReason||''))||patch.optout===true)siblingsLost(p,patch.lostReason||'ne plus appeler');S.out.pid='';if(r==='rdv')S.lastRDV=p.id;toast(ALL_RES_L[r]+' enregistré.');render()}
 }
 
 /* ================= contenu ================= */
@@ -950,7 +953,7 @@ function timeline(p){
 function timelineHTML(p,max){
   const ev=timeline(p).slice(0,max||200);if(!ev.length)return '<p class="muted sm">Aucune action pour l\'instant.</p>';
   return `<div class="sm tl">${ev.map(e=>`<div style="border-top:1px solid var(--line);padding:5px 0"><b>${esc(fdt(e.t))}</b> · ${esc(e.k)}${e.r?' · '+esc(e.r):''}${e.x?`<div class="muted" style="white-space:pre-wrap">${esc(e.x)}</div>`:''}${e.u?`<a href="${esc(e.u)}" target="_blank" rel="noopener">Ouvrir</a>`:''}${e.a?` <a href="${esc(e.a)}" target="_blank" rel="noopener">audio</a>`:''}${e.ap?` <button type="button" class="btn sm" data-act="playaudio" data-path="${esc(e.ap)}">▶ Réécouter l'appel</button>`:''}${e.tr?`<details style="margin-top:4px"><summary class="muted">Conversation complète</summary><div class="muted" style="white-space:pre-wrap;margin-top:4px">${esc(e.tr)}</div></details>`:''}</div>`).join('')}</div>`}
-async function logEv(p,k,txt,url){const l={t:new Date().toISOString(),k,txt:txt||'',...(url?{url}:{})};p.log=[...(p.log||[]),l];try{await DB.update('prospects',p.id,{log:p.log})}catch(e){}}
+async function logEv(p,k,txt,url){const l={t:new Date().toISOString(),k,txt:txt||'',...(url?{url}:{})};p.log=[...(p.log||[]),l];try{if(DB.mode==='cloud'){const {error}=await DB.sb.rpc('ajoute_log',{doc_id:p.id,entry:l});if(error)throw error}else await DB.update('prospects',p.id,{log:p.log})}catch(e){}}
 function openProspect(id){
   const p=byId(id);if(!p)return;const d=$('#dlg');
   const cs=callsOf(id).slice().reverse();
@@ -959,6 +962,7 @@ function openProspect(id){
   <div class="row"><div><label class="f">Téléphone</label><input id="fp-phone" value="${esc(p.phone||'')}"></div><div><label class="f">Étape</label><select id="fp-stage">${STAGES.map(([k,l])=>`<option value="${k}"${(p.stage||'a_contacter')===k?' selected':''}>${l}</option>`).join('')}</select></div><div><label class="f">Rappel</label><input type="date" id="fp-next" value="${esc(p.nextDate||'')}"></div><div><label class="f">Heure</label><input type="time" id="fp-nt" value="${esc(p.nextTime||'')}"></div><div><label class="f">RDV</label><input type="datetime-local" id="fp-rdv" value="${esc(p.rdvAt||'')}"></div></div>
   ${p.stage==='rdv'?`<details class="card" style="margin:10px 0"><summary><b>Préparer le rendez-vous</b> (trame en 6 temps + offre)</summary><div class="script" style="white-space:pre-wrap;font-size:13px;margin-top:8px">${esc(rdvFill(settings().rdvText||DEF_RDV))}\n\n${esc(rdvFill(settings().offerText||DEF_OFFER))}</div></details>`:''}
   ${rdvPanelHTML(p)}
+  ${p.stage==='rdv'&&p.rdvAt&&rdvGcal(p)?`<p style="margin:6px 0"><a class="btn sm" href="${rdvGcal(p)}" target="_blank" rel="noopener">Ajouter ce RDV à Google Agenda</a></p>`:''}
   <label class="f">Email</label><input id="fp-email" style="width:100%" value="${esc(p.email||'')}">
   <label class="f">Notes</label><textarea id="fp-notes" rows="5">${esc(p.notes||'')}</textarea>
   <h3 style="margin-top:12px">Historique daté</h3>${timelineHTML(p)}${p.email?`<button class="btn sm" data-act="fathom-sync" data-id="${esc(id)}">Débrief Fathom (par e-mail)</button> `:''}<button class="btn sm" data-act="fathom-link" data-id="${esc(id)}">Coller un lien Fathom</button>
@@ -1225,6 +1229,9 @@ const dupKeys=p=>{const k=[];const ph=normPhone(p.phone);if(ph)k.push('t'+ph);if
 const isDup=p=>p.stage==='perdu'&&p.lostReason==='Doublon';
 async function addProspects(items){
   if(!items.length)return 0;
+  S.bulk=true;try{return await addProspects0(items)}finally{S.bulk=false;if(S.bulkDirty){S.bulkDirty=0;setTimeout(refresh,800)}}
+}
+async function addProspects0(items){
   const idx=new Map();S.prospects.forEach(p=>{if(!isDup(p))dupKeys(p).forEach(k=>{if(!idx.has(k))idx.set(k,p)})});
   const fresh=[];let merged=0;
   for(const it of items){
@@ -1242,6 +1249,15 @@ async function addProspects(items){
   if(fresh.length&&await guard(()=>DB.setMany('prospects',fresh))){fresh.forEach(([id,d])=>S.prospects.push({id,...d}));n=fresh.length}
   return n+merged;
 }
+async function siblingsLost(p,reason){
+  if(!p||!p.siren)return 0;let n=0;
+  for(const x of S.prospects.filter(x=>x.id!==p.id&&x.siren===p.siren&&['a_contacter','contacte'].includes(x.stage))){
+    if(await saveP(x.id,{stage:'perdu',lostReason:'Même entreprise : '+(reason||'refus')}))n++;
+  }
+  if(n)toast(n+' autre(s) fiche(s) de la même entreprise retirée(s) de la file.');
+  return n;
+}
+const SIB_SKIP=/injoignable|raccroch|doublon|num[ée]ro/i;
 async function cleanDupes(){
   const seen=new Map();let n=0;
   const list=[...S.prospects].filter(p=>!isDup(p)).sort((a,b)=>(hasPhone(b.phone)?1:0)-(hasPhone(a.phone)?1:0)||(callsOf(b.id).length-callsOf(a.id).length)||String(a.created).localeCompare(String(b.created)));
@@ -1408,7 +1424,7 @@ async function leadsSearch(){
   }
   await Promise.all([worker(),worker(),worker()]);
   stat.mobiles=items.filter(i=>isMobNum(i[1].phone)).length;stat.fixes=items.length-stat.mobiles;
-  S.leads={stat,items};
+  S.leads={stat,items};try{localStorage.setItem('aos-leads',JSON.stringify(S.leads))}catch(e){}
   toast(items.length+' leads prêts : à valider avant l\'ajout.');
   render();
 }
@@ -1417,7 +1433,32 @@ async function leadsAdd(){
   const btn=$('#leadadd');if(btn){btn.disabled=true;btn.textContent='Ajout en cours…'}
   let added=0;const it=L.items;
   for(let i=0;i<it.length;i+=100){added+=await addProspects(it.slice(i,i+100));if(btn)btn.textContent='Ajout : '+Math.min(i+100,it.length)+'/'+it.length+'…'}
-  S.leads=null;toast(added+' fiches ajoutées à la file d\'appels.');render();
+  S.leads=null;try{localStorage.removeItem('aos-leads')}catch(e){}toast(added+' fiches ajoutées à la file d\'appels.');render();
+}
+function healthIssues(){
+  const L=[],now=Date.now(),P=S.prospects.filter(p=>!p.optout),act=P.filter(p=>['a_contacter','contacte'].includes(p.stage));
+  const od=P.filter(p=>p.stage==='rdv'&&p.rdvAt&&new Date(p.rdvAt).getTime()<now-3600e3&&!p.rdvShow);
+  if(od.length)L.push({lvl:2,txt:od.length+' RDV passé(s) sans suite enregistrée : '+od.slice(0,3).map(x=>x.name).join(', ')+(od.length>3?'…':'')+'. Ouvre la fiche : « RDV tenu » ou « absent ».'});
+  const nr=P.filter(p=>p.stage==='rdv'&&!p.rdvAt);if(nr.length)L.push({lvl:2,txt:nr.length+' fiche(s) en RDV sans date : '+nr.slice(0,3).map(x=>x.name).join(', ')});
+  const lost=new Set(S.prospects.filter(p=>p.stage==='perdu'&&p.siren&&!SIB_SKIP.test(p.lostReason||'')).map(p=>p.siren));
+  const sib=act.filter(p=>p.siren&&lost.has(p.siren));
+  if(sib.length)L.push({lvl:2,txt:sib.length+' fiche(s) d\'une entreprise déjà écartée encore dans la file.',fix:'health-sib'});
+  const nn=P.filter(p=>p.stage==='contacte'&&!p.nextDate);if(nn.length)L.push({lvl:1,txt:nn.length+' rappel(s) sans date : ils s\'affichent tout le temps.'});
+  const late=P.filter(p=>p.stage==='contacte'&&p.nextDate&&p.nextDate<addDays(today(),-14));if(late.length)L.push({lvl:1,txt:late.length+' rappel(s) en retard de plus de 14 jours.'});
+  const seen=new Map();let dp=0;act.forEach(p=>{const k=normPhone(p.phone);if(!k)return;if(seen.has(k))dp++;else seen.set(k,1)});if(dp)L.push({lvl:1,txt:dp+' numéro(s) en double dans la file.',fix:'dedupe'});
+  const nt=act.filter(p=>!hasPhone(p.phone)).length;if(nt)L.push({lvl:0,txt:nt+' fiche(s) sans téléphone (non appelables, en attente d\'enrichissement).'});
+  const nd=act.filter(p=>!p.dirigeant).length;if(nd)L.push({lvl:0,txt:nd+' fiche(s) sans prénom de dirigeant : le message commencera par « Bonjour » seul.'});
+  const ne=act.filter(p=>!p.enrichedAt).length;if(ne)L.push({lvl:0,txt:ne+' fiche(s) pas encore enrichies (avis Google, réseaux) : traitées chaque nuit.'});
+  return L;
+}
+function healthCard(){
+  const L=healthIssues();const ico=['ℹ️','⚠️','🔴'];
+  return `<div class="card"><h2>Santé de l'application</h2>${L.length?'<ul class="plain sm">'+L.sort((a,b)=>b.lvl-a.lvl).map(i=>`<li>${ico[i.lvl]} ${esc(i.txt)}${i.fix?` <button class="btn sm" data-act="${i.fix}">Corriger</button>`:''}</li>`).join('')+'</ul>':'<p class="sm">✅ Rien à signaler.</p>'}<p class="muted sm">Contrôle à chaque ouverture, et chaque nuit en plus (rapport par e-mail GitHub si quelque chose casse). Sauvegarde automatique chaque nuit, 14 jours conservés.</p></div>`;
+}
+async function healthSib(){
+  const lost=new Map();S.prospects.filter(p=>p.stage==='perdu'&&p.siren&&!SIB_SKIP.test(p.lostReason||'')).forEach(p=>lost.set(p.siren,p.lostReason||'refus'));
+  let n=0;for(const p of S.prospects.filter(p=>['a_contacter','contacte'].includes(p.stage)&&p.siren&&lost.has(p.siren))){if(await saveP(p.id,{stage:'perdu',lostReason:'Même entreprise : '+lost.get(p.siren)}))n++}
+  toast(n+' fiche(s) retirée(s) de la file.');render();
 }
 function leadsCard(){
   const L=S.leads;const st=L&&L.stat;
@@ -1445,6 +1486,7 @@ function exportProspects(){
 function donneesHTML(){
   const mode=DB.mode==='local'?`<div class="banner">Mode local : les données sont dans CE navigateur seulement. Exporte régulièrement les CSV. Pour le cloud, voir le guide ci-dessous.</div>`:'';
   return mode+`<div class="card"><h2>Importer une liste</h2><p class="muted sm">CSV produit par le script de recherche (colonnes : name, phone, website, rating, reviews, address, city, dept, place_id, maps_url, score). Les doublons (même numéro) sont ignorés, les fiches sans téléphone aussi.</p><input type="file" id="csvf" accept=".csv,text/csv"></div>
+  ${healthCard()}
   ${leadsCard()}
   <div class="card"><h2>Sources gratuites</h2><p class="muted sm">Sans clé, sans abonnement. Tu peux relancer : les doublons ne sont pas recréés.</p>
    <label class="f" for="osmscope">Région (commence par la tienne, puis élargis quand la liste est épuisée)</label><select id="osmscope">${Object.entries(REGIONS).map(([k,[l]])=>`<option value="${k}">${esc(l)}</option>`).join('')}<option value="fr">France entière (long)</option></select>
@@ -1896,6 +1938,7 @@ document.addEventListener('click',async e=>{
   else if(a==='osm')sourceOSM();
   else if(a==='gouv')sourceGouv();
   else if(a==='rge')sourceRGE();
+  else if(a==='health-sib')healthSib();
   else if(a==='leads-search')leadsSearch();
   else if(a==='leads-add')leadsAdd();
   else if(a==='exp-calls')exportCalls();
@@ -2202,8 +2245,10 @@ async function start(){
     ['prospects','calls','clients','settings','content'].forEach(c=>DB.watch(c,refresh));
   }catch(e){S.err=String(e.message||e);S.loaded=true}
   S.chal=true;
+  try{const x=localStorage.getItem('aos-leads');if(x)S.leads=JSON.parse(x)}catch(e){}
   render();
   purgeAudios().catch(()=>{});
+  try{const n=healthIssues().filter(i=>i.lvl>=2).length;if(n)setTimeout(()=>toast(n+' point(s) à vérifier : onglet Données, « Santé de l\'application »'),1500)}catch(e){}
 }
 (async function boot(){
   const cfg=window.AOS_CONFIG||{};
