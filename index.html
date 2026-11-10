@@ -732,7 +732,7 @@ function appelsHTML(){
    <div style="margin-top:6px">${inp('mt','Destinataire',(S.call.mail||{}).to,'email@entreprise.fr')}<label class="f" for="ms">Objet</label><input id="ms" style="width:100%" value="${esc((S.call.mail||{}).su||'')}"><label class="f" for="mb">Message</label><textarea id="mb" rows="14" style="width:100%">${esc((S.call.mail||{}).body||'')}</textarea></div>
    <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><button class="btn primary" data-act="mailgmail">Ouvrir dans Gmail</button><button class="btn" data-act="mailcopy">Copier le texte</button><button class="btn" data-act="mailtodo" title="Le brouillon est gardé, tu le retrouves en haut de la liste ce soir">📥 À envoyer ce soir</button>${pcancel}</div></div>`
    :pnl==='no'?`${pbox}<b>Pas intéressé</b>
-   <div class="cfields"><div><label class="f" for="co">Objection</label><select id="co">${OBJ.map(o=>`<option${S.call.obj===o?' selected':''}>${esc(o)}</option>`).join('')}</select></div><div><label class="f" for="co2">Ou écris l'objection toi-même</label><input id="co2" style="width:100%" placeholder="ex. attend le retour de son comptable" value="${esc(S.call.obj2||'')}"></div></div>
+   <div class="cfields" style="grid-template-columns:1fr"><div><label class="f" for="co">Objection : choisis dans la liste ou écris la tienne</label><input id="co" list="objl" style="width:100%" autocomplete="off" placeholder="Clique pour la liste, ou écris…" value="${esc(S.call.obj&&S.call.obj!=='—'?S.call.obj:'')}"><datalist id="objl">${OBJ.filter(o=>o!=='—').map(o=>`<option value="${esc(o)}">`).join('')}</datalist></div></div>
    <div class="row" style="gap:6px"><button class="btn primary" data-act="callres" data-r="no">Enregistrer</button>${pcancel}</div></div>`:'';
   const rc=S.rec||{};
   const recRow=window.__sb?`<div class="row sm" style="margin:8px 0;flex-wrap:wrap;gap:6px">${rc.busy?'<span class="muted">⏳ Transcription et résumé en cours…</span>':rc.on?`<button class="btn sm primary" data-act="rec-stop">⏹ Arrêter et résumer</button><span style="color:#c0392b"><b>● Enregistrement</b></span>`:`<button class="btn sm" data-act="rec-start">🎙 Enregistrer</button><label class="btn sm" style="cursor:pointer">Importer un audio<input type="file" id="recf" accept="audio/*,video/mp4" hidden></label>`}${rc.msg?`<span class="muted">${esc(rc.msg)}</span>`:''}</div>`:'';
@@ -750,8 +750,6 @@ function appelsHTML(){
    <div class="csec">Résultat de l'appel</div>
    ${resUI}
    ${lastH?`<div class="lastcall"><b>Dernier appel</b> · ${fdate(lastH.t)} · ${esc(ALL_RES_L[lastH.result]||lastH.result)}${lastH.note?'<div class="muted">'+esc(lastH.note)+'</div>':''}</div>`:''}
-   <div class="csec">Notes</div>
-   <textarea id="cn" rows="5" class="cnote" placeholder="Note : ce que tu as appris (interlocuteur, objection, chantiers…)">${esc(S.call.note)}</textarea>
    <details class="sm chist"${timeline(cur).length?' open':''}><summary><b>Historique</b> <span class="muted">· notes, enregistrement</span></summary>
     <div style="margin:6px 0">${timelineHTML(cur,12)}</div>
     ${cur.email?`<button class="btn sm" data-act="fathom-sync" data-id="${esc(cur.id)}">Débrief Fathom (par e-mail)</button> `:''}<button class="btn sm" data-act="fathom-link" data-id="${esc(cur.id)}">Coller un lien Fathom</button>
@@ -761,6 +759,8 @@ function appelsHTML(){
    <div class="actbar"><button class="btn" data-act="prep" data-id="${esc(cur.id)}">🔎 Préparer le RDV</button><button class="btn" data-act="rdvopen" data-id="${esc(cur.id)}">🖥 Fiche de RDV</button><button class="btn" data-act="open" data-id="${esc(cur.id)}">Ouvrir la fiche</button><button class="btn" data-act="callskip" title="Passer cette fiche sans rien enregistrer">Passer</button></div></div>`;
   const right=`<div class="card scriptcard"><div class="row" style="flex-wrap:nowrap"><select id="cang" aria-label="Angle de script (sert aux statistiques)">${Object.entries(sc.scripts).map(([k,v])=>`<option value="${esc(k)}"${k===ang?' selected':''}>${esc(v.name)}</option>`).join('')}</select></div>
    <div class="script">${esc(fillScript((sc.scripts[ang]||{}).text,cur))}</div>
+   <div class="csec" style="margin-top:10px">Notes</div>
+   <textarea id="cn" rows="6" class="cnote" style="width:100%" placeholder="Note : ce que tu as appris (interlocuteur, objection, chantiers…)">${esc(S.call.note)}</textarea>
    <div class="sm muted"><b>Information d'enregistrement</b><br>${esc(sc.recordText)}</div></div>`;
   return above+bar+trayPanels()+rapPanelHTML()+`<div class="callgrid">${left}${right}</div>`;
 }
@@ -769,7 +769,7 @@ async function callResult(r){
   const p=byId(S.call.pid);if(!p)return;
   const sc=settings();
   const V=(id,k,d)=>{const e=$('#'+id);return e?e.value:(S.call[k]||d||'')};
-  const note=V('cn','note'),obj=V('co2','obj2').trim()||V('co','obj','—'),audio=V('ca','audio'),informed=!!($('#ci')?$('#ci').checked:S.call.informed);
+  const note=V('cn','note'),obj=(V('co','obj','—')||'—').trim()||'—',audio=V('ca','audio'),informed=!!($('#ci')?$('#ci').checked:S.call.informed);
   const hasDate=!!V('cd','date'),date=V('cd','date')||workday(r==='ans'?3:2),ntime=V('ct','time','10:00')||'10:00',rdvAt=V('cr','rdvAt');
   const place=V('cl','place').trim(),link=V('cv','link').trim();
   const pts={besoin:V('pt1','pt1').trim(),objectif:V('pt2','pt2').trim(),sensible:V('pt3','pt3').trim()};
@@ -2003,7 +2003,7 @@ document.addEventListener('change',e=>{
 document.addEventListener('input',e=>{
   const t=e.target;
   if(t.id==='waq'){S.call.waq=t.value;const r=$('#wares');if(r)r.innerHTML=waList(t.value);return}
-  const SCK={cl:'place',cv:'link',pt1:'pt1',pt2:'pt2',pt3:'pt3',cd:'date',ct:'time',cr:'rdvAt',co:'obj',co2:'obj2'};
+  const SCK={cl:'place',cv:'link',pt1:'pt1',pt2:'pt2',pt3:'pt3',cd:'date',ct:'time',cr:'rdvAt',co:'obj'};
   if(SCK[t.id]){S.call[SCK[t.id]]=t.value;return}
   if(t.id==='rdvmsgbox'){const pp=S.lastRDV&&byId(S.lastRDV);if(pp){pp.rdvMsgAI=t.value;pp.rdvMsgFor=pp.rdvAt;const bx=$('#rdvbtns');if(bx)bx.innerHTML=rdvBtns(pp,t.value)}return}
   if(t.id==='cn')S.call.note=t.value;else if(t.id==='mt'||t.id==='ms'||t.id==='mb'){S.call.mail=S.call.mail||{};S.call.mail[{mt:'to',ms:'su',mb:'body'}[t.id]]=t.value}else if(t.id==='ca')S.call.audio=t.value;else if(t.id==='on')S.out.note=t.value;else if(t.id==='oh')S.out.handle=t.value;
