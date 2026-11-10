@@ -28,9 +28,9 @@ const path = require('path'), fs = require('fs');
   await pg.evaluate(() => { S.tab = 'outreach'; S.out.pid=''; render() });
   ok(await pg.locator('.adsb').count() >= 1, 'bloc Pub Meta aussi dans DM & vidéos');
   // Stats journal
-  await pg.evaluate(() => { S.calls.push({ id: 'c1', prospectId: 'A1', prospectName: 'Plomberie Durand', t: new Date().toISOString(), hour: 14, result: 'rdv', joint: true, obj: 'Pas le temps', note: 'RDV lundi' }); S.clients=[{id:'k1',name:'Renobtp',signedAt:'2026-11-12'}]; S.st.days=0; S.tab = 'stats'; render() });
+  await pg.evaluate(() => { S.calls.push({ id: 'c1', prospectId: 'A1', prospectName: 'Plomberie Durand', t: new Date().toISOString(), hour: 14, result: 'rdv', joint: true, obj: 'Pas le temps', note: 'RDV lundi' }); S.clients=[{id:'k1',name:'Renobtp',signedAt:'2026-11-12'}]; S.st.days=0; S.tab = 'donnees'; render(); document.querySelectorAll('details').forEach(d=>d.open=true) });
   const txt = await pg.locator('main, body').first().innerText();
-  ok(/Journal daté/.test(txt), 'section « Journal daté » dans Stats');
+  ok(/Journal daté/.test(txt), 'section « Journal daté » dans Données');
   ok(/Plomberie Durand/.test(txt) && /Renobtp/.test(txt) && /Signé/.test(txt), 'journal : appel, signature client listés');
   ok(/2026|20\d\d/.test(await pg.locator('table:has-text("Date et heure")').innerText()), 'dates complètes avec année');
   ok(errs.length === 0, 'aucune erreur JS ' + errs.join('|'));

@@ -239,6 +239,7 @@ h1,h2,h3,h4,.hero,.st b,.callnum,.numrow .callnum,.pill b{font-variant-numeric:l
 .callcard .cnote{min-height:110px}
 .callcard .cres2 .big{padding:18px 8px}
 .actbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}.actbar.a3{grid-template-columns:repeat(3,minmax(0,1fr))}.actbar.a3 .btn{font-size:13px;padding:11px 4px}.actbar .btn{width:100%;box-sizing:border-box;text-align:center;white-space:nowrap;padding:11px 8px;font-weight:650;font-size:14px;display:flex;align-items:center;justify-content:center;min-height:44px}
+.tabs .tab2{opacity:.55;font-size:.92em}.tabs .tab2[aria-selected=true]{opacity:1}.chartcard svg{width:100%;height:auto;display:block}.chartcard .lg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#6b6652;margin:4px 0 8px}.chartcard .lg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}.chgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px}
 </style><script>(function(){var p=location.pathname,base=0;async function chk(){try{var b=(await (await fetch(p,{cache:"no-store"})).text()).length;if(!base){base=b;return}if(b!==base&&!document.getElementById("newv")){var d=document.createElement("div");d.id="newv";d.style.cssText="position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#101828;color:#fff;padding:10px 16px;border-radius:10px;z-index:99;font:14px sans-serif;box-shadow:0 4px 20px rgba(0,0,0,.3)";d.innerHTML="Nouvelle version disponible <button style='margin-left:10px;padding:4px 10px;border-radius:6px;border:0;cursor:pointer'>Recharger</button>";d.querySelector("button").onclick=function(){location.replace(p+"?v="+Date.now())};document.body.appendChild(d)}}catch(e){}}setTimeout(chk,5000);setInterval(chk,600000)})()</script>
 </head><body>
 <div id="app"></div><div id="toast" role="status"></div><dialog id="dlg"></dialog>
@@ -495,7 +496,7 @@ function cloudBackend(sb){
 let DB;
 
 /* ================= état ================= */
-const S={tab:'auj',prospects:[],calls:[],clients:[],content:[],settings:{...DEF_SETTINGS},loaded:false,
+const S={tab:'appels',prospects:[],calls:[],clients:[],content:[],settings:{...DEF_SETTINGS},loaded:false,
   out:{pid:'',ch:'dm_insta',variant:'D1',note:'',handle:'',rdvAt:'',skip:[]},
   call:{pid:'',angle:'',note:'',obj:'—',audio:'',informed:false,skip:[],mob:'all',rdvAt:'',date:''},
   pf:{q:'',stage:'',dept:''},st:{days:14},cl:{open:''},err:''};
@@ -1122,6 +1123,66 @@ function targetsHTML(LC,from,to){
   <div class="scroll-x"><table class="t tg"><thead><tr><th>Indicateur (période choisie)</th><th class="r">Ta valeur</th><th class="r">Zone</th><th>Targets proposés</th></tr></thead><tbody>${body}</tbody></table></div>
   <div class="grid2"><div><h4>Rendez-vous par type</h4><p class="sm">Visio : <b>${rt.visio}</b> · Téléphonique : <b>${rt.tel}</b> · Physique : <b>${rt.phys}</b><br>Rendez-vous téléphoniques devenus visio ou physique : <b>${telConv}</b> sur ${telP.size}</p></div><div><h4>Quand on te répond</h4><table class="t tg"><thead><tr><th></th><th class="r">Appels</th><th class="r">Répondu</th><th class="r">Décroché</th></tr></thead><tbody>${sl}</tbody></table></div></div>
   <p class="muted sm">Les targets sont des ordres de grandeur de départ, à ajuster avec tes chiffres réels (peu de données la 1re semaine).</p></section>`}
+function chartsHTML(LC,j,rdv,from,to){
+  const K='#5f6b2e',B='#b8892b',G='#e7e1cf',T='#4b4636',M='#8a846e';
+  const days=[];for(let i=13;i>=0;i--){const d=addDays(today(),-i);const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);days.push({d,n:cs.length,a:cs.filter(isAns).length,r:cs.filter(c=>isRdvRes(c.result)).length})}
+  const goal=100,mx=Math.max(goal,...days.map(x=>x.n))*1.1,W=640,H=250,pl=34,pb=34,pt=14,bw=(W-pl-8)/14,y=v=>H-pb-(H-pb-pt)*v/mx;
+  const ticks=[0,25,50,75,100].filter(t=>t<=mx);
+  let c1=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Appels par jour sur 14 jours">`;
+  ticks.forEach(t=>{c1+=`<line x1="${pl}" x2="${W-4}" y1="${y(t)}" y2="${y(t)}" stroke="${G}"/><text x="${pl-6}" y="${y(t)+4}" font-size="11" fill="${M}" text-anchor="end">${t}</text>`});
+  c1+=`<line x1="${pl}" x2="${W-4}" y1="${y(goal)}" y2="${y(goal)}" stroke="${B}" stroke-dasharray="5 4"/><text x="${W-6}" y="${y(goal)-4}" font-size="11" fill="${B}" text-anchor="end">objectif ${goal}</text>`;
+  days.forEach((x,i)=>{const cx=pl+i*bw+bw/2,w=bw*.62,dt=new Date(x.d+'T12:00:00');
+    c1+=`<rect x="${cx-w/2}" y="${y(x.n)}" width="${w}" height="${Math.max(1,H-pb-y(x.n))}" rx="4" fill="${K}"><title>${fdate(x.d)} : ${x.n} appels, ${x.a} décrochés, ${x.r} RDV</title></rect>`;
+    if(x.a)c1+=`<rect x="${cx-w/2}" y="${y(x.a)}" width="${w}" height="${Math.max(1,H-pb-y(x.a))}" rx="4" fill="${B}" opacity=".92"/>`;
+    if(x.n)c1+=`<text x="${cx}" y="${y(x.n)-4}" font-size="11" font-weight="700" fill="${T}" text-anchor="middle">${x.n}</text>`;
+    c1+=`<text x="${cx}" y="${H-pb+14}" font-size="10.5" fill="${M}" text-anchor="middle">${'DLMMJVS'[dt.getDay()]}</text><text x="${cx}" y="${H-pb+26}" font-size="10.5" fill="${M}" text-anchor="middle">${dt.getDate()}</text>`;
+    if(x.r)c1+=`<text x="${cx}" y="${H-pb-3}" font-size="11" text-anchor="middle" fill="#fff" font-weight="800">${x.r}</text>`});
+  c1+='</svg>';
+  const chart1=`<section class="card chartcard"><h3>Appels par jour</h3><div class="lg"><span><i style="background:${K}"></i>Appels</span><span><i style="background:${B}"></i>Décrochés</span><span>chiffre blanc = RDV pris</span></div>${c1}</section>`;
+
+  // tuiles chiffres + variation vs période précédente
+  const t0=today(),end=to<t0?to:t0,nd=from>'0000-00-00'?Math.max(1,Math.round((new Date(end+'T12:00:00')-new Date(from+'T12:00:00'))/864e5)+1):0;
+  const pvf=nd?addDays(from,-nd):'',pvt=nd?addDays(from,-1):'';
+  const prev=nd?S.calls.filter(c=>{const d=String(c.t).slice(0,10);return d>=pvf&&d<=pvt}):[];
+  const pC=prev.filter(isCall),pA=pC.filter(isAns),pR=prev.filter(c=>isRdvRes(c.result));
+  const dl=(v,p)=>{if(!nd)return '';const d=v-p;return `<small style="color:${d>=0?'#3f8f3a':'#c0392b'};font-weight:700">${d>=0?'+':''}${d}</small> <small class="muted">vs période d'avant</small>`};
+  const tile=(l,v,sub)=>`<div style="background:var(--surface2,#f4f1e8);border-radius:14px;padding:12px 16px"><div class="muted sm">${l}</div><div style="font-size:30px;font-weight:800;line-height:1.15;color:${T}">${v}</div><div>${sub}</div></div>`;
+  const rate=LC.length?Math.round(100*j.length/LC.length):0;
+  const tiles=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:12px">${tile('Appels',LC.length,dl(LC.length,pC.length))}${tile('Décrochés',j.length+' <span style="font-size:15px;color:'+K+'">'+rate+' %</span>',dl(j.length,pA.length))}${tile('RDV pris',rdv.length,dl(rdv.length,pR.length))}${tile('RDV par décroché',j.length?Math.round(1000*rdv.length/j.length)/10+' %':'—','<small class="muted">objectif 12 % et +</small>')}</div>`;
+  // cumul 30 jours, courbe lissée avec aire
+  const N=30,cd=[];let ca=0,cj2=0,cr=0;for(let i=N-1;i>=0;i--){const d=addDays(t0,-i);const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);ca+=cs.length;cj2+=cs.filter(isAns).length;cr+=cs.filter(c=>isRdvRes(c.result)).length;cd.push({d,a:ca,j:cj2,r:cr})}
+  const CW=640,CH=250,cl=40,cb=30,ct=12,cmx=Math.max(10,ca)*1.08,cx=i=>cl+(CW-cl-10)*i/(N-1),cy=v=>CH-cb-(CH-cb-ct)*v/cmx;
+  const path=k=>{let p='';cd.forEach((x,i)=>{const X=cx(i),Y=cy(x[k]);if(!i)p+=`M${X},${Y}`;else{const px=cx(i-1),py=cy(cd[i-1][k]),mx=(px+X)/2;p+=` C${mx},${py} ${mx},${Y} ${X},${Y}`}});return p};
+  let cu=`<svg viewBox="0 0 ${CW} ${CH}" role="img" aria-label="Cumul sur 30 jours"><defs><linearGradient id="gA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${K}" stop-opacity=".28"/><stop offset="1" stop-color="${K}" stop-opacity=".02"/></linearGradient></defs>`;
+  [0,.25,.5,.75,1].forEach(f=>{const v=Math.round(cmx/1.08*f/10)*10,yy=cy(v);cu+=`<line x1="${cl}" x2="${CW-6}" y1="${yy}" y2="${yy}" stroke="${G}"/><text x="${cl-6}" y="${yy+4}" font-size="11" fill="${M}" text-anchor="end">${v}</text>`});
+  cu+=`<path d="${path('a')} L${cx(N-1)},${cy(0)} L${cx(0)},${cy(0)} Z" fill="url(#gA)"/><path d="${path('a')}" fill="none" stroke="${K}" stroke-width="2.6"/><path d="${path('j')}" fill="none" stroke="${B}" stroke-width="2.2" stroke-dasharray="6 4"/><path d="${path('r')}" fill="none" stroke="#8f3b1f" stroke-width="2.2"/>`;
+  [0,7,14,21,29].forEach(i=>{const dt=new Date(cd[i].d+'T12:00:00');cu+=`<text x="${cx(i)}" y="${CH-8}" font-size="11" fill="${M}" text-anchor="${i===29?'end':'middle'}">${dt.getDate()}/${dt.getMonth()+1}</text>`});
+  cu+=`<text x="${cx(N-1)-4}" y="${cy(ca)-8}" font-size="12" font-weight="800" fill="${K}" text-anchor="end">${ca}</text><text x="${cx(N-1)-4}" y="${cy(cj2)-8}" font-size="12" font-weight="800" fill="${B}" text-anchor="end">${cj2}</text><text x="${cx(N-1)-4}" y="${cy(cr)-8}" font-size="12" font-weight="800" fill="#8f3b1f" text-anchor="end">${cr}</text></svg>`;
+  const chart0=`<section class="card chartcard"><h3>Ta progression sur 30 jours</h3><div class="lg"><span><i style="background:${K}"></i>Appels (cumul)</span><span><i style="background:${B}"></i>Décrochés</span><span><i style="background:#8f3b1f"></i>RDV pris</span></div>${cu}</section>`;
+  // funnel
+  const conv=LC.filter(cj).length;
+  const steps=[['Appels',LC.length],['Décrochés',j.length],['Vraies conversations',conv],['RDV pris',rdv.length],['RDV tenus',S.prospects.filter(p=>['rdv_fait','pilote','signe'].includes(p.stage)).length],['Signés',S.prospects.filter(p=>p.stage==='signe').length]];
+  const top=Math.max(1,steps[0][1]);let f=`<svg viewBox="0 0 640 ${steps.length*42+8}" role="img" aria-label="Entonnoir">`;
+  steps.forEach(([l,v],i)=>{const yy=6+i*42,w=Math.max(3,(640-190)*v/top),prev=i?steps[i-1][1]:0;
+    f+=`<text x="0" y="${yy+22}" font-size="13" fill="${T}">${l}</text><rect x="165" y="${yy+4}" width="${w}" height="26" rx="5" fill="${i<2?K:i<4?B:'#8f3b1f'}"/><text x="${165+w+8}" y="${yy+22}" font-size="13" font-weight="800" fill="${T}">${v}${i&&prev?`<tspan font-weight="400" fill="${M}">  (${Math.round(100*v/prev)} % de l'étape d'avant)</tspan>`:''}</text>`});
+  f+='</svg>';
+  const chart2=`<section class="card chartcard"><h3>Entonnoir de la période</h3>${f}</section>`;
+  // answer rate by hour
+  const hrs={};LC.forEach(c=>{if(c.hour==null)return;const h=c.hour;(hrs[h]=hrs[h]||{n:0,a:0});hrs[h].n++;if(isAns(c))hrs[h].a++});
+  const hl=Object.keys(hrs).map(Number).sort((a,b)=>a-b),bw3=hl.length?Math.min(48,(W-pl-8)/hl.length):40;
+  let h3=`<svg viewBox="0 0 ${W} 220" role="img" aria-label="Taux de décroché par heure">`;
+  [0,25,50,75,100].forEach(t=>{const yy=190-(190-14)*t/100;h3+=`<line x1="${pl}" x2="${W-4}" y1="${yy}" y2="${yy}" stroke="${G}"/><text x="${pl-6}" y="${yy+4}" font-size="11" fill="${M}" text-anchor="end">${t}%</text>`});
+  hl.forEach((h,i)=>{const o=hrs[h],p=o.a/o.n*100,cx=pl+8+i*bw3+bw3/2,w=bw3*.6,yy=190-(190-14)*p/100;
+    h3+=`<rect x="${cx-w/2}" y="${yy}" width="${w}" height="${Math.max(1,190-yy)}" rx="4" fill="${o.n<8?'#c9c29d':K}"><title>${h}h : ${o.a} décrochés sur ${o.n} appels</title></rect><text x="${cx}" y="${yy-4}" font-size="11" font-weight="700" fill="${T}" text-anchor="middle">${Math.round(p)}%</text><text x="${cx}" y="206" font-size="11" fill="${M}" text-anchor="middle">${h}h</text>`});
+  h3+='</svg>';
+  const chart3=`<section class="card chartcard"><h3>Quand ils décrochent</h3><p class="muted sm">Part des appels décrochés, par heure. Barre claire = moins de 8 appels, à prendre avec prudence.</p>${hl.length?h3:'<p class="muted sm">Pas encore de données.</p>'}</section>`;
+  // objections
+  const ob={};LC.forEach(c=>{if(c.obj)ob[c.obj]=(ob[c.obj]||0)+1});const ol=Object.entries(ob).sort((a,b)=>b[1]-a[1]).slice(0,7),om=Math.max(1,...ol.map(x=>x[1]));
+  let o4=`<svg viewBox="0 0 640 ${ol.length*34+6}" role="img" aria-label="Objections">`;
+  ol.forEach(([l,v],i)=>{const yy=4+i*34,w=Math.max(3,(640-300)*v/om);o4+=`<text x="0" y="${yy+19}" font-size="12.5" fill="${T}">${esc(l.length>34?l.slice(0,33)+'…':l)}</text><rect x="260" y="${yy+3}" width="${w}" height="22" rx="5" fill="${B}"/><text x="${260+w+8}" y="${yy+19}" font-size="13" font-weight="800" fill="${T}">${v}</text>`});o4+='</svg>';
+  const chart4=`<section class="card chartcard"><h3>Objections les plus fréquentes</h3>${ol.length?o4:'<p class="muted sm">Aucune objection saisie sur la période.</p>'}</section>`;
+  return tiles+`<div class="chgrid">${chart0}${chart1}</div><div class="chgrid">${chart2}${chart4}</div><div class="chgrid">${chart3}</div>`;
+}
 function statsHTML(){
   const days=S.st.days;let from,to='9999-99-99';
   if(days==='w')from=weekStart(today());else if(days==='m')from=today().slice(0,8)+'01';else if(days==='c'){from=S.st.from||'0000-00-00';to=S.st.to||'9999-99-99'}else from=days>0?addDays(today(),-(days-1)):'0000-00-00';
@@ -1142,10 +1203,9 @@ function statsHTML(){
   const dayB=[];for(let i=13;i>=0;i--){const d=addDays(today(),-i);const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);dayB.push({d,n:cs.length,r:cs.filter(c=>isRdvRes(c.result)).length})}
   const mx=Math.max(1,...dayB.map(x=>x.n));
   const chart=`<section class="card"><h3>14 derniers jours (appels, RDV en doré)</h3><div class="bar">${dayB.map(x=>`<div title="${fdate(x.d)} : ${x.n} appels, ${x.r} RDV" style="height:${Math.max(2,Math.round(90*x.n/mx))}px"><span class="b2" style="display:block;position:absolute;bottom:0;left:0;right:0;background:var(--brass);height:${x.n?Math.round(100*x.r/x.n):0}%"></span></div>`).join('')}</div></section>`;
-  return sel+averagesHTML(LC,from,to)+targetsHTML(LC,from,to)+recordsHTML()+kp+chart+`${grp(c=>CH_L[c.channel||'appel'],'Par canal (appels, DM, vidéos, emails)',30,L)}<div class="grid2">${grp(c=>(sc.scripts[c.angle]||{}).name||c.angle,'Appels : par angle de script')}${grp(c=>c.hour!=null?pad(c.hour)+'h':'','Appels : par heure',20)}</div><div class="grid2">${grp(c=>ageBucket(byId(c.prospectId)||{}),'Appels : par ancienneté de l\'entreprise',20)}${grp(c=>sectorOf(byId(c.prospectId)||{}),'Appels : par secteur d\'activité',20)}</div><div class="grid2">${grp(c=>reviewBucket(byId(c.prospectId)||{}),'Appels : par nombre d\'avis Google',20)}${grp(c=>(byId(c.prospectId)||{}).website?'Avec site':'Sans site','Appels : site internet',20)}</div><div class="grid2">${grp(c=>EFF_L[(byId(c.prospectId)||{}).effectif]||'Effectif inconnu','Appels : taille de l\'entreprise',20)}<span></span></div>
+  return sel+chartsHTML(LC,j,rdv,from,to)+`<details class="card" style="margin:12px 0"><summary><b>Détails chiffrés</b> <span class="muted">moyennes, objectifs, records, tableaux</span></summary>`+averagesHTML(LC,from,to)+targetsHTML(LC,from,to)+recordsHTML()+kp+`${grp(c=>CH_L[c.channel||'appel'],'Par canal (appels, DM, vidéos, emails)',30,L)}<div class="grid2">${grp(c=>(sc.scripts[c.angle]||{}).name||c.angle,'Appels : par angle de script')}${grp(c=>c.hour!=null?pad(c.hour)+'h':'','Appels : par heure',20)}</div><div class="grid2">${grp(c=>ageBucket(byId(c.prospectId)||{}),'Appels : par ancienneté de l\'entreprise',20)}${grp(c=>sectorOf(byId(c.prospectId)||{}),'Appels : par secteur d\'activité',20)}</div><div class="grid2">${grp(c=>reviewBucket(byId(c.prospectId)||{}),'Appels : par nombre d\'avis Google',20)}${grp(c=>(byId(c.prospectId)||{}).website?'Avec site':'Sans site','Appels : site internet',20)}</div><div class="grid2">${grp(c=>EFF_L[(byId(c.prospectId)||{}).effectif]||'Effectif inconnu','Appels : taille de l\'entreprise',20)}<span></span></div>
   <div class="grid2">${grp(c=>c.dept,'Appels : par département')}<section class="card"><h3>Objections</h3><table class="t"><tbody>${objT||'<tr><td class="muted">Aucune objection saisie.</td></tr>'}</tbody></table></section></div>
-  ${journalHTML(L,from,to)}
-  <p class="muted sm">Règle : on ne compare pas deux angles avant 30 conversations chacun. Un taux sur 10 conversations ne veut rien dire.</p>`;
+  <p class="muted sm">Règle : on ne compare pas deux angles avant 30 conversations chacun. Un taux sur 10 conversations ne veut rien dire.</p></details>`;
 }
 
 
@@ -1522,6 +1582,7 @@ function donneesHTML(){
   return mode+`<div class="card"><h2>Importer une liste</h2><p class="muted sm">CSV produit par le script de recherche (colonnes : name, phone, website, rating, reviews, address, city, dept, place_id, maps_url, score). Les doublons (même numéro) sont ignorés, les fiches sans téléphone aussi.</p><input type="file" id="csvf" accept=".csv,text/csv"></div>
   ${healthCard()}
   ${leadsCard()}
+  <details class="card"><summary><b>Journal daté</b> <span class="muted">toutes les actions avec l'heure exacte (pour contrôle)</span></summary>${journalHTML(S.calls,'0000-00-00','9999-99-99')}</details>
   <div class="card"><h2>Sources gratuites</h2><p class="muted sm">Sans clé, sans abonnement. Tu peux relancer : les doublons ne sont pas recréés.</p>
    <label class="f" for="osmscope">Région (commence par la tienne, puis élargis quand la liste est épuisée)</label><select id="osmscope">${Object.entries(REGIONS).map(([k,[l]])=>`<option value="${k}">${esc(l)}</option>`).join('')}<option value="fr">France entière (long)</option></select>
    <div class="res" style="margin-top:8px"><button class="btn" id="osmbtn" data-act="osm">OpenStreetMap : téléphones et comptes déjà renseignés</button></div>
@@ -1721,7 +1782,8 @@ async function saveGoals(){
 }
 
 /* ================= rendu ================= */
-const TABS=[['auj','🔥 Aujourd\'hui'],['appels','📞 Appels'],['outreach','💬 DM & vidéos'],['contenu','🎬 Contenu'],['pipeline','🧭 Pipeline'],['clients','🤝 Clients'],['stats','📊 Stats'],['scripts','📝 Scripts'],['donnees','🗂 Données'],['aide','💡 Explication']];
+const TABS=[['appels','📞 Appels'],['auj','🔥 Aujourd\'hui'],['pipeline','🧭 Pipeline'],['stats','📊 Stats'],['clients','🤝 Clients'],['donnees','🗂 Données'],['outreach','💬 DM & vidéos'],['contenu','🎬 Contenu'],['scripts','📝 Scripts'],['aide','💡 Explication']];
+const TAB2=['outreach','contenu','scripts','aide'];
 function render(){
   const app=$('#app');
   if(DB.mode==='cloud'&&!S.user){loginHTML();return}
@@ -1732,7 +1794,7 @@ function render(){
   else if(S.err)body=`<div class="banner">Erreur de données : ${esc(S.err)}</div>`;
   else body={auj:aujourdhuiHTML,appels:appelsHTML,outreach:outreachHTML,contenu:contenuHTML,pipeline:pipelineHTML,clients:clientsHTML,stats:statsHTML,scripts:scriptsHTML,donnees:donneesHTML,aide:aideHTML}[S.tab]();
   document.querySelectorAll('.chal').forEach(x=>x.remove());
-  app.innerHTML=`<header class="top"><span class="brand"><i class="logo" aria-hidden="true">↗</i><span>AGENCY<b>OS</b></span></span><nav class="tabs" role="tablist">${TABS.map(([k,l])=>`<button role="tab" aria-selected="${S.tab===k}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</nav>${DB.mode==='cloud'?'<button class="btn sm" data-act="logout">Déconnexion</button>':'<span class="chip">Mode local</span>'}</header><main>${body}</main>`;
+  app.innerHTML=`<header class="top"><span class="brand"><i class="logo" aria-hidden="true">↗</i><span>AGENCY<b>OS</b></span></span><nav class="tabs" role="tablist">${TABS.map(([k,l])=>`<button role="tab" class="${TAB2.includes(k)?'tab2':''}" aria-selected="${S.tab===k}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</nav>${DB.mode==='cloud'?'<button class="btn sm" data-act="logout">Déconnexion</button>':'<span class="chip">Mode local</span>'}</header><main>${body}</main>`;
   if(S.chal&&S.loaded&&!S.err)document.body.insertAdjacentHTML('beforeend',challengeHTML());
   if(S.tab==='scripts'&&S.loaded){const m=$('main');m.insertAdjacentHTML('beforeend','<p><button class="btn sm" data-act="addangle">+ Nouvel angle de script</button></p>')}
   if(active&&$('#'+active)&&['cn','pq','on','oh','cq'].includes(active)){const el=$('#'+active);el.focus();try{el.setSelectionRange(el.value.length,el.value.length)}catch(e){}}
