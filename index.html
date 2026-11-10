@@ -744,7 +744,7 @@ function appelsHTML(){
    <div class="cfields" style="grid-template-columns:1fr"><div><label class="f" for="co">Objection : choisis dans la liste ou écris la tienne</label><input id="co" list="objl" style="width:100%" autocomplete="off" placeholder="Clique pour la liste, ou écris…" value="${esc(S.call.obj&&S.call.obj!=='—'?S.call.obj:'')}"><datalist id="objl">${OBJ.filter(o=>o!=='—').map(o=>`<option value="${esc(o)}">`).join('')}</datalist></div></div>
    <div class="row" style="gap:6px"><button class="btn primary" data-act="callres" data-r="no">Enregistrer</button>${pcancel}</div></div>`:'';
   const rc=S.rec||{};
-  const recRow=window.__sb?`<div class="row sm" style="margin:8px 0;flex-wrap:wrap;gap:6px">${rc.busy?'<span class="muted">⏳ Transcription et résumé en cours…</span>':rc.on?`<button class="btn sm primary" data-act="rec-stop">⏹ Arrêter et résumer</button><span style="color:#c0392b"><b>● Enregistrement</b></span>`:`<button class="btn sm" data-act="rec-start">🎙 Enregistrer</button><label class="btn sm" style="cursor:pointer">Importer un audio<input type="file" id="recf" accept="audio/*,video/mp4" hidden></label>`}${rc.msg?`<span class="muted">${esc(rc.msg)}</span>`:''}</div>`:'';
+  const recRow=window.__sb?`<div class="row sm" style="margin:8px 0;flex-wrap:wrap;gap:6px">${rc.busy?'<span class="muted">⏳ Transcription et résumé en cours…</span>':rc.on?`<button class="btn sm primary" data-act="rec-stop">⏹ Arrêter et résumer</button><span style="color:#c0392b"><b>● Enregistrement</b></span>`:`<button class="btn sm" data-act="rec-start">🎙 Enregistrer</button><label class="btn sm" style="cursor:pointer">Importer un audio<input type="file" id="recf" accept="audio/*,video/mp4" hidden></label>`}${rc.msg?`<span class="muted">${esc(rc.msg)}</span>`:''}${rc.pending>0&&!rc.busy?`<span class="muted">⏳ ${rc.pending} transcription${rc.pending>1?'s':''} en arrière-plan</span>`:''}</div>`:'';
   const resUI=recRow+(S.call.step==='ans'?`<div class="sm muted" style="margin:8px 0 2px"><b>Il a répondu : que s'est-il passé ?</b> <button class="btn sm" data-act="callstep" data-s="">← Retour</button></div>
    <div class="res cres">${['rdvv','rdvt','rdvp'].map(rb).join('')}</div><div class="res cres">${['rap','ans','no','hu','stop'].map(rb).join('')}</div>
    <div class="row sm" style="margin:4px 0"><button class="btn" data-act="mailprep" title="Prépare un mail avec ce que la personne t'a dit et ton offre">✉️ Envoyer un mail de suivi</button></div>
@@ -778,6 +778,7 @@ function appelsHTML(){
 
 async function callResult(r){
   const p=byId(S.call.pid);if(!p)return;
+  const pendingTr=!!(S.rec.busy&&S.rec.busyPid===p.id);
   const sc=settings();
   const V=(id,k,d)=>{const e=$('#'+id);return e?e.value:(S.call[k]||d||'')};
   const auto=V('ca2','auto').trim(),note=V('cn','note'),obj=(V('co','obj','—')||'—').trim()||'—',audio=V('ca','audio'),informed=!!($('#ci')?$('#ci').checked:S.call.informed);
@@ -809,7 +810,8 @@ async function callResult(r){
   else patch={...base,stage:'stop',optout:true};
   patch.nextTime=r==='rdvt'?rdvAt.slice(11,16):(r==='rap'||r==='ans')?ntime:'';
   const ok=await guard(async()=>{await DB.set('calls',id,call);await DB.update('prospects',p.id,patch)});
-  if(ok){S.calls.push({id,...call});Object.assign(p,patch);if((patch.stage==='perdu'&&!SIB_SKIP.test(patch.lostReason||''))||patch.optout===true)siblingsLost(p,patch.lostReason||'ne plus appeler');S.call.pid='';S.call.open='';S.call.q='';S.call.step='';if(r==='nr'||r==='rep')S.lastNR=isMobile(p.phone)?p.id:'';if(isRdvRes(r)){S.lastRDV=p.id;genRdvMsg(p.id,transcript,ty,rdvAt,place,link)}
+  if(ok){S.calls.push({id,...call});Object.assign(p,patch);if((patch.stage==='perdu'&&!SIB_SKIP.test(patch.lostReason||''))||patch.optout===true)siblingsLost(p,patch.lostReason||'ne plus appeler');S.call.pid='';S.call.open='';S.call.q='';S.call.step='';if(r==='nr'||r==='rep')S.lastNR=isMobile(p.phone)?p.id:'';if(isRdvRes(r)){S.lastRDV=p.id;if(!pendingTr)genRdvMsg(p.id,transcript,ty,rdvAt,place,link)}
+    if(pendingTr)S.rec.busy=false;
     const nth=touches===1?'1er appel':touches+'e appel',tr=callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).length;
     const nxt=isRdvRes(r)?'RDV '+RDV_T[ty]+' le '+fdate(rdvAt):patch.stage==='perdu'?'fiche classée perdue':patch.stage==='stop'?'ne plus appeler':patch.nextDate?'prochain essai le '+fdate(patch.nextDate):'';
     S.lastRes=`<b>${esc(p.name)}</b> : ${esc(RES_L[r])} · ${nth}${(r==='nr'||r==='rep')&&!callsOf(p.id).some(c=>c.joint)?' ('+tr+'/'+MAX_TRIES+' dans cette série)':''}${nxt?' · '+nxt:''}`;
@@ -1878,23 +1880,43 @@ async function recImport(f){
   try{const blob=await compressAudio(f);S.rec.busy=false;if(blob.size>24*1048576){S.rec.msg='Même compressé, le fichier dépasse 24 Mo (enregistrement trop long : coupe-le en deux).';toast(S.rec.msg);render();return}
     recSend(blob,f.name.replace(/\.\w+$/,'')+'.mp3')}
   catch(e){S.rec.busy=false;S.rec.msg='Compression impossible : '+e.message;toast(S.rec.msg);render()}}
+function transcribedParts(j){const parts=[j.resume,j.chiffres&&'Chiffres :\n'+j.chiffres,j.engagements&&'Engagements : '+j.engagements,j.prochaine_etape&&'Prochaine étape : '+j.prochaine_etape].filter(Boolean);return parts.join('\n')}
+// La transcription arrive après que l'appel a été enregistré (l'utilisateur est déjà passé à la fiche suivante) : on l'ajoute à l'appel déjà sauvegardé.
+async function attachTranscript(c,j){
+  const p=byId(c.prospectId);const auto=transcribedParts(j);
+  const upd={transcript:j.text||''};if(auto)upd.auto=(c.auto?c.auto+'\n':'')+auto;
+  try{await DB.update('calls',c.id,upd);Object.assign(c,upd)}catch(e){toast('Transcription non enregistrée : '+(e.message||e));return}
+  if(p){const patch={};
+    if(auto)patch.notes=[p.notes||'',stamp()+' 🤖 Résumé auto : '+auto].filter(Boolean).join('\n');
+    if(isRdvRes(c.result)&&(j.besoin||j.objectif||j.sensible))patch.pts={besoin:j.besoin||'',objectif:j.objectif||'',sensible:j.sensible||''};
+    if(Object.keys(patch).length){try{await DB.update('prospects',p.id,patch);Object.assign(p,patch)}catch(e){}}
+    if(isRdvRes(c.result)&&j.text)genRdvMsg(p.id,j.text,c.rdvType||'visio',c.rdvAt||p.rdvAt,p.rdvPlace||'',p.rdvLink||'');
+    toast('Résumé prêt : '+p.name)}
+  render()}
 async function recSend(blob,name){
-  const cfg=window.AOS_CONFIG||{};S.rec.busy=true;S.rec.on=false;S.rec.msg='';render();
-  const pid0=S.call.pid;
+  const cfg=window.AOS_CONFIG||{};S.rec.busy=true;S.rec.busyPid=S.call.pid;S.rec.on=false;S.rec.msg='';S.rec.pending=(S.rec.pending||0)+1;render();
+  const pid0=S.call.pid,t0=new Date().toISOString();
   try{
     const {data}=await window.__sb.auth.getSession();const tok=data.session&&data.session.access_token;
-    const up=Promise.resolve('');/* l'audio n'est plus conservé : seule la transcription est gardée */
     const fd=new FormData();fd.append('file',blob,name||'appel.webm');
     const res=await fetch(cfg.url+'/functions/v1/resume-appel',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:cfg.key},body:fd});
     const j=await res.json().catch(()=>({}));
-    const apath=await up.catch(()=>'');if(S.call.pid===pid0){S.call.audioPath=apath;if(j.text)S.call.transcript=j.text}
-    if(!res.ok){S.rec.msg=j.message||('Erreur '+res.status);toast(S.rec.msg)}
-    else{
-      if(j.besoin)S.call.pt1=j.besoin;if(j.objectif)S.call.pt2=j.objectif;if(j.sensible)S.call.pt3=j.sensible;
-      const parts=[j.resume,j.chiffres&&'Chiffres :\n'+j.chiffres,j.engagements&&'Engagements : '+j.engagements,j.prochaine_etape&&'Prochaine étape : '+j.prochaine_etape].filter(Boolean);if(parts.length)S.call.auto=((S.call.auto?S.call.auto+'\n':'')+parts.join('\n'));
-      S.call.step='ans';S.rec.msg=j.error==='summary_failed'?(j.message||'Résumé indisponible.'):j.text&&j.text.trim().length>=20?'Résumé prêt : relis les champs puis choisis le résultat.':'Audio trop court ou inaudible.';toast(S.rec.msg)}
-  }catch(e){S.rec.msg='Échec : '+e.message;toast(S.rec.msg)}
-  S.rec.busy=false;render();
+    const saved=[...S.calls].reverse().find(c=>c.prospectId===pid0&&c.t>=t0&&!c.transcript&&isCall(c));
+    if(saved){
+      if(!res.ok)toast('Transcription impossible pour '+saved.prospectName+' : '+(j.message||('erreur '+res.status)));
+      else if(j.text)await attachTranscript(saved,j);
+    }else if(S.call.pid===pid0){
+      if(j.text)S.call.transcript=j.text;
+      if(!res.ok){S.rec.msg=j.message||('Erreur '+res.status);toast(S.rec.msg)}
+      else{
+        if(j.besoin)S.call.pt1=j.besoin;if(j.objectif)S.call.pt2=j.objectif;if(j.sensible)S.call.pt3=j.sensible;
+        const a=transcribedParts(j);if(a)S.call.auto=((S.call.auto?S.call.auto+'\n':'')+a);
+        S.call.step='ans';S.rec.msg=j.error==='summary_failed'?(j.message||'Résumé indisponible.'):j.text&&j.text.trim().length>=20?'Résumé prêt : relis les champs puis choisis le résultat.':'Audio trop court ou inaudible.';toast(S.rec.msg)}
+    }
+  }catch(e){if(S.call.pid===pid0){S.rec.msg='Échec : '+e.message;toast(S.rec.msg)}else toast('Transcription échouée : '+e.message)}
+  S.rec.pending=Math.max(0,(S.rec.pending||1)-1);
+  if(S.rec.busyPid===pid0)S.rec.busy=false;
+  render();
   if(S.rec.resolve){const f=S.rec.resolve;S.rec.resolve=null;f()}
 }
 async function recStart(){
@@ -1902,7 +1924,7 @@ async function recStart(){
     const st=await navigator.mediaDevices.getUserMedia({audio:true});
     const mr=new MediaRecorder(st);S.rec.chunks=[];S.rec.mr=mr;
     mr.ondataavailable=e=>{if(e.data.size)S.rec.chunks.push(e.data)};
-    mr.onstop=()=>{S.call.dur=Math.round((Date.now()-S.rec.t0)/1000);st.getTracks().forEach(t=>t.stop());recSend(new Blob(S.rec.chunks,{type:mr.mimeType||'audio/webm'}),'appel.webm')};
+    mr.onstop=()=>{S.call.dur=Math.round((Date.now()-S.rec.t0)/1000);st.getTracks().forEach(t=>t.stop());const bl=new Blob(S.rec.chunks,{type:mr.mimeType||'audio/webm'});recSend(bl,'appel.webm');if(S.rec.afterStop){const rr=S.rec.afterStop;S.rec.afterStop=null;callResult(rr)}};
     S.rec.t0=Date.now();mr.start(1000);S.rec.on=true;S.rec.msg='Dis à ton interlocuteur que l\'appel est enregistré.';render();
   }catch(e){S.rec.msg='Micro refusé : autorise-le dans Chrome (cadenas de la barre d\'adresse).';toast(S.rec.msg);render()}
 }
@@ -2048,7 +2070,7 @@ document.addEventListener('click',async e=>{
   else if(a==='callclose'){S.call.open='';S.call.pid='';render()}
   else if(a==='chal-ok'){S.chal=false;S.tab='appels';render()}
   else if(a==='tab'){S.tab=b.dataset.v;render()}
-  else if(a==='callres'){const r=b.dataset.r;if(S.rec.on&&S.rec.mr&&S.rec.mr.state!=='inactive'){toast('Enregistrement arrêté, résumé en cours : le résultat s\'enregistre ensuite.');const w=new Promise(res=>{S.rec.resolve=res;setTimeout(res,60000)});S.rec.mr.stop();w.then(()=>callResult(r))}else callResult(r)}
+  else if(a==='callres'){const r=b.dataset.r;if(S.rec.on&&S.rec.mr&&S.rec.mr.state!=='inactive'){toast('Appel enregistré : la transcription se fait en arrière-plan.');S.rec.afterStop=r;S.rec.mr.stop()}else callResult(r)}
   else if(a==='outres')outResult(b.dataset.r);
   else if(a==='outskip'){if(S.out.pid)S.out.skip.push(S.out.pid);S.out.pid='';render()}
   else if(a==='copy'){const t=($('#otext')||{}).textContent||'';try{await navigator.clipboard.writeText(t);toast('Message copié.')}catch(e){toast('Copie impossible : sélectionne le texte.')}}
