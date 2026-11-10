@@ -566,8 +566,8 @@ async function genRdvMsg(pid,tr,ty,rdvAt,place,link){
     const cfg=window.AOS_CONFIG||{};const {data}=await window.__sb.auth.getSession();const tok=data.session&&data.session.access_token;
     const res=await fetch(cfg.url+'/functions/v1/resume-appel',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:cfg.key,'Content-Type':'application/json'},body:JSON.stringify({mode:'message',signature:SIGN,transcript:tr,type:ty,quand:rdvWhen({rdvAt}),lieu:place||'',lien:link||'',prenom:String(p.dirigeant||'').trim().split(/\s+/)[0]||''})});
     const j=await res.json().catch(()=>({}));
-    if(j.message){const patch={rdvMsgAI:j.message,rdvMsgFor:rdvAt};Object.assign(p,patch);await guard(()=>DB.update('prospects',pid,patch))}
-    else toast(j.message||'Message indisponible : modèle standard utilisé.')
+    if(j.message&&!j.error&&!/^(Message indisponible|La clé Groq|Transcription absente)/.test(j.message)){const patch={rdvMsgAI:j.message,rdvMsgFor:rdvAt};Object.assign(p,patch);await guard(()=>DB.update('prospects',pid,patch))}
+    else toast('Rédaction automatique indisponible (limite de l\'IA atteinte) : message standard utilisé.')
   }catch(e){toast('Message indisponible : modèle standard utilisé.')}
   S.msgBusy='';render();
 }
@@ -581,7 +581,7 @@ function rdvBtns(p,msg){const g=rdvGcal(p);return `${g?`<a class="btn" href="${g
 function rdvCard(){
   const p=S.lastRDV?byId(S.lastRDV):null;if(!p||!p.rdvAt)return '';
   const ty=p.rdvType||'visio';
-  const ai=p.rdvMsgAI&&p.rdvMsgFor===p.rdvAt?p.rdvMsgAI:'';
+  const ai=p.rdvMsgAI&&p.rdvMsgFor===p.rdvAt&&!/^(Message indisponible|La clé Groq|Transcription absente)/.test(p.rdvMsgAI)?p.rdvMsgAI:'';
   const msg=ai||rdvMsg(p,'conf');
   const busy=S.msgBusy===p.id;
   const box=busy?'<p class="muted sm" style="margin:8px 0">⏳ Rédaction du message à partir de la conversation complète…</p>':`<div class="muted sm" style="margin-top:6px">${ai?'Rédigé à partir de la conversation. Relis et modifie si besoin :':'Message standard (aucune conversation enregistrée pour ce RDV). Tu peux le modifier :'}</div><textarea id="rdvmsgbox" rows="8" style="width:100%;margin:4px 0">${esc(msg)}</textarea>`;
