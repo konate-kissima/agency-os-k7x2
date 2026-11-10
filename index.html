@@ -728,6 +728,9 @@ function appelsHTML(){
    :pnl==='rap'?`${pbox}<b>À rappeler (rappel téléphonique)</b>
    <div class="cfields"><div><label class="f" for="cd">Rappel le</label><input type="date" id="cd" value="${esc(S.call.date||'')}"></div><div><label class="f" for="ct">à</label><input type="time" id="ct" value="${esc(S.call.time||'10:00')}" title="Une petite fenêtre te prévient 5 minutes avant"></div></div>
    <div class="row" style="gap:6px"><button class="btn primary" data-act="callres" data-r="rap">Programmer le rappel</button>${pcancel}</div></div>`
+   :pnl==='mail'?`${pbox}<b>✉️ Mail de suivi</b> <span class="muted sm">(modifie librement avant d'envoyer)</span>
+   <div style="margin-top:6px">${inp('mt','Destinataire',(S.call.mail||{}).to,'email@entreprise.fr')}<label class="f" for="ms">Objet</label><input id="ms" style="width:100%" value="${esc((S.call.mail||{}).su||'')}"><label class="f" for="mb">Message</label><textarea id="mb" rows="14" style="width:100%">${esc((S.call.mail||{}).body||'')}</textarea></div>
+   <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><button class="btn primary" data-act="mailgmail">Ouvrir dans Gmail</button><button class="btn" data-act="mailcopy">Copier le texte</button>${pcancel}</div></div>`
    :pnl==='no'?`${pbox}<b>Pas intéressé</b>
    <div class="cfields"><div><label class="f" for="co">Objection</label><select id="co">${OBJ.map(o=>`<option${S.call.obj===o?' selected':''}>${esc(o)}</option>`).join('')}</select></div></div>
    <div class="row" style="gap:6px"><button class="btn primary" data-act="callres" data-r="no">Enregistrer</button>${pcancel}</div></div>`:'';
@@ -735,8 +738,9 @@ function appelsHTML(){
   const recRow=window.__sb?`<div class="row sm" style="margin:8px 0;flex-wrap:wrap;gap:6px">${rc.busy?'<span class="muted">⏳ Transcription et résumé en cours…</span>':rc.on?`<button class="btn sm primary" data-act="rec-stop">⏹ Arrêter et résumer</button><span style="color:#c0392b"><b>● Enregistrement</b></span>`:`<button class="btn sm" data-act="rec-start">🎙 Enregistrer</button><label class="btn sm" style="cursor:pointer">Importer un audio<input type="file" id="recf" accept="audio/*,video/mp4" hidden></label>`}${rc.msg?`<span class="muted">${esc(rc.msg)}</span>`:''}</div>`:'';
   const resUI=recRow+(S.call.step==='ans'?`<div class="sm muted" style="margin:8px 0 2px"><b>Il a répondu : que s'est-il passé ?</b> <button class="btn sm" data-act="callstep" data-s="">← Retour</button></div>
    <div class="res cres">${['rdvv','rdvt','rdvp'].map(rb).join('')}</div><div class="res cres">${['rap','ans','no','hu','stop'].map(rb).join('')}</div>
+   <div class="row sm" style="margin:4px 0"><button class="btn" data-act="mailprep" title="Prépare un mail avec ce que la personne t'a dit et ton offre">✉️ Envoyer un mail de suivi</button></div>
    ${pnlHTML}`
-   :`<div class="res cres2"><button class="btn primary big" data-act="callstep" data-s="ans">✅ Répondu</button><button class="btn big" data-act="callres" data-r="nr">📵 Pas répondu</button></div><div class="row sm" style="margin-top:6px"><span class="muted">Pas répondu, plus précis :</span><button class="btn sm" data-act="callres" data-r="rep">Répondeur</button><button class="btn sm" data-act="callres" data-r="bad">Mauvais numéro</button></div>`);
+   :`<div class="res cres2"><button class="btn primary big" data-act="callstep" data-s="ans">✅ Répondu</button><button class="btn big" data-act="callres" data-r="nr">📵 Pas répondu</button></div><div class="row sm" style="margin-top:6px"><span class="muted">Pas répondu, plus précis :</span><button class="btn sm" data-act="callres" data-r="rep">Répondeur</button><button class="btn sm" data-act="callres" data-r="bad">Mauvais numéro</button><button class="btn sm" data-act="mailprep" title="Prépare un mail avec ton offre">✉️ Mail</button></div>${pnlHTML}`);
   const left=`<div class="card callcard"><div class="chead"><div class="chips"><span class="chip" title="Nombre de fois où tu as appelé cette fiche">${(cur.touches||0)===0?'1er appel':'Appel n°'+((cur.touches||0)+1)}</span>${cur.stage==='contacte'?'<span class="chip warn">'+((cur.cycle||1)>=2?'Rappel de réserve':'Rappel')+'</span>':'<span class="chip hot">Premier appel</span>'}${cur.stage==='contacte'&&cur.slots&&cur.slots.length&&cur.slots.length<3?'<span class="chip" title="Les artisans sont souvent sur chantier : on varie le moment de l\'appel">Mieux : '+cur.slots.map(x=>SLOT_L[x]).join(' ou ')+'</span>':''}${mob?'<span class="chip bad" title="Mobile : le régime consommateur peut s\'appliquer aux indépendants, à vérifier">Mobile</span>':''}<span class="muted sm">${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}</span></div>
    <h2 class="cname">${esc(cur.name)}</h2>
    <div class="sm muted cmeta">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a> · `:''}${socialLinksHTML(cur)}score ${esc(cur.score||'—')}</div></div>
@@ -822,6 +826,27 @@ function sectorOf(p){
 function ageYears(p){const y=p.created_co?+String(p.created_co).slice(0,4):0;return y?new Date().getFullYear()-y:null}
 function ageBucket(p){const a=ageYears(p);return a===null?'Année inconnue':a<2?'Moins de 2 ans':a<5?'2 à 5 ans':a<10?'5 à 10 ans':a<20?'10 à 20 ans':'20 ans et plus'}
 function reviewBucket(p){const r=+p.reviews||0;return r===0?'Aucun avis':r<10?'1 à 9 avis':r<50?'10 à 49 avis':r<200?'50 à 199 avis':'200 avis et plus'}
+function mailDraft(p){
+  const sc=settings(),pre=String(p.dirigeant||'').trim().split(/\s+/)[0]||'';
+  const pts=[S.call.pt1,S.call.pt2,S.call.pt3].map(x=>String(x||'').trim()).filter(Boolean);
+  const note=String(S.call.note||'').replace(/^Résumé auto :.*$/gm,'').trim();
+  const ret=pts.length?pts.map(x=>'- '+x).join('\n'):(note?note.split('\n').filter(Boolean).slice(0,6).map(x=>'- '+x).join('\n'):'');
+  const body=`Bonjour${pre?' '+pre:''},
+
+Suite à notre échange, comme convenu, je vous résume tout par écrit.
+${ret?`\nCe que j'ai retenu de votre situation :\n${ret}\n`:''}
+Ce que je vous propose :
+- Je vous apporte des demandes de devis qualifiées, via Facebook et Instagram (Meta Ads), dans votre zone d'intervention.
+- Objectif : 20 demandes de devis en 90 jours.
+- Tarif : ${sc.pilotPrice} € sur 90 jours (50 % à la signature, 50 % une fois les 20 demandes reçues).
+- La publicité est payée directement par vous à Meta (environ ${sc.budgetDay} €/jour), vous gardez la main et la visibilité sur les dépenses.
+
+Si cela vous parle, répondez simplement à ce mail ou donnez-moi un créneau de 10 minutes pour que je vous réponde à toutes vos questions.
+
+Bien cordialement,
+${SIGN}`;
+  return {to:p.email||'',su:'Suite à notre échange'+(p.name?' - '+p.name:''),body};
+}
 const rdvFill=t=>String(t||'').replace(/\{prix_pilote\}/g,settings().pilotPrice);
 function companyLine(p){
   const a=ageYears(p),parts=[];
@@ -1894,6 +1919,9 @@ document.addEventListener('click',async e=>{
   if(a==='numsave'){const p=byId(S.call.pid),v=(($('#cphone')||{}).value||'').trim();if(!p)return;if(normPhone(v).replace(/\D/g,'').length<9){toast('Numéro trop court.');return}
     const ok=await guard(async()=>{await DB.update('prospects',p.id,{phone:v,badPhone:false})});if(ok){Object.assign(p,{phone:v,badPhone:false});S.call.editNum='';toast('Numéro modifié : '+fmtPhone(v));render()}return}
   if(a==='playaudio'){const path=b.dataset.path;try{const {data,error}=await window.__sb.storage.from('appels').createSignedUrl(path,3600);if(error||!data)throw 0;b.outerHTML='<audio controls autoplay src="'+data.signedUrl+'" style="vertical-align:middle;max-width:100%"></audio>'}catch(e){toast('Audio introuvable : les enregistrements sont supprimés après 6 mois.')}return}
+  if(a==='mailprep'){const p=byId(S.call.pid);if(!p)return;S.call.mail=mailDraft(p);S.call.panel='mail';render();return}
+  if(a==='mailgmail'){const m=S.call.mail||{},p=byId(S.call.pid);const u='https://mail.google.com/mail/?view=cm&fs=1&authuser='+encodeURIComponent(settings().mailFrom||'')+'&to='+encodeURIComponent(m.to||'')+'&su='+encodeURIComponent(m.su||'')+'&body='+encodeURIComponent(m.body||'');window.open(u,'_blank','noopener');if(p)logEv(p,'mail','Mail de suivi préparé : '+(m.su||''));return}
+  if(a==='mailcopy'){const m=S.call.mail||{};try{navigator.clipboard.writeText((m.su?'Objet : '+m.su+'\n\n':'')+(m.body||'')).then(()=>toast('Mail copié.'),()=>toast('Copie impossible.'))}catch(e){toast('Copie impossible.')}return}
   if(a==='callpanel'){S.call.panel=b.dataset.r||'';render();return}
   if(a==='callstep'){S.call.step=b.dataset.s||'';S.call.panel='';render();if(S.call.step==='ans'&&window.__sb&&!S.rec.on&&!S.rec.busy)recStart();return}
   if(a==='rapl-toggle'){S.call.showRap=!S.call.showRap;render();return}
@@ -1970,7 +1998,7 @@ document.addEventListener('input',e=>{
   const SCK={cl:'place',cv:'link',pt1:'pt1',pt2:'pt2',pt3:'pt3',cd:'date',ct:'time',cr:'rdvAt',co:'obj'};
   if(SCK[t.id]){S.call[SCK[t.id]]=t.value;return}
   if(t.id==='rdvmsgbox'){const pp=S.lastRDV&&byId(S.lastRDV);if(pp){pp.rdvMsgAI=t.value;pp.rdvMsgFor=pp.rdvAt;const bx=$('#rdvbtns');if(bx)bx.innerHTML=rdvBtns(pp,t.value)}return}
-  if(t.id==='cn')S.call.note=t.value;else if(t.id==='ca')S.call.audio=t.value;else if(t.id==='on')S.out.note=t.value;else if(t.id==='oh')S.out.handle=t.value;
+  if(t.id==='cn')S.call.note=t.value;else if(t.id==='mt'||t.id==='ms'||t.id==='mb'){S.call.mail=S.call.mail||{};S.call.mail[{mt:'to',ms:'su',mb:'body'}[t.id]]=t.value}else if(t.id==='ca')S.call.audio=t.value;else if(t.id==='on')S.out.note=t.value;else if(t.id==='oh')S.out.handle=t.value;
   else if(t.id==='pq'){S.pf.q=t.value;render()}
   else if(t.id==='cq'){S.call.q=t.value;render()}
 });
