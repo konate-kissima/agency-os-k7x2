@@ -669,12 +669,19 @@ function nrMessage(p){
   return "Bonjour"+(first?' '+first:'')+", "+SIGN+". Je viens d'essayer de "+(co?'joindre '+co:'vous joindre')+" : "+c+" "+NR_Q;
 }
 const NR_SMS=nrMessage({});
+function nrVariant(p,k){
+  const fn=String(p.dirigeant||'').replace(/\(.*?\)/g,'').trim().split(/\s+/)[0]||'';
+  const first=fn?fn.charAt(0).toUpperCase()+fn.slice(1).toLowerCase():'',co=nrCoName(p),hi='Bonjour'+(first?' '+first:'')+', ';
+  if(k===1)return hi+SIGN+". Je reviens vers vous"+(co?' pour '+co:'')+". Question rapide : est-ce que vous recevez déjà assez de demandes de devis, oui ou non ?";
+  if(k===2)return hi+SIGN+". J'aide des artisans à recevoir des demandes de devis de particuliers grâce à Facebook et Instagram. Est-ce que c'est un sujet pour vous en ce moment ? (oui / non)";
+  return hi+"dernier message de ma part. Si vous avez de la place pour de nouveaux chantiers ces prochains mois, répondez simplement « oui » et je vous rappelle à l'heure qui vous arrange. Sinon, aucun souci.";
+}
 function nrCard(){
   const p=S.lastNR?byId(S.lastNR):null;if(!p)return '';
-  const msg=settings().nrText?fillScript(settings().nrText,p).replace('monsieur/madame','').replace('Bonjour ,','Bonjour,'):nrMessage(p);
+  const nk=Math.min(p.nrSent||0,3),msg=nk>0?nrVariant(p,nk):settings().nrText?fillScript(settings().nrText,p).replace('monsieur/madame','').replace('Bonjour ,','Bonjour,'):nrMessage(p);
   const ph=normPhone(p.phone),e=encodeURIComponent(msg);
   const wa=ph?'whatsapp://send?phone='+(ph.startsWith('0')?'33'+ph.slice(1):ph.replace('+',''))+'&text='+e:'';
-  return `<div class="card nrfloat" style="position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:60;width:min(94vw,620px);margin:0;border:2px solid var(--ok,#2a7);box-shadow:0 10px 34px rgba(0,0,0,.28);background:var(--card,#fff)"><b>${p.lastResult==='rep'?'Répondeur':'Pas de réponse'} : ${esc(p.name)}.</b> Envoie-lui un message (double contact) :<div class="row" style="margin-top:8px;flex-wrap:wrap"><button type="button" class="btn primary" data-act="copysms" data-m="${esc(msg)}" title="Copie le SMS, puis colle-le dans Onoff (Presse-papiers universel Mac → iPhone)">Copier le SMS</button>${ph?`<a class="btn" href="sms:${esc(ph)}?&body=${e}" data-act="nrdone" title="Ouvre Messages (ton numéro perso, pas Onoff)">SMS Mac</a><a class="btn" href="${wa}" data-act="nrdone">WhatsApp</a>`:''}${p.email?`<a class="btn" href="mailto:${esc(p.email)}?subject=${encodeURIComponent('Suite à mon appel')}&body=${e}" data-act="nrdone">Email</a>`:''}<button class="btn sm" data-act="nrdone">Ignorer</button></div><p class="muted sm" style="margin-top:6px">${esc(msg)}</p></div>`}
+  return `<div class="card nrfloat" style="position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:60;width:min(94vw,620px);margin:0;border:2px solid var(--ok,#2a7);box-shadow:0 10px 34px rgba(0,0,0,.28);background:var(--card,#fff)"><b>${p.lastResult==='rep'?'Répondeur':'Pas de réponse'} : ${esc(p.name)}.</b> Envoie-lui un message (double contact) · <b>version ${nk+1}/4</b>${(p.nrSent||0)>=4?' · <span style="color:#c0392b">déjà 4 messages envoyés : passe la fiche en « ne plus appeler »</span>':''} :<div class="row" style="margin-top:8px;flex-wrap:wrap"><button type="button" class="btn primary" data-act="copysms" data-m="${esc(msg)}" title="Copie le SMS, puis colle-le dans Onoff (Presse-papiers universel Mac → iPhone)">Copier le SMS</button>${ph?`<a class="btn" href="sms:${esc(ph)}?&body=${e}" data-act="nrdone" title="Ouvre Messages (ton numéro perso, pas Onoff)">SMS Mac</a><a class="btn" href="${wa}" data-act="nrdone">WhatsApp</a>`:''}${p.email?`<a class="btn" href="mailto:${esc(p.email)}?subject=${encodeURIComponent('Suite à mon appel')}&body=${e}" data-act="nrdone">Email</a>`:''}<button class="btn sm" data-act="nrdone">Ignorer</button></div><p class="muted sm" style="margin-top:6px">${esc(msg)}</p></div>`}
 function phoneKey(v){let d=String(v||'').replace(/\D/g,'');if(d.startsWith('0033'))d=d.slice(4);else if(d.startsWith('33')&&d.length>9)d=d.slice(2);return d.replace(/^0/,'')}
 function callSearch(q){
   q=String(q||'').replace(/[\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g,'').trim();if(!q)return [];
