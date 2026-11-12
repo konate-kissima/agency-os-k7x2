@@ -223,6 +223,7 @@ input:focus,select:focus,textarea:focus{border-color:#b8893b;outline:3px solid r
 .btn.danger{background:#fff4f2;color:#b42318;border-color:#fecdca}
 .t th{letter-spacing:.12em;color:var(--muted)}
 #soon .srow{border:2px solid #b8893b}
+.popbg{position:fixed;inset:0;z-index:9000;background:rgba(22,19,15,.55);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}.popbg .pop{max-width:560px;width:100%;margin:0;border:2px solid #b8892b;box-shadow:0 30px 80px -20px rgba(0,0,0,.6);max-height:92vh;overflow:auto}
 #rdvq{position:fixed;inset:0;z-index:100000;background:rgba(22,19,15,.72);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
 #rdvq .rq-box{background:#fff;color:#16130f;border-radius:16px;max-width:520px;width:100%;padding:24px;box-shadow:0 30px 80px -20px rgba(0,0,0,.6);border:2px solid #b8893b}
 #rdvq .rq-btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}#rdvq .rq-btns .big{flex:1 1 140px;padding:14px 10px;font-size:1.02em}
@@ -822,7 +823,7 @@ function appelsHTML(){
   const KH={rdvv:'1',rdvt:'2',rdvp:'3',rap:'4',ans:'5',no:'6',hu:'7',stop:'8'};
   const rb=k=>{const [,l,c,t]=RES_BY[k];const pn=['rdvv','rdvt','rdvp','rap','no'].includes(k),on=pn&&S.call.panel===k;return `<button class="btn ${c}" data-act="${pn?'callpanel':'callres'}" data-r="${k}" title="${esc(t||'')}"${on?' style="outline:2px solid #b8892b"':''}>${l}<kbd class="kh">${KH[k]||''}</kbd></button>`};
   const inp=(id,lab,val,ph)=>`<div style="min-width:0"><label class="f" for="${id}">${lab}</label><input id="${id}" style="width:100%" placeholder="${esc(ph||'')}" value="${esc(val||'')}"></div>`;
-  const pnl=S.call.panel,pbox='<div class="card" style="border:2px solid #b8892b;margin:8px 0">',pcancel='<button class="btn sm" data-act="callpanel" data-r="">Annuler</button>';
+  const pnl=S.call.panel,isPop=pnl==='no'||pnl==='rap',pbox=isPop?'<div class="popbg" data-act="popbg"><div class="card pop" role="dialog" aria-modal="true">':'<div class="card" style="border:2px solid #b8892b;margin:8px 0">',pcancel='<button class="btn sm" data-act="callpanel" data-r="">Annuler</button>';
   const ptsFilled=!!(S.call.pt1||S.call.pt2||S.call.pt3);
   const pnlHTML=pnl==='rdvv'||pnl==='rdvt'||pnl==='rdvp'?`${pbox}<b>${pnl==='rdvp'?'RDV physique':pnl==='rdvt'?'RDV téléphonique':'RDV visio'}</b>
    <div class="cfields"><div><label class="f" for="cr">Date et heure</label><input type="datetime-local" id="cr" value="${esc(S.call.rdvAt)}"></div>${pnl==='rdvp'?inp('cl','Lieu',S.call.place,'Adresse'):pnl==='rdvt'?'':inp('cv','Lien visio (facultatif)',S.call.link,'https://meet.google.com/…')}</div>
@@ -845,7 +846,7 @@ function appelsHTML(){
    <div class="sm muted" style="margin:10px 0 2px"><b>Résultat de la conversation</b> <span class="muted">(clique, ou touches 1 à 8)</span></div>
    <div class="res cres">${['rdvv','rdvt','rdvp'].map(rb).join('')}</div><div class="res cres">${['rap','ans','no','hu','stop'].map(rb).join('')}</div>
    <div class="row sm" style="margin:6px 0"><button class="btn" data-act="mailprep" title="Prépare un mail avec ce que la personne t'a dit et ton offre">✉️ Mail de suivi</button><button class="btn sm" data-act="callskip" title="Passer cette fiche sans rien enregistrer">⏭ Passer<kbd class="kh">P</kbd></button></div>
-   ${pnlHTML}`;
+   ${isPop?pnlHTML+'</div>':pnlHTML}`;
   const left=`<div class="card callcard"><div class="chead"><div class="chips"><span class="chip" title="Nombre de fois où tu as appelé cette fiche">${(cur.touches||0)===0?'1er appel':'Appel n°'+((cur.touches||0)+1)}</span>${cur.stage==='contacte'?'<span class="chip warn">'+((cur.cycle||1)>=2?'Rappel de réserve':'Rappel')+'</span>':'<span class="chip hot">Premier appel</span>'}${cur.stage==='contacte'&&cur.slots&&cur.slots.length&&cur.slots.length<3?'<span class="chip" title="Les artisans sont souvent sur chantier : on varie le moment de l\'appel">Mieux : '+cur.slots.map(x=>SLOT_L[x]).join(' ou ')+'</span>':''}${mob?'<span class="chip bad" title="Mobile : le régime consommateur peut s\'appliquer aux indépendants, à vérifier">Mobile</span>':''}<span class="muted sm">${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}</span></div>
    <h2 class="cname">${esc(cur.name)}</h2>
    <div class="sm muted cmeta">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a> · `:''}${socialLinksHTML(cur)}score ${esc(cur.score||'—')}</div></div>
@@ -1796,7 +1797,7 @@ function aideHTML(){return aideTabsHTML()+`<div class="card"><h2>Explication de 
 <tr><td><b>RDV physique</b> (3)</td><td>Rendez-vous en face à face.</td><td>Date, heure et lieu obligatoires. Message de confirmation prêt.</td></tr>
 <tr><td><b>À rappeler</b> (4)</td><td>Il a répondu mais il est occupé et aucun RDV n'est fixé.</td><td>Un clic sur <b>Demain</b>, <b>Dans 3 jours</b>, <b>Lundi</b>, <b>Dans 2 semaines</b> ou <b>Plus tard aujourd'hui</b> programme le rappel (touches 1 à 5). <b>Aucune heure obligatoire</b> : sans heure, la fiche revient simplement ce jour-là. Pour une date précise ou une heure, ouvre « Autre date ou heure précise ».</td></tr>
 <tr><td><b>Sans suite</b> (5)</td><td>Vraie discussion sans résultat (il réfléchit, mail à envoyer…).</td><td>Relance dans 3 jours ouvrés par défaut.</td></tr>
-<tr><td><b>Pas intéressé</b> (6)</td><td>Il refuse.</td><td>Les objections s'affichent en boutons : <b>un clic enregistre tout</b> (touches 1 à 9 et 0, X = aucune objection dite). Tu peux aussi écrire la tienne puis Entrée. Fiche classée perdue.</td></tr>
+<tr><td><b>Pas intéressé</b> (6)</td><td>Il refuse.</td><td>Les objections s'affichent <b>dans une fenêtre pop-up au centre</b> (rien à scroller, Échap ou clic à côté pour fermer) en boutons : <b>un clic enregistre tout</b> (touches 1 à 9 et 0, X = aucune objection dite). Tu peux aussi écrire la tienne puis Entrée. Fiche classée perdue.</td></tr>
 <tr><td><b>Raccroché au nez</b> (7)</td><td>Il décroche puis raccroche aussitôt.</td><td>Compte comme décroché. 1re fois : rappel dans 3 jours ouvrés. 2e fois : fiche perdue.</td></tr>
 <tr><td><b>Ne plus appeler</b> (8)</td><td>Il demande à ne plus être contacté.</td><td>Fiche bloquée pour toujours.</td></tr></tbody></table>
 <p>Dès que le résultat est enregistré, <b>la fiche suivante s'ouvre toute seule</b> : tu n'as rien d'autre à faire. La transcription et le résumé de l'appel se font en arrière-plan et arrivent sur la fiche avec leur date et leur heure.</p>
@@ -2257,6 +2258,7 @@ document.addEventListener('click',async e=>{
   if(a==='mailopen'){const p=byId(b.dataset.id);if(!p)return;S.tab='appels';S.call.open=p.id;S.call.pid=p.id;S.call.step='';S.call.mail=p.mailDraft?{...p.mailDraft}:mailDraft(p);S.call.panel='mail';render();return}
   if(a==='mailcopy'){const m=S.call.mail||{};try{navigator.clipboard.writeText((m.su?'Objet : '+m.su+'\n\n':'')+(m.body||'')).then(()=>toast('Mail copié.'),()=>toast('Copie impossible.'))}catch(e){toast('Copie impossible.')}return}
   if(a==='alerts-toggle'){try{localStorage.setItem('aos_alerts_hidden',alertsHidden()?'0':'1')}catch(e){}render();return}
+  if(a==='popbg'){if(e.target===b){S.call.panel='';render()}return}
   if(a==='callpanel'){S.call.panel=b.dataset.r||'';render();return}
   if(a==='callstep'){S.call.step=b.dataset.s||'';S.call.panel='';render();if(S.call.step==='ans'&&window.__sb&&!S.rec.on&&!S.rec.busy)recStart();return}
   if(a==='rapl-toggle'){S.call.showRap=!S.call.showRap;render();return}
