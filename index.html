@@ -1719,19 +1719,57 @@ function donneesHTML(){
 /* ================= aide ================= */
 function aideHTML(){return `<div class="card"><h2>Explication de l'outil</h2>
 <p class="muted sm">Pour toi et pour toute personne qui rejoint l'équipe : à quoi sert chaque onglet et comment le process se déroule de A à Z.</p>
-<details open><summary><b>Le fonctionnement d'un appel, en 2 étapes</b></summary>
-<p><b>Étape 1 :</b> dès que l'appel est fini, tu cliques <b>✅ Répondu</b> ou <b>📵 Pas répondu</b>. « Pas répondu » s'enregistre en un seul clic (et tu passes à la fiche suivante). Juste dessous, deux petits boutons : <b>Répondeur</b> et <b>Mauvais numéro</b>.</p>
-<p><b>Étape 2 (si répondu) :</b> tu choisis ce qui s'est passé.</p>
+<details open><summary><b>Après l'appel : le chemin le plus court (1 à 2 clics)</b></summary>
+<p>Tous les résultats sont visibles d'un coup, plus besoin de passer par un deuxième écran. <b>✅ Répondu</b> sert seulement à lancer l'enregistrement quand quelqu'un décroche. Ensuite tu choisis le résultat directement.</p>
+<div class="sm" style="background:var(--surface2);border-radius:12px;padding:12px;margin:8px 0">
+<div style="margin-bottom:8px"><span class="btn primary" style="pointer-events:none">✅ Répondu <kbd class="kh">A</kbd></span> <span class="btn" style="pointer-events:none">📵 Pas répondu <kbd class="kh">N</kbd></span> <span class="btn" style="pointer-events:none">Répondeur <kbd class="kh">R</kbd></span> <span class="btn" style="pointer-events:none">Mauvais n° <kbd class="kh">M</kbd></span></div>
+<div style="margin-bottom:8px"><span class="btn primary" style="pointer-events:none">RDV visio <kbd class="kh">1</kbd></span> <span class="btn primary" style="pointer-events:none">RDV tél <kbd class="kh">2</kbd></span> <span class="btn primary" style="pointer-events:none">RDV physique <kbd class="kh">3</kbd></span></div>
+<div><span class="btn" style="pointer-events:none">À rappeler <kbd class="kh">4</kbd></span> <span class="btn" style="pointer-events:none">Sans suite <kbd class="kh">5</kbd></span> <span class="btn" style="pointer-events:none">Pas intéressé <kbd class="kh">6</kbd></span> <span class="btn" style="pointer-events:none">Raccroché <kbd class="kh">7</kbd></span> <span class="btn" style="pointer-events:none">Ne plus appeler <kbd class="kh">8</kbd></span></div></div>
+<p><b>Au clavier (Mac) :</b> tu appuies sur le chiffre ou la lettre, sans souris. Les raccourcis ne marchent pas quand tu écris dans un champ (note, numéro…). <b>Échap</b> ferme un panneau.</p>
 <table class="t sm"><thead><tr><th>Bouton</th><th>Quand</th><th>Ce qui se passe ensuite</th></tr></thead><tbody>
-<tr><td><b>RDV visio</b></td><td>Il accepte une visio où tu présentes l'offre.</td><td>Tu saisis date et heure (et le lien Meet si tu l'as). La fiche passe en RDV et le message de confirmation est prêt.</td></tr>
-<tr><td><b>RDV téléphonique</b></td><td>Tu fixes un rappel à heure précise (le but : finir en visio ou en physique).</td><td>Une petite carte te prévient 5 minutes avant. Un message de confirmation est prêt.</td></tr>
-<tr><td><b>RDV physique</b></td><td>Rendez-vous en face à face.</td><td>Date, heure et lieu obligatoires. Message de confirmation prêt.</td></tr>
-<tr><td><b>À rappeler</b></td><td>Il a répondu mais il est occupé et aucun RDV n'est fixé.</td><td>La date du rappel est obligatoire. Il apparaît dans « À rappeler (N) ».</td></tr>
-<tr><td><b>Sans suite</b></td><td>Vraie discussion sans résultat (il réfléchit, mail à envoyer…).</td><td>Relance dans 3 jours ouvrés par défaut.</td></tr>
-<tr><td><b>Pas intéressé</b></td><td>Il refuse.</td><td>Tu choisis l'objection (pour les stats). Fiche classée perdue.</td></tr>
-<tr><td><b>Raccroché au nez</b></td><td>Il décroche puis raccroche aussitôt.</td><td>Compte comme décroché. 1re fois : rappel dans 3 jours ouvrés. 2e fois : fiche perdue.</td></tr>
-<tr><td><b>Ne plus appeler</b></td><td>Il demande à ne plus être contacté.</td><td>Fiche bloquée pour toujours.</td></tr></tbody></table>
+<tr><td><b>RDV visio</b> (1)</td><td>Il accepte une visio où tu présentes l'offre.</td><td>Tu saisis date et heure (et le lien Meet si tu l'as). La fiche passe en RDV et le message de confirmation est prêt.</td></tr>
+<tr><td><b>RDV téléphonique</b> (2)</td><td>Tu fixes un rappel à heure précise (le but : finir en visio ou en physique).</td><td>Une petite carte te prévient 5 minutes avant. Un message de confirmation est prêt.</td></tr>
+<tr><td><b>RDV physique</b> (3)</td><td>Rendez-vous en face à face.</td><td>Date, heure et lieu obligatoires. Message de confirmation prêt.</td></tr>
+<tr><td><b>À rappeler</b> (4)</td><td>Il a répondu mais il est occupé et aucun RDV n'est fixé.</td><td>Un clic sur <b>Demain</b>, <b>Dans 3 jours</b>, <b>Lundi</b>, <b>Dans 2 semaines</b> ou <b>Plus tard aujourd'hui</b> programme le rappel (touches 1 à 5). <b>Aucune heure obligatoire</b> : sans heure, la fiche revient simplement ce jour-là. Pour une date précise ou une heure, ouvre « Autre date ou heure précise ».</td></tr>
+<tr><td><b>Sans suite</b> (5)</td><td>Vraie discussion sans résultat (il réfléchit, mail à envoyer…).</td><td>Relance dans 3 jours ouvrés par défaut.</td></tr>
+<tr><td><b>Pas intéressé</b> (6)</td><td>Il refuse.</td><td>Les objections s'affichent en boutons : <b>un clic enregistre tout</b> (touches 1 à 9 et 0, X = aucune objection dite). Tu peux aussi écrire la tienne puis Entrée. Fiche classée perdue.</td></tr>
+<tr><td><b>Raccroché au nez</b> (7)</td><td>Il décroche puis raccroche aussitôt.</td><td>Compte comme décroché. 1re fois : rappel dans 3 jours ouvrés. 2e fois : fiche perdue.</td></tr>
+<tr><td><b>Ne plus appeler</b> (8)</td><td>Il demande à ne plus être contacté.</td><td>Fiche bloquée pour toujours.</td></tr></tbody></table>
+<p>Dès que le résultat est enregistré, <b>la fiche suivante s'ouvre toute seule</b> : tu n'as rien d'autre à faire. La transcription et le résumé de l'appel se font en arrière-plan et arrivent sur la fiche avec leur date et leur heure.</p>
 <p class="muted sm">Pas répondu : nouvel essai le lendemain ouvré à un autre moment de la journée, jusqu'à 5 essais, puis un second cycle un mois plus tard. Répondeur : nouvel essai dans 2 jours ouvrés. Mauvais numéro : le numéro est retiré de la fiche.</p></details>
+<details open><summary><b>🗓 Planning : ton agenda dans Agency OS</b></summary>
+<p>Onglet juste après « Aujourd'hui ». Il ressemble à Google Agenda : les heures à gauche, chaque RDV est un bloc placé à son heure.</p>
+<svg viewBox="0 0 520 150" role="img" aria-label="Schéma du planning" style="max-width:100%;background:var(--surface2);border-radius:12px"><g font-size="11" fill="currentColor"><text x="10" y="28">9h</text><text x="10" y="68">10h</text><text x="10" y="108">11h</text></g><g stroke="#ccc"><line x1="40" y1="22" x2="510" y2="22"/><line x1="40" y1="62" x2="510" y2="62"/><line x1="40" y1="102" x2="510" y2="102"/><line x1="40" y1="142" x2="510" y2="142"/></g><rect x="50" y="64" width="140" height="30" rx="6" fill="rgba(18,183,106,.25)" stroke="#12b76a"/><text x="58" y="83" font-size="11" fill="currentColor">10h30 Visio · Clyma Control</text><rect x="210" y="24" width="140" height="22" rx="6" fill="rgba(46,144,250,.22)" stroke="#2e90fa"/><text x="218" y="39" font-size="11" fill="currentColor">9h00 Tél · Esp Création</text><rect x="370" y="104" width="130" height="22" rx="6" fill="rgba(247,144,9,.25)" stroke="#f79009"/><text x="378" y="119" font-size="11" fill="currentColor">11h15 Rappel · Dupont</text><line x1="40" y1="84" x2="510" y2="84" stroke="#e5484d" stroke-width="2"/></svg>
+<ul class="plain"><li><b>Vert</b> = RDV visio ou physique, <b>bleu</b> = RDV téléphone, <b>orange</b> = rappel à heure fixe. Le <b>trait rouge</b> est l'heure actuelle.</li>
+<li>Boutons <b>Jour / Semaine</b> et flèches ← → pour changer de période. « Aujourd'hui » revient à la date du jour.</li>
+<li><b>Clique sur un bloc</b> : le détail s'ouvre en dessous (téléphone, lien de visio, fiche de RDV) avec le bouton <b>Message de rappel</b>.</li>
+<li>Les rappels sans heure ne sont pas dans la grille : ils sont dans la file d'appels (un compteur le signale sous la grille).</li>
+<li>Ce planning montre uniquement ce qui est dans Agency OS, il ne lit pas Google Agenda.</li></ul></details>
+<details open><summary><b>✉️ Messages et rappels : qui envoie quoi, quand</b></summary>
+<p>Agency OS <b>prépare</b> les messages, c'est toi qui les envoies (SMS ou WhatsApp, un clic ouvre le message prêt).</p>
+<table class="t sm"><thead><tr><th>Moment</th><th>Message</th><th>Où le trouver</th></tr></thead><tbody>
+<tr><td>Juste après la prise de RDV</td><td>Confirmation</td><td>Carte verte en haut de la page Appels (écrite à partir de la conversation si elle est enregistrée).</td></tr>
+<tr><td>La veille (RDV visio ou physique)</td><td>Rappel de la veille</td><td>Bandeau « Rappel à envoyer » sur la page Appels, ou bouton « Message de rappel » dans le Planning.</td></tr>
+<tr><td>2 heures avant</td><td>Rappel 2 h avant</td><td>Même endroit.</td></tr>
+<tr><td>RDV téléphonique</td><td>Pas de rappel par message</td><td>Une alerte te prévient 5 minutes avant l'appel.</td></tr></tbody></table>
+<p class="muted sm">Si le bandeau « Rappel à envoyer » n'apparaît pas, ouvre le Planning, clique le RDV et utilise « Message de rappel ».</p></details>
+<details open><summary><b>📞 Numéros : corriger, ajouter, annoter</b></summary>
+<ul class="plain"><li><b>✏️ Modifier</b> : corrige le numéro principal et ajoute une info dessus (ex. « direct du gérant »).</li>
+<li><b>➕ Numéro</b> : ajoute un autre numéro avec son info (portable, standard, « après 18h »). Chaque numéro a ses boutons pour copier et pour appeler depuis le Mac.</li>
+<li><b>★ Principal</b> : fait d'un numéro supplémentaire le numéro principal (l'ancien passe en supplémentaire). <b>✕</b> le retire.</li>
+<li>Ce que tu tapes reste en place même si la page se rafraîchit en arrière-plan.</li></ul></details>
+<details open><summary><b>🕒 Tout est daté : jour et heure</b></summary>
+<ul class="plain"><li>Chaque action de la fiche (appel, résumé, message, numéro ajouté…) apparaît dans <b>Historique</b> avec sa date et son heure.</li>
+<li>Un résumé automatique indique <b>l'heure de l'appel</b> et <b>l'heure d'écriture du résumé</b>. Les résumés rédigés par Claude suivent la même règle.</li>
+<li>Les notes écrites par le système commencent par la date, le mois, l'année et l'heure (ex. 12/11/2026 13:40).</li></ul></details>
+<details open><summary><b>Fiches qui reviennent, RDV passé</b></summary>
+<ul class="plain"><li>Si un RDV est passé et que tu n'as pas dit s'il a eu lieu, la fiche <b>ne retourne plus dans la file d'appels</b>. Un bandeau jaune <b>« RDV passé à qualifier »</b> apparaît : clique <b>Tenu</b> ou <b>Absent</b>. « Absent » programme un rappel le lendemain à 10 h.</li>
+<li>Les fiches que tu passes avec <b>⏭ Passer</b> restent passées toute la journée, même si tu recharges la page.</li>
+<li>Les vrais rappels en retard (date dépassée) continuent d'apparaître tant que tu n'as pas rappelé ou classé la fiche.</li></ul></details>
+<details open><summary><b>⚡ Garder ton rythme : « Ça me gêne » et temps mort</b></summary>
+<ul class="plain"><li><b>🚩 Ça me gêne</b> (en haut à droite) : si quelque chose te ralentit ou te dérange, tu l'écris en une phrase (Ctrl+Entrée pour envoyer) et tu continues. Les remarques sont gardées avec l'écran et la fiche concernés, et je les traite en lot.</li>
+<li><b>Temps mort</b> (onglet Stats) : le temps entre l'enregistrement d'un résultat et le début de l'appel suivant (clic sur le numéro ou sur Appel Mac). C'est l'indicateur de ton rythme : plus il baisse, plus tu fais d'appels sans effort.</li>
+<li>Les objections les plus fréquentes sont dans Stats : si une objection domine, c'est le signe qu'il faut ajuster une phrase du script.</li></ul></details>
 <details open><summary><b>Décroché, vraie conversation : les mots à connaître</b></summary><ul class="plain">
 <li><b>Appel passé</b> : chaque fois que tu composes un numéro.</li>
 <li><b>Décroché</b> : une personne a répondu, même si elle raccroche tout de suite. <b>C'est ton chiffre principal : 50 par jour, non négociable.</b></li>
