@@ -1,0 +1,21 @@
+const { chromium } = require('playwright');
+const path = require('path'), fs = require('fs');
+(async () => {
+  const b = await chromium.launch(); const pg = await (await b.newContext()).newPage();
+  const errs = []; pg.on('pageerror', e => errs.push(e.message));
+  const tmp = fs.mkdtempSync('/tmp/aos-'); fs.copyFileSync(path.resolve(__dirname, '../index.html'), tmp + '/index.html');
+  fs.writeFileSync(tmp + '/config.js', 'window.AOS_CONFIG={url:"",key:""};');
+  await pg.goto('file://' + tmp + '/index.html'); await pg.waitForSelector('.chal'); await pg.evaluate(() => { S.chal = false; render() });
+  const ok = (c, m) => { if (!c) { console.log('FAIL', m); process.exitCode = 1 } else console.log('ok  ', m) };
+  await pg.evaluate(() => { const t = today(), y = addDays(t, -2); S.prospects.length = 0; S.prospects.push({ id: 'o1', name: 'Vieux RDV', stage: 'contacte', phone: '0612345601', rdvAt: y + 'T14:00' }, { id: 'o2', name: 'Autre RDV', stage: 'contacte', phone: '0612345602', rdvAt: y + 'T15:00' }, { id: 'c1', name: 'A Appeler', stage: 'a_contacter', phone: '0612345603', score: 90 }); S.tab = 'appels'; S.call.pid = ''; render() });
+  ok((await pg.$$('.banner')).length === 2 && await pg.$('[data-act="alerts-toggle"]') !== null, 'alertes visibles avec bouton Réduire');
+  const y1 = await pg.evaluate(() => document.querySelector('.callcard').getBoundingClientRect().top);
+  await pg.click('[data-act="alerts-toggle"]');
+  ok((await pg.$$('.banner')).length === 0 && (await pg.innerText('body')).includes('Afficher les alertes (2)'), 'alertes réduites, compteur affiché');
+  const y2 = await pg.evaluate(() => document.querySelector('.callcard').getBoundingClientRect().top);
+  ok(y2 < y1 - 60, 'la fiche remonte (' + Math.round(y1) + ' → ' + Math.round(y2) + ')');
+  await pg.reload(); await pg.waitForSelector('.chal'); await pg.evaluate(() => { S.chal = false; render() });
+  ok(await pg.evaluate(() => alertsHidden()), 'état réduit conservé après rechargement');
+  ok(errs.length === 0, 'aucune erreur JS ' + errs.join('|'));
+  await b.close();
+})();
