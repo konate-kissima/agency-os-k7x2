@@ -1901,6 +1901,9 @@ async function attachTranscript(c,j){
     toast('Résumé prêt : '+p.name)}
   render()}
 async function recSend(blob,name){
+  if(blob.size>12*1048576&&!/\.mp3$/.test(name||'')){S.rec.busy=true;S.rec.busyPid=S.call.pid;S.rec.msg='Long enregistrement : compression en cours…';toast(S.rec.msg);render();
+    try{blob=await compressAudio(blob);name=(name||'appel').replace(/\.\w+$/,'')+'.mp3'}catch(e){S.rec.busy=false;S.rec.msg='Compression impossible : '+e.message;toast(S.rec.msg);render();return}
+    S.rec.busy=false}
   if(blob.size>24*1048576){S.rec.msg='Enregistrement trop long ou trop lourd pour être transcrit ('+Math.round(blob.size/1048576)+' Mo).';toast(S.rec.msg);S.rec.on=false;S.rec.busy=false;render();return}
   const cfg=window.AOS_CONFIG||{};S.rec.busy=true;S.rec.busyPid=S.call.pid;S.rec.on=false;S.rec.msg='';S.rec.pending=(S.rec.pending||0)+1;render();
   const pid0=S.call.pid,t0=new Date().toISOString();
@@ -1927,13 +1930,22 @@ async function recSend(blob,name){
   render();
   if(S.rec.resolve){const f=S.rec.resolve;S.rec.resolve=null;f()}
 }
+function recAskHide(){const el=document.getElementById('recask');if(el)el.remove()}
+// Après 30 min d'enregistrement : « tu es toujours en appel ? ». Sans réponse au bout de 10 min, l'enregistrement s'arrête (et est transcrit).
+function recAsk(){
+  if(!(S.rec.on&&S.rec.mr&&S.rec.mr.state!=='inactive'))return;
+  let el=document.getElementById('recask');
+  if(!el){el=document.createElement('div');el.id='recask';el.style.cssText='position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:99999;background:#fff;color:#222;border:2px solid #c0392b;border-radius:16px;padding:14px 18px;box-shadow:0 12px 40px rgba(0,0,0,.4);max-width:420px;font-size:15px';document.body.appendChild(el)}
+  el.innerHTML='<b>⏱ L\'enregistrement dure depuis 30 minutes.</b><br>Es-tu toujours en appel ?<div style="display:flex;gap:8px;margin-top:10px"><button class="btn primary" data-act="rec-keep">Oui, continuer</button><button class="btn" data-act="rec-end">Non, arrêter</button></div><div class="sm" style="margin-top:6px;color:#777">Sans réponse dans 10 min, l\'enregistrement s\'arrête.</div>';
+  try{beep()}catch(e){}
+  clearTimeout(S.rec.askT);S.rec.askT=setTimeout(()=>{if(S.rec.on&&S.rec.mr&&S.rec.mr.state!=='inactive'){toast('Pas de réponse : enregistrement arrêté.');S.rec.mr.stop()}},10*60000)}
 async function recStart(){
   try{
     const st=await navigator.mediaDevices.getUserMedia({audio:true});
     const mr=new MediaRecorder(st);S.rec.chunks=[];S.rec.mr=mr;
     mr.ondataavailable=e=>{if(e.data.size)S.rec.chunks.push(e.data)};
-    mr.onstop=()=>{clearTimeout(S.rec.timer);S.rec.on=false;if(S.rec.discard){S.rec.discard=false;st.getTracks().forEach(t=>t.stop());S.rec.chunks=[];render();return}S.call.dur=Math.round((Date.now()-S.rec.t0)/1000);st.getTracks().forEach(t=>t.stop());const bl=new Blob(S.rec.chunks,{type:mr.mimeType||'audio/webm'});recSend(bl,'appel.webm');if(S.rec.afterStop){const rr=S.rec.afterStop;S.rec.afterStop=null;callResult(rr)}};
-    S.rec.t0=Date.now();mr.start(1000);S.rec.on=true;clearTimeout(S.rec.timer);S.rec.timer=setTimeout(()=>{if(S.rec.on&&S.rec.mr&&S.rec.mr.state!=='inactive'){toast('Enregistrement arrêté automatiquement après 45 min.');S.rec.mr.stop()}},45*60000);S.rec.msg='Dis à ton interlocuteur que l\'appel est enregistré.';render();
+    mr.onstop=()=>{clearTimeout(S.rec.timer);clearTimeout(S.rec.askT);recAskHide();S.rec.on=false;if(S.rec.discard){S.rec.discard=false;st.getTracks().forEach(t=>t.stop());S.rec.chunks=[];render();return}S.call.dur=Math.round((Date.now()-S.rec.t0)/1000);st.getTracks().forEach(t=>t.stop());const bl=new Blob(S.rec.chunks,{type:mr.mimeType||'audio/webm'});recSend(bl,'appel.webm');if(S.rec.afterStop){const rr=S.rec.afterStop;S.rec.afterStop=null;callResult(rr)}};
+    S.rec.t0=Date.now();mr.start(1000);S.rec.on=true;clearTimeout(S.rec.timer);S.rec.timer=setTimeout(recAsk,30*60000);S.rec.msg='Dis à ton interlocuteur que l\'appel est enregistré.';render();
   }catch(e){S.rec.msg='Micro refusé : autorise-le dans Chrome (cadenas de la barre d\'adresse).';toast(S.rec.msg);render()}
 }
 function saveSnooze(){try{localStorage.setItem('aos_snooze',JSON.stringify(S.snooze))}catch(e){}}
@@ -2049,6 +2061,8 @@ document.addEventListener('click',async e=>{
   if(a==='rq-go'){S.rq.step=b.dataset.s||'';rdvqCheck();return}
   if(a==='rq-do'){rqDo(b.dataset.d);return}
   if(a==='rec-start'){recStart();return}
+  if(a==='rec-keep'){recAskHide();clearTimeout(S.rec.askT);clearTimeout(S.rec.timer);S.rec.timer=setTimeout(recAsk,30*60000);return}
+  if(a==='rec-end'){recAskHide();clearTimeout(S.rec.askT);if(S.rec.mr&&S.rec.mr.state!=='inactive')S.rec.mr.stop();return}
   if(a==='rec-stop'){if(S.rec.mr&&S.rec.mr.state!=='inactive')S.rec.mr.stop();return}
   if(a==='numedit'){const p=byId(S.call.pid);S.call.editNum=S.call.editNum===(p&&p.id)?'':(p?p.id:'');render();return}
   if(a==='numsave'){const p=byId(S.call.pid),v=(($('#cphone')||{}).value||'').trim();if(!p)return;if(normPhone(v).replace(/\D/g,'').length<9){toast('Numéro trop court.');return}
