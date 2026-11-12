@@ -719,6 +719,7 @@ function appelsHTML(){
   const forced=S.call.open?byId(S.call.open):null;
   let cur=forced||(S.call.pid?byId(S.call.pid):null);
   if(!forced&&(!cur||!Q.some(x=>x.id===cur.id)))cur=Q[0]||null;
+  if(cur&&S.call.pid!==cur.id&&S.rec&&S.rec.on&&S.rec.mr&&S.rec.mr.state!=='inactive'){S.rec.discard=true;S.rec.mr.stop();S.rec.on=false;toast('Enregistrement de la fiche précédente arrêté (non utilisé).')}
   if(cur&&S.call.pid!==cur.id){S.call.pid=cur.id;S.call.sstep=0;S.call.note='';S.call.auto='';S.call.obj='—';S.call.obj2='';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0}
   if(!cur)S.call.pid='';
   const ang=S.call.angle||sc.angle;
@@ -1900,6 +1901,7 @@ async function attachTranscript(c,j){
     toast('Résumé prêt : '+p.name)}
   render()}
 async function recSend(blob,name){
+  if(blob.size>24*1048576){S.rec.msg='Enregistrement trop long ou trop lourd pour être transcrit ('+Math.round(blob.size/1048576)+' Mo).';toast(S.rec.msg);S.rec.on=false;S.rec.busy=false;render();return}
   const cfg=window.AOS_CONFIG||{};S.rec.busy=true;S.rec.busyPid=S.call.pid;S.rec.on=false;S.rec.msg='';S.rec.pending=(S.rec.pending||0)+1;render();
   const pid0=S.call.pid,t0=new Date().toISOString();
   try{
@@ -1930,8 +1932,8 @@ async function recStart(){
     const st=await navigator.mediaDevices.getUserMedia({audio:true});
     const mr=new MediaRecorder(st);S.rec.chunks=[];S.rec.mr=mr;
     mr.ondataavailable=e=>{if(e.data.size)S.rec.chunks.push(e.data)};
-    mr.onstop=()=>{S.call.dur=Math.round((Date.now()-S.rec.t0)/1000);st.getTracks().forEach(t=>t.stop());const bl=new Blob(S.rec.chunks,{type:mr.mimeType||'audio/webm'});recSend(bl,'appel.webm');if(S.rec.afterStop){const rr=S.rec.afterStop;S.rec.afterStop=null;callResult(rr)}};
-    S.rec.t0=Date.now();mr.start(1000);S.rec.on=true;S.rec.msg='Dis à ton interlocuteur que l\'appel est enregistré.';render();
+    mr.onstop=()=>{clearTimeout(S.rec.timer);S.rec.on=false;if(S.rec.discard){S.rec.discard=false;st.getTracks().forEach(t=>t.stop());S.rec.chunks=[];render();return}S.call.dur=Math.round((Date.now()-S.rec.t0)/1000);st.getTracks().forEach(t=>t.stop());const bl=new Blob(S.rec.chunks,{type:mr.mimeType||'audio/webm'});recSend(bl,'appel.webm');if(S.rec.afterStop){const rr=S.rec.afterStop;S.rec.afterStop=null;callResult(rr)}};
+    S.rec.t0=Date.now();mr.start(1000);S.rec.on=true;clearTimeout(S.rec.timer);S.rec.timer=setTimeout(()=>{if(S.rec.on&&S.rec.mr&&S.rec.mr.state!=='inactive'){toast('Enregistrement arrêté automatiquement après 45 min.');S.rec.mr.stop()}},45*60000);S.rec.msg='Dis à ton interlocuteur que l\'appel est enregistré.';render();
   }catch(e){S.rec.msg='Micro refusé : autorise-le dans Chrome (cadenas de la barre d\'adresse).';toast(S.rec.msg);render()}
 }
 function saveSnooze(){try{localStorage.setItem('aos_snooze',JSON.stringify(S.snooze))}catch(e){}}
