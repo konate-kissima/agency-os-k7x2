@@ -606,6 +606,46 @@ function todayPlanHTML(){
   if(!items.length)return '';
   items.sort((a,b)=>a.time.localeCompare(b.time));
   return `<details class="card" open><summary><b>Au programme aujourd'hui (${items.length})</b></summary>${items.map(x=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:6px 0"><span><b>${esc(x.time.replace(':','h'))}</b> · ${x.k} · <b>${esc(x.p.name)}</b> <span class="muted sm">${esc(fmtPhone(x.p.phone))}</span></span><button class="btn sm" data-act="al-open" data-id="${esc(x.p.id)}">Ouvrir</button></div>`).join('')}</details>`}
+
+// ---------- Planning : RDV et rappels à heure fixe, par jour ou par semaine ----------
+function planEvents(d1,d2){
+  const out=[];
+  (S.prospects||[]).forEach(p=>{
+    if(p.optout)return;
+    let rdvKey='';
+    if(p.rdvAt&&p.stage!=='perdu'&&p.stage!=='stop'){
+      const d=p.rdvAt.slice(0,10),t=p.rdvAt.slice(11,16);rdvKey=d+' '+t;
+      if(d>=d1&&d<=d2){const ty=p.rdvType||'';const st=p.rdvShow==='tenu'?'tenu':p.rdvShow==='absent'?'absent':(new Date(p.rdvAt)<new Date()?'passe':'avenir');
+        out.push({d,t,p,kind:ty==='tel'?'tel':'rdv',type:ty,st,link:p.rdvLink||'',place:p.rdvPlace||''})}}
+    if(p.stage==='contacte'&&p.nextDate&&p.nextTime&&p.nextDate>=d1&&p.nextDate<=d2&&(p.nextDate+' '+p.nextTime)!==rdvKey)out.push({d:p.nextDate,t:p.nextTime,p,kind:'rap',type:'',st:'avenir',link:'',place:''})});
+  return out.sort((a,b)=>(a.d+a.t).localeCompare(b.d+b.t))}
+const PLAN_K={rdv:['🖥','RDV'],tel:['📞','RDV téléphonique'],rap:['⏰','Rappel']};
+function planRow(e,showDate){
+  const p=e.p,[ic,lab]=PLAN_K[e.kind];
+  const ty=e.kind==='rdv'&&e.type?' '+(RDV_T[e.type]||e.type):'';
+  const stt=e.st==='tenu'?'<span class="pill">✅ tenu</span>':e.st==='absent'?'<span class="pill" style="background:#f6d9d5">⚠️ absent</span>':e.st==='passe'&&e.kind!=='rap'?'<span class="pill">❓ passé</span>':'';
+  const late=e.kind==='rap'&&new Date(e.d+'T'+e.t)<new Date()?' <span class="pill" style="background:#f6e7c8">en retard</span>':'';
+  const tel=p.phone?`<a href="tel:${esc(String(p.phone).replace(/\s/g,''))}" class="muted sm">${esc(fmtPhone(p.phone))}</a>`:'';
+  const link=e.link?`<a class="btn sm" href="${esc(e.link)}" target="_blank" rel="noopener">Lien de visio</a>`:(e.kind==='rdv'&&e.type!=='physique'&&e.type!=='tel'?'<span class="muted sm">pas de lien de visio</span>':'');
+  const place=e.place?`<span class="muted sm">📍 ${esc(e.place)}</span>`:'';
+  const hh=(new Date(e.d+'T'+e.t)-Date.now())/36e5;
+  const remBtn=(e.kind==='rdv'&&e.type!=='tel'&&hh>-0.25)?`<button class="btn sm primary" data-act="rem-open" data-id="${esc(p.id)}" data-k="${hh>2.5?'r24':'r2'}">Message de rappel${(hh>2.5?p.rem24:p.rem2)?' ✓':''}</button>`:'';
+  const btn=remBtn+(e.kind==='rap'?`<button class="btn sm primary" data-act="al-open" data-id="${esc(p.id)}">Appeler</button>`:`<button class="btn sm" data-act="rdvopen" data-id="${esc(p.id)}">Fiche de RDV</button><button class="btn sm" data-act="open" data-id="${esc(p.id)}">Fiche</button>`);
+  const dt=showDate?`<span class="muted sm">${esc(new Date(e.d+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}))}</span> `:'';
+  return `<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:10px 0;gap:8px;flex-wrap:wrap"><span>${dt}<b style="font-size:1.1em">${esc(e.t.replace(':','h'))}</b> · ${ic} ${lab}${esc(ty)} · <b>${esc(p.name)}</b> ${stt}${late}<br>${p.dirigeant?'<span class="muted sm">'+esc(p.dirigeant)+'</span> · ':''}${tel} ${place}</span><span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${link}${btn}</span></div>`}
+function planningHTML(){
+  S.plan=S.plan||{d:today(),m:'day'};const P=S.plan,t=today();
+  const dl=d=>new Date(d+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  let from=P.d,to=P.d,title=dl(P.d)+(P.d===t?' (aujourd\'hui)':'');
+  if(P.m==='week'){const dt=new Date(P.d+'T12:00:00');const dow=(dt.getDay()+6)%7;from=addDays(P.d,-dow);to=addDays(from,6);title='Semaine du '+dl(from)+' au '+dl(to)}
+  const ev=planEvents(from,to);
+  const nav=`<div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><button class="btn sm" data-act="plan-nav" data-n="-1" aria-label="Précédent">←</button><button class="btn sm${P.d===t?' primary':''}" data-act="plan-nav" data-n="0">Aujourd'hui</button><button class="btn sm" data-act="plan-nav" data-n="1" aria-label="Suivant">→</button><span style="flex:1"></span><button class="btn sm${P.m==='day'?' primary':''}" data-act="plan-mode" data-m="day">Jour</button><button class="btn sm${P.m==='week'?' primary':''}" data-act="plan-mode" data-m="week">Semaine</button></div>`;
+  let body='';
+  if(P.m==='day')body=ev.length?ev.map(e=>planRow(e,false)).join(''):'<p class="muted">Rien de prévu ce jour-là.</p>';
+  else{const days=[];for(let i=0;i<7;i++)days.push(addDays(from,i));
+    body=days.map(d=>{const L=ev.filter(e=>e.d===d);return `<div style="margin:10px 0 4px"><b${d===t?' style="color:var(--accent)"':''}>${esc(dl(d))}${d===t?' · aujourd\'hui':''}</b> <span class="muted sm">${L.length?L.length+' prévu'+(L.length>1?'s':''):''}</span></div>${L.length?L.map(e=>planRow(e,false)).join(''):'<div class="muted sm" style="border-top:1px solid var(--line);padding:6px 0">—</div>'}`}).join('')}
+  const noTime=(S.prospects||[]).filter(p=>p.stage==='contacte'&&!p.optout&&p.nextDate&&!p.nextTime&&p.nextDate>=from&&p.nextDate<=to).length;
+  return `<div class="card"><h2 style="margin-top:0">🗓 Planning</h2>${nav}<h3 style="text-transform:capitalize">${esc(title)}</h3>${body}${noTime?`<p class="muted sm" style="margin-top:12px">+ ${noTime} rappel${noTime>1?'s':''} sans heure précise (visibles dans la file d'appels).</p>`:''}<p class="muted sm" style="margin-top:12px">Ce planning montre les RDV et les rappels à heure fixe enregistrés dans Agency OS. Il ne lit pas Google Agenda.</p></div>`}
 function planItems(){
   const t=today(),items=[];
   S.prospects.forEach(p=>{
@@ -1825,7 +1865,7 @@ async function saveGoals(){
 }
 
 /* ================= rendu ================= */
-const TABS=[['appels','📞 Appels'],['auj','🔥 Aujourd\'hui'],['stats','📊 Stats'],['clients','🤝 Clients'],['donnees','🗂 Données'],['outreach','💬 DM & vidéos'],['contenu','🎬 Contenu'],['scripts','📝 Scripts'],['aide','💡 Explication']];
+const TABS=[['appels','📞 Appels'],['auj','🔥 Aujourd\'hui'],['plan','🗓 Planning'],['stats','📊 Stats'],['clients','🤝 Clients'],['donnees','🗂 Données'],['outreach','💬 DM & vidéos'],['contenu','🎬 Contenu'],['scripts','📝 Scripts'],['aide','💡 Explication']];
 const TAB2=['outreach','contenu','scripts','aide'];
 function render(){
   const app=$('#app');
@@ -1835,7 +1875,7 @@ function render(){
   let body='';
   if(!S.loaded)body='<div class="card">Chargement…</div>';
   else if(S.err)body=`<div class="banner">Erreur de données : ${esc(S.err)}</div>`;
-  else body={auj:aujourdhuiHTML,appels:appelsHTML,outreach:outreachHTML,contenu:contenuHTML,pipeline:pipelineHTML,clients:clientsHTML,stats:statsHTML,scripts:scriptsHTML,donnees:donneesHTML,aide:aideHTML}[S.tab]();
+  else body={plan:planningHTML,auj:aujourdhuiHTML,appels:appelsHTML,outreach:outreachHTML,contenu:contenuHTML,pipeline:pipelineHTML,clients:clientsHTML,stats:statsHTML,scripts:scriptsHTML,donnees:donneesHTML,aide:aideHTML}[S.tab]();
   document.querySelectorAll('.chal').forEach(x=>x.remove());
   app.innerHTML=`<header class="top"><span class="brand"><i class="logo" aria-hidden="true">↗</i><span>AGENCY<b>OS</b></span></span><nav class="tabs" role="tablist">${TABS.map(([k,l])=>`<button role="tab" class="${TAB2.includes(k)?'tab2':''}" aria-selected="${S.tab===k}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</nav>${DB.mode==='cloud'?'<button class="btn sm" data-act="logout">Déconnexion</button>':'<span class="chip">Mode local</span>'}</header><main>${body}</main>`;
   if(S.chal&&S.loaded&&!S.err)document.body.insertAdjacentHTML('beforeend',challengeHTML());
@@ -2079,6 +2119,8 @@ document.addEventListener('click',async e=>{
   if(a==='rapl-toggle'){S.call.showRap=!S.call.showRap;render();return}
   if(a==='wa-toggle'){S.call.showWa=!S.call.showWa;if(!S.call.showWa)S.call.waq='';render();if(S.call.showWa){const e=$('#waq');if(e)e.focus()}return}
   if(a==='wa-yes'||a==='wa-no'){await waReply(b.dataset.id,a==='wa-yes');return}
+  if(a==='plan-nav'){S.plan=S.plan||{d:today(),m:'day'};const n=+b.dataset.n;S.plan.d=n===0?today():addDays(S.plan.d,n*(S.plan.m==='week'?7:1));render();return}
+  if(a==='plan-mode'){S.plan=S.plan||{d:today(),m:'day'};S.plan.m=b.dataset.m;render();return}
   if(a==='day-toggle'){S.call.showDay=!S.call.showDay;render();return}
   if(a==='rem-toggle'){S.call.showRem=!S.call.showRem;render();return}
   if(a==='sstep'){S.call.sstep=Math.max(0,parseInt(b.dataset.i,10)||0);render();return}
