@@ -1,0 +1,24 @@
+const { chromium } = require('playwright');
+const path = require('path'), fs = require('fs');
+(async () => {
+  const b = await chromium.launch(); const pg = await (await b.newContext()).newPage();
+  const errs = []; pg.on('pageerror', e => errs.push(e.message));
+  const tmp = fs.mkdtempSync('/tmp/aos-'); fs.copyFileSync(path.resolve(__dirname, '../index.html'), tmp + '/index.html');
+  fs.writeFileSync(tmp + '/config.js', 'window.AOS_CONFIG={url:"",key:""};');
+  await pg.goto('file://' + tmp + '/index.html'); await pg.waitForSelector('.chal'); await pg.evaluate(() => { S.chal = false; render() });
+  const ok = (c, m) => { if (!c) { console.log('FAIL', m); process.exitCode = 1 } else console.log('ok  ', m) };
+  await pg.evaluate(async () => { const d = { name: 'Test Num', stage: 'a_contacter', phone: '0612345678' }; S.prospects.length = 0; S.prospects.push({ id: 'n1', ...d }); await DB.set('prospects', 'n1', d); S.call.pid = 'n1'; S.tab = 'appels'; render() });
+  await pg.click('[data-act="numadd"]');
+  await pg.fill('#cphone2', '01 39 12 34 56'); await pg.fill('#cphlab2', 'direct du gérant');
+  await pg.click('[data-act="numaddsave"]'); await pg.waitForTimeout(300);
+  let t = await pg.innerText('body'); ok(t.includes('01 39 12 34 56') && t.includes('direct du gérant'), 'numéro ajouté avec son info');
+  await pg.click('[data-act="numedit"]'); await pg.fill('#cphlab', 'portable'); await pg.click('[data-act="numsave"]'); await pg.waitForTimeout(300);
+  t = await pg.innerText('body'); ok(t.includes('portable'), 'info sur le numéro principal');
+  await pg.click('[data-act="numprim"]'); await pg.waitForTimeout(300);
+  const st = await pg.evaluate(() => { const p = byId('n1'); return [p.phone, p.phones[0].n, p.phones[0].label] });
+  ok(st[0] === '01 39 12 34 56' && st[1] === '0612345678' && st[2] === 'portable', 'passer un numéro en principal : échange ' + st);
+  await pg.click('[data-act="numdel"]'); await pg.waitForTimeout(300);
+  ok(await pg.evaluate(() => byId('n1').phones.length === 0), 'retirer un numéro');
+  ok(errs.length === 0, 'aucune erreur JS ' + errs.join('|'));
+  await b.close();
+})();
