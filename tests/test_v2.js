@@ -63,6 +63,7 @@ const path = require('path'), fs = require('fs');
   ok((await pg.evaluate(() => timelineHTML(byId('P2')))).includes('Conversation complète') && (await pg.evaluate(() => timelineHTML(byId('P2')))).includes('Réécouter'), 'historique : conversation complète + réécoute');
   // RDV physique exige lieu
   await pg.evaluate(() => { S.call.pid = 'P3'; S.call.open = 'P3'; S.call.step = 'ans'; render() });
+  await pg.evaluate(() => { const a = document.getElementById('alarm'); if (a) a.remove() });
   await pg.click('[data-act=callpanel][data-r=rdvp]'); await pg.fill('#cr', '2026-11-12T10:00'); await pg.click('[data-act=callres][data-r=rdvp]');
   ok(/lieu/.test(await pg.textContent('#toast')), 'RDV physique exige le lieu');
   // raccroché au nez = conversation

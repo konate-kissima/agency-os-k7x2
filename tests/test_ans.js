@@ -17,6 +17,7 @@ const path = require('path'), fs = require('fs');
   await pg.locator('[data-act=callstep][data-s=ans]').click();
   ok(await pg.locator('button[data-r="ans"]').count() === 1, 'bouton « A répondu, sans suite » présent');
   await pg.locator('button[data-act=callpanel][data-r="rap"]').click();
+  await pg.locator('summary:has-text("Autre date")').click();
   ok(await pg.locator('#cd').inputValue() === '', 'date de rappel vide par défaut');
   await pg.locator('button[data-act=callres][data-r="rap"]').click();
   ok(await pg.evaluate(() => S.prospects[0].stage) === 'a_contacter', 'À rappeler sans date : refusé');

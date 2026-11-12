@@ -240,6 +240,7 @@ h1,h2,h3,h4,.hero,.st b,.callnum,.numrow .callnum,.pill b{font-variant-numeric:l
 .callcard .cres2 .big{padding:18px 8px}
 .actbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}.actbar.a3{grid-template-columns:repeat(3,minmax(0,1fr))}.actbar.a3 .btn{font-size:13px;padding:11px 4px}.actbar .btn{width:100%;box-sizing:border-box;text-align:center;white-space:nowrap;padding:11px 8px;font-weight:650;font-size:14px;display:flex;align-items:center;justify-content:center;min-height:44px}
 .tabs .tab2{opacity:.55;font-size:.92em}.tabs .tab2[aria-selected=true]{opacity:1}.chartcard svg{width:100%;height:auto;display:block}.chartcard .lg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#6b6652;margin:4px 0 8px}.chartcard .lg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}.chgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px}
+body .cres2{flex-wrap:wrap}.cres2 .btn:not(.big){flex:1 1 auto}.cres2 .big{min-width:130px}@media(max-width:560px){kbd.kh{display:none}}kbd.kh,.chip2 kbd{font:700 10px/1 ui-monospace,monospace;opacity:.55;margin-left:7px;border:1px solid currentColor;border-radius:4px;padding:1px 4px;vertical-align:middle}.chips2{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.chip2{padding:11px 14px;font-weight:700}.chip2 kbd{margin:0 8px 0 0}.chip2.hotc{border-color:#d9822b;background:rgba(247,144,9,.14)}.btn.on{outline:2px solid #b8892b}#geneb{white-space:nowrap}#gene{position:fixed;left:12px;bottom:58px;z-index:46;width:min(340px,calc(100vw - 24px));background:var(--surface);border:2px solid var(--accent2);border-radius:12px;padding:12px;box-shadow:0 8px 28px rgba(0,0,0,.25)}#gene textarea{width:100%;margin-top:6px}
 </style><script>(function(){var p=location.pathname,base=0;async function chk(){try{var b=(await (await fetch(p,{cache:"no-store"})).text()).length;if(!base){base=b;return}if(b!==base&&!document.getElementById("newv")){var d=document.createElement("div");d.id="newv";d.style.cssText="position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#101828;color:#fff;padding:10px 16px;border-radius:10px;z-index:99;font:14px sans-serif;box-shadow:0 4px 20px rgba(0,0,0,.3)";d.innerHTML="Nouvelle version disponible <button style='margin-left:10px;padding:4px 10px;border-radius:6px;border:0;cursor:pointer'>Recharger</button>";d.querySelector("button").onclick=function(){location.replace(p+"?v="+Date.now())};document.body.appendChild(d)}}catch(e){}}setTimeout(chk,5000);setInterval(chk,600000)})()</script>
 </head><body>
 <div id="app"></div><div id="toast" role="status"></div><dialog id="dlg"></dialog>
@@ -268,6 +269,7 @@ let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.style.display
 const STAGES=[['a_contacter','À contacter'],['contacte','Contacté / à rappeler'],['rdv','RDV pris'],['rdv_fait','RDV fait'],['pilote','Pilote proposé'],['signe','Signé'],['perdu','Perdu'],['stop','Ne plus appeler']];
 const RES=[['rdvv','RDV visio','primary','Il accepte une visio : une fenêtre s\'ouvre pour la date, l\'heure et le lien.'],['rdvt','RDV téléphonique','primary','Rappel à heure fixe : une petite fenêtre te prévient 5 minutes avant. Objectif : finir en visio ou en physique.'],['rdvp','RDV physique','primary','Rendez-vous en face à face : une fenêtre s\'ouvre pour la date, l\'heure et le lieu.'],['rdv','RDV pris (ancien)','','Ancien bouton, conservé pour l\'historique.'],['rap','À rappeler','','Rappel téléphonique : une fenêtre s\'ouvre pour choisir la date et l\'heure.'],['ans','Sans suite','','Vraie discussion sans résultat (il réfléchit, mail à envoyer, pas décideur…). Relance par défaut dans 3 jours ouvrés.'],['nr','Pas répondu','','Ça sonne dans le vide, personne ne décroche ou occupé. Nouvel essai à un autre moment.'],['rep','Répondeur','','Messagerie vocale. Nouvel essai à un autre moment.'],['hu','Raccroché au nez','','Il décroche puis raccroche tout de suite. 1re fois : rappel dans 3 jours ouvrés. 2e fois : fiche perdue.'],['no','Pas intéressé','','Il refuse. Choisis l\'objection. Fiche classée perdue.'],['bad','Mauvais numéro','','Le numéro ne marche pas ou n\'est pas celui de l\'entreprise.'],['stop','Ne plus appeler','danger','Il demande à ne plus être appelé : fiche bloquée pour toujours.']];
 const RES_L=Object.fromEntries(RES.map(r=>[r[0],r[1]]));
+const RAPQ=[['1','Demain'],['3','Dans 3 jours'],['mon','Lundi'],['14','Dans 2 semaines'],['today','Plus tard aujourd\'hui']];
 const RES_BY=Object.fromEntries(RES.map(r=>[r[0],r]));
 const RES_RDV=['rdvv','rdvt','rdvp'];
 const JOINT=['rdv','rdvv','rdvt','rdvp','rap','ans','no','stop'];
@@ -317,6 +319,7 @@ La garantie : À DÉCIDER PAR TOI, par exemple « si je n'ai pas livré les 20 d
 
 La phrase : « Je vous amène 20 demandes de devis en 90 jours sur Facebook et Instagram ; vous payez Meta directement, et la deuxième moitié de mon tarif n'est due que quand elles sont arrivées. »`;
 const OBJ=['—','Pas le temps','Déjà une agence','Le bouche-à-oreille suffit','Pas de budget / trop cher','Déjà trop de travail','Doit en parler (associé, conjoint)','A déjà essayé les pubs (sans résultat)','Pas le décideur','Méfiance','🔥 Signal chaud : demande le coût d\'un client','Autre'];
+const OBJC=OBJ.filter(o=>o!=='—'&&o!=='Autre');
 const MAX_TRIES=5;
 const DEF_SCRIPTS={
  P:{name:'P · Court (Platten × Hamza)',text:`1. OUVERTURE
@@ -794,7 +797,8 @@ function appelsHTML(){
   const hist=callsOf(cur.id).slice(-4).reverse();
   const mob=isMobile(cur.phone);
   const lastH=hist[0];
-  const rb=k=>{const [,l,c,t]=RES_BY[k];const pn=['rdvv','rdvt','rdvp','rap','no'].includes(k),on=pn&&S.call.panel===k;return `<button class="btn ${c}" data-act="${pn?'callpanel':'callres'}" data-r="${k}" title="${esc(t||'')}"${on?' style="outline:2px solid #b8892b"':''}>${l}</button>`};
+  const KH={rdvv:'1',rdvt:'2',rdvp:'3',rap:'4',ans:'5',no:'6',hu:'7',stop:'8'};
+  const rb=k=>{const [,l,c,t]=RES_BY[k];const pn=['rdvv','rdvt','rdvp','rap','no'].includes(k),on=pn&&S.call.panel===k;return `<button class="btn ${c}" data-act="${pn?'callpanel':'callres'}" data-r="${k}" title="${esc(t||'')}"${on?' style="outline:2px solid #b8892b"':''}>${l}<kbd class="kh">${KH[k]||''}</kbd></button>`};
   const inp=(id,lab,val,ph)=>`<div style="min-width:0"><label class="f" for="${id}">${lab}</label><input id="${id}" style="width:100%" placeholder="${esc(ph||'')}" value="${esc(val||'')}"></div>`;
   const pnl=S.call.panel,pbox='<div class="card" style="border:2px solid #b8892b;margin:8px 0">',pcancel='<button class="btn sm" data-act="callpanel" data-r="">Annuler</button>';
   const ptsFilled=!!(S.call.pt1||S.call.pt2||S.call.pt3);
@@ -802,22 +806,24 @@ function appelsHTML(){
    <div class="cfields"><div><label class="f" for="cr">Date et heure</label><input type="datetime-local" id="cr" value="${esc(S.call.rdvAt)}"></div>${pnl==='rdvp'?inp('cl','Lieu',S.call.place,'Adresse'):pnl==='rdvt'?'':inp('cv','Lien visio (facultatif)',S.call.link,'https://meet.google.com/…')}</div>
    <details class="sm" style="margin:6px 0"${ptsFilled?' open':''}><summary><b>Points évoqués</b> <span class="muted">${ptsFilled?'(repris du résumé de l\'appel, modifie si besoin)':'(facultatif, repris dans la confirmation)'}</span></summary><div class="cfields" style="grid-template-columns:1fr">${inp('pt1','Leur activité ou besoin',S.call.pt1,'ex. pompes à chaleur, rénovation')}${inp('pt2','Leur objectif',S.call.pt2,'ex. recevoir plus de demandes de devis qualifiées')}${inp('pt3','Point sensible',S.call.pt3,'ex. garder leur marge')}</div></details>
    <div class="row" style="gap:6px"><button class="btn primary" data-act="callres" data-r="${pnl}">Enregistrer le RDV</button>${pcancel}</div></div>`
-   :pnl==='rap'?`${pbox}<b>À rappeler (rappel téléphonique)</b>
-   <div class="cfields"><div><label class="f" for="cd">Rappel le</label><input type="date" id="cd" value="${esc(S.call.date||'')}"></div><div><label class="f" for="ct">à (facultatif)</label><input type="time" id="ct" value="${esc(S.call.time||'')}" title="Facultatif : sans heure, la fiche revient simplement ce jour-là. Avec une heure, une petite fenêtre te prévient 5 minutes avant"></div></div>
-   <div class="row" style="gap:6px"><button class="btn primary" data-act="callres" data-r="rap">Programmer le rappel</button>${pcancel}</div></div>`
+   :pnl==='rap'?`${pbox}<b>À rappeler</b> <span class="muted sm">un clic programme le rappel (sans heure)</span>
+   <div class="chips2">${RAPQ.map(([k,l],i)=>`<button class="btn chip2" data-act="rapquick" data-k="${k}"><kbd>${i+1}</kbd>${l}</button>`).join('')}</div>
+   <details class="sm" style="margin-top:8px"><summary>Autre date ou heure précise</summary><div class="cfields"><div><label class="f" for="cd">Rappel le</label><input type="date" id="cd" value="${esc(S.call.date||'')}"></div><div><label class="f" for="ct">à (facultatif)</label><input type="time" id="ct" value="${esc(S.call.time||'')}" title="Facultatif : sans heure, la fiche revient simplement ce jour-là. Avec une heure, une petite fenêtre te prévient 5 minutes avant"></div></div>
+   <div class="row" style="gap:6px"><button class="btn primary" data-act="callres" data-r="rap">Programmer le rappel</button></div></details>
+   <div class="row" style="gap:6px;margin-top:6px">${pcancel}</div></div>`
    :pnl==='mail'?`${pbox}<b>✉️ Mail de suivi</b> <span class="muted sm">(modifie librement avant d'envoyer)</span>
    <div style="margin-top:6px">${inp('mt','Destinataire',(S.call.mail||{}).to,'email@entreprise.fr')}<label class="f" for="ms">Objet</label><input id="ms" style="width:100%" value="${esc((S.call.mail||{}).su||'')}"><label class="f" for="mb">Message</label><textarea id="mb" rows="14" style="width:100%">${esc((S.call.mail||{}).body||'')}</textarea></div>
    <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><button class="btn primary" data-act="mailgmail">Ouvrir dans Gmail</button><button class="btn" data-act="mailcopy">Copier le texte</button><button class="btn" data-act="mailtodo" title="Le brouillon est gardé, tu le retrouves en haut de la liste ce soir">📥 À envoyer ce soir</button>${pcancel}</div></div>`
-   :pnl==='no'?`${pbox}<b>Pas intéressé</b>
-   <div class="cfields" style="grid-template-columns:1fr"><div><label class="f" for="co">Objection : choisis dans la liste ou écris la tienne</label><input id="co" list="objl" style="width:100%" autocomplete="off" placeholder="Clique pour la liste, ou écris…" value="${esc(S.call.obj&&S.call.obj!=='—'?S.call.obj:'')}"><datalist id="objl">${OBJ.filter(o=>o!=='—').map(o=>`<option value="${esc(o)}">`).join('')}</datalist></div></div>
-   <div class="row" style="gap:6px"><button class="btn primary" data-act="callres" data-r="no">Enregistrer</button>${pcancel}</div></div>`:'';
+   :pnl==='no'?`${pbox}<b>Pas intéressé : quelle objection ?</b> <span class="muted sm">un clic enregistre</span>
+   <div class="chips2">${OBJC.map((o,i)=>`<button class="btn chip2${/Signal chaud/.test(o)?' hotc':''}" data-act="objpick" data-o="${esc(o)}"><kbd>${i<9?i+1:0}</kbd>${esc(o)}</button>`).join('')}<button class="btn chip2" data-act="objpick" data-o="—"><kbd>X</kbd>Aucune objection dite</button></div>
+   <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><input id="co" style="flex:1;min-width:200px" autocomplete="off" placeholder="Autre : écris-la puis Entrée" value="${esc(S.call.obj&&S.call.obj!=='—'&&!OBJ.includes(S.call.obj)?S.call.obj:'')}"><button class="btn primary" data-act="callres" data-r="no">Enregistrer</button>${pcancel}</div></div>`:'';
   const rc=S.rec||{};
   const recRow=window.__sb?`<div class="row sm" style="margin:8px 0;flex-wrap:wrap;gap:6px">${rc.busy?'<span class="muted">⏳ Transcription et résumé en cours…</span>':rc.on?`<button class="btn sm primary" data-act="rec-stop">⏹ Arrêter et résumer</button><span style="color:#c0392b"><b>● Enregistrement</b></span>`:`<button class="btn sm" data-act="rec-start">🎙 Enregistrer</button><label class="btn sm" style="cursor:pointer">Importer un audio<input type="file" id="recf" accept="audio/*,video/mp4" hidden></label>`}${rc.msg?`<span class="muted">${esc(rc.msg)}</span>`:''}${rc.pending>0&&!rc.busy?`<span class="muted">⏳ ${rc.pending} transcription${rc.pending>1?'s':''} en arrière-plan</span>`:''}</div>`:'';
-  const resUI=recRow+(S.call.step==='ans'?`<div class="sm muted" style="margin:8px 0 2px"><b>Il a répondu : que s'est-il passé ?</b> <button class="btn sm" data-act="callstep" data-s="">← Retour</button></div>
+  const resUI=recRow+`<div class="res cres2"><button class="btn primary big${S.call.step==='ans'?' on':''}" data-act="callstep" data-s="ans" title="Il a décroché : lance l'enregistrement">✅ Répondu<kbd class="kh">A</kbd></button><button class="btn big" data-act="callres" data-r="nr">📵 Pas répondu<kbd class="kh">N</kbd></button><button class="btn" data-act="callres" data-r="rep">Répondeur<kbd class="kh">R</kbd></button><button class="btn" data-act="callres" data-r="bad">Mauvais n°<kbd class="kh">M</kbd></button></div>
+   <div class="sm muted" style="margin:10px 0 2px"><b>Résultat de la conversation</b> <span class="muted">(clique, ou touches 1 à 8)</span></div>
    <div class="res cres">${['rdvv','rdvt','rdvp'].map(rb).join('')}</div><div class="res cres">${['rap','ans','no','hu','stop'].map(rb).join('')}</div>
-   <div class="row sm" style="margin:4px 0"><button class="btn" data-act="mailprep" title="Prépare un mail avec ce que la personne t'a dit et ton offre">✉️ Envoyer un mail de suivi</button></div>
-   ${pnlHTML}`
-   :`<div class="res cres2"><button class="btn primary big" data-act="callstep" data-s="ans">✅ Répondu</button><button class="btn big" data-act="callres" data-r="nr">📵 Pas répondu</button></div><div class="row sm" style="margin-top:6px"><span class="muted">Pas répondu, plus précis :</span><button class="btn sm" data-act="callres" data-r="rep">Répondeur</button><button class="btn sm" data-act="callres" data-r="bad">Mauvais numéro</button><button class="btn sm" data-act="mailprep" title="Prépare un mail avec ton offre">✉️ Mail</button><button class="btn sm" data-act="callskip" title="Passer cette fiche sans rien enregistrer">⏭ Passer</button></div>${pnlHTML}`);
+   <div class="row sm" style="margin:6px 0"><button class="btn" data-act="mailprep" title="Prépare un mail avec ce que la personne t'a dit et ton offre">✉️ Mail de suivi</button><button class="btn sm" data-act="callskip" title="Passer cette fiche sans rien enregistrer">⏭ Passer<kbd class="kh">P</kbd></button></div>
+   ${pnlHTML}`;
   const left=`<div class="card callcard"><div class="chead"><div class="chips"><span class="chip" title="Nombre de fois où tu as appelé cette fiche">${(cur.touches||0)===0?'1er appel':'Appel n°'+((cur.touches||0)+1)}</span>${cur.stage==='contacte'?'<span class="chip warn">'+((cur.cycle||1)>=2?'Rappel de réserve':'Rappel')+'</span>':'<span class="chip hot">Premier appel</span>'}${cur.stage==='contacte'&&cur.slots&&cur.slots.length&&cur.slots.length<3?'<span class="chip" title="Les artisans sont souvent sur chantier : on varie le moment de l\'appel">Mieux : '+cur.slots.map(x=>SLOT_L[x]).join(' ou ')+'</span>':''}${mob?'<span class="chip bad" title="Mobile : le régime consommateur peut s\'appliquer aux indépendants, à vérifier">Mobile</span>':''}<span class="muted sm">${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}</span></div>
    <h2 class="cname">${esc(cur.name)}</h2>
    <div class="sm muted cmeta">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a> · `:''}${socialLinksHTML(cur)}score ${esc(cur.score||'—')}</div></div>
@@ -846,6 +852,8 @@ function appelsHTML(){
   return above+bar+trayPanels()+rapPanelHTML()+`<div class="callgrid">${left}${right}</div>`;
 }
 
+function doCallRes(r){if(S.rec.on&&S.rec.mr&&S.rec.mr.state!=='inactive'){toast('Appel enregistré : la transcription se fait en arrière-plan.');S.rec.afterStop=r;S.rec.mr.stop()}else callResult(r)}
+let lastSaveAt=0;
 async function callResult(r){
   const p=byId(S.call.pid);if(!p)return;
   const pendingTr=!!(S.rec.busy&&S.rec.busyPid===p.id);
@@ -861,7 +869,8 @@ async function callResult(r){
   const now=new Date();
   const transcript=S.call.transcript||'',audioPath=S.call.audioPath||'';
   const ty=r==='rdvt'?'tel':r==='rdvp'?'physique':'visio';
-  const call={channel:'appel',prospectId:p.id,prospectName:p.name,t:now.toISOString(),hour:now.getHours(),result:r,angle:S.call.angle||sc.angle,obj:obj==='—'||r!=='no'?'':obj,note,auto,audio,informed,dept:p.dept||'',joint:JOINT.includes(r),answered:ANSWERED.includes(r),dur:S.call.dur||0,...(transcript?{transcript}:{}),...(audioPath?{audioPath}:{})};
+  const deadS=(S.call.dialPid===p.id&&S.call.dialAt&&lastSaveAt&&S.call.dialAt>lastSaveAt)?Math.round((S.call.dialAt-lastSaveAt)/1000):null;
+  const call={...(deadS!=null&&deadS<1800?{dead:deadS}:{}),channel:'appel',prospectId:p.id,prospectName:p.name,t:now.toISOString(),hour:now.getHours(),result:r,angle:S.call.angle||sc.angle,obj:obj==='—'||r!=='no'?'':obj,note,auto,audio,informed,dept:p.dept||'',joint:JOINT.includes(r),answered:ANSWERED.includes(r),dur:S.call.dur||0,...(transcript?{transcript}:{}),...(audioPath?{audioPath}:{})};
   if(isRdvRes(r)){call.rdvType=ty;call.rdvAt=rdvAt}
   const id='c'+uid();
   const touches=(p.touches||0)+1;
@@ -880,7 +889,7 @@ async function callResult(r){
   else patch={...base,stage:'stop',optout:true};
   patch.nextTime=r==='rdvt'?rdvAt.slice(11,16):(r==='rap'||r==='ans')?ntime:'';
   const ok=await guard(async()=>{await DB.set('calls',id,call);await DB.update('prospects',p.id,patch)});
-  if(ok){S.calls.push({id,...call});Object.assign(p,patch);if((patch.stage==='perdu'&&!SIB_SKIP.test(patch.lostReason||''))||patch.optout===true)siblingsLost(p,patch.lostReason||'ne plus appeler');S.call.pid='';S.call.open='';S.call.q='';S.call.step='';if(r==='nr'||r==='rep')S.lastNR=isMobile(p.phone)?p.id:'';if(isRdvRes(r)){S.lastRDV=p.id;if(!pendingTr)genRdvMsg(p.id,transcript,ty,rdvAt,place,link)}
+  if(ok){lastSaveAt=Date.now();S.calls.push({id,...call});Object.assign(p,patch);if((patch.stage==='perdu'&&!SIB_SKIP.test(patch.lostReason||''))||patch.optout===true)siblingsLost(p,patch.lostReason||'ne plus appeler');S.call.pid='';S.call.open='';S.call.q='';S.call.step='';if(r==='nr'||r==='rep')S.lastNR=isMobile(p.phone)?p.id:'';if(isRdvRes(r)){S.lastRDV=p.id;if(!pendingTr)genRdvMsg(p.id,transcript,ty,rdvAt,place,link)}
     if(pendingTr)S.rec.busy=false;
     const nth=touches===1?'1er appel':touches+'e appel',tr=callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).length;
     const nxt=isRdvRes(r)?'RDV '+RDV_T[ty]+' le '+fdate(rdvAt):patch.stage==='perdu'?'fiche classée perdue':patch.stage==='stop'?'ne plus appeler':patch.nextDate?'prochain essai le '+fdate(patch.nextDate):'';
@@ -1287,7 +1296,10 @@ function chartsHTML(LC,j,rdv,from,to){
   let o4=`<svg viewBox="0 0 640 ${ol.length*34+6}" role="img" aria-label="Objections">`;
   ol.forEach(([l,v],i)=>{const yy=4+i*34,w=Math.max(3,(640-300)*v/om);o4+=`<text x="0" y="${yy+19}" font-size="12.5" fill="${T}">${esc(l.length>34?l.slice(0,33)+'…':l)}</text><rect x="260" y="${yy+3}" width="${w}" height="22" rx="5" fill="${B}"/><text x="${260+w+8}" y="${yy+19}" font-size="13" font-weight="800" fill="${T}">${v}</text>`});o4+='</svg>';
   const chart4=`<section class="card chartcard"><h3>Objections les plus fréquentes</h3>${ol.length?o4:'<p class="muted sm">Aucune objection saisie sur la période.</p>'}</section>`;
-  return tiles+`<div class="chgrid">${chart0}${chart1}</div><div class="chgrid">${chart5}${chart6}</div><div class="chgrid">${chart7}${chart3}</div><div class="chgrid">${chart2}${chart4}</div>`;
+  const ddl=LC.filter(c=>typeof c.dead==='number'),dt0=today(),dtd=ddl.filter(c=>String(c.t).slice(0,10)===dt0);
+  const avgD=a=>a.length?Math.round(a.reduce((x,c)=>x+c.dead,0)/a.length):null,fsD=v=>v==null?'—':v>=60?Math.floor(v/60)+' min '+String(v%60).padStart(2,'0')+' s':v+' s';
+  const deadCard=`<section class="card chartcard"><h3>⏱ Temps mort entre deux appels</h3><p class="muted sm" style="margin:0 0 6px">Du moment où tu enregistres un résultat jusqu'à ce que tu lances l'appel suivant. Plus c'est bas, plus tu gardes ton rythme.</p><div class="row" style="gap:18px;flex-wrap:wrap"><div><div class="muted sm">Aujourd'hui</div><b style="font-size:26px">${fsD(avgD(dtd))}</b><div class="muted sm">${dtd.length} mesure${dtd.length>1?'s':''}</div></div><div><div class="muted sm">Sur la période</div><b style="font-size:26px">${fsD(avgD(ddl))}</b><div class="muted sm">${ddl.length} mesure${ddl.length>1?'s':''}</div></div></div></section>`;
+  return tiles+`<div class="chgrid">${chart0}${chart1}</div><div class="chgrid">${chart5}${chart6}</div><div class="chgrid">${chart7}${chart3}</div><div class="chgrid">${chart2}${chart4}</div>${deadCard}`;
 }
 function statsHTML(){
   const days=S.st.days;let from,to='9999-99-99';
@@ -1900,7 +1912,7 @@ function render(){
   else if(S.err)body=`<div class="banner">Erreur de données : ${esc(S.err)}</div>`;
   else body={plan:planningHTML,auj:aujourdhuiHTML,appels:appelsHTML,outreach:outreachHTML,contenu:contenuHTML,pipeline:pipelineHTML,clients:clientsHTML,stats:statsHTML,scripts:scriptsHTML,donnees:donneesHTML,aide:aideHTML}[S.tab]();
   document.querySelectorAll('.chal').forEach(x=>x.remove());
-  app.innerHTML=`<header class="top"><span class="brand"><i class="logo" aria-hidden="true">↗</i><span>AGENCY<b>OS</b></span></span><nav class="tabs" role="tablist">${TABS.map(([k,l])=>`<button role="tab" class="${TAB2.includes(k)?'tab2':''}" aria-selected="${S.tab===k}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</nav>${DB.mode==='cloud'?'<button class="btn sm" data-act="logout">Déconnexion</button>':'<span class="chip">Mode local</span>'}</header><main>${body}</main>`;
+  app.innerHTML=`<header class="top"><span class="brand"><i class="logo" aria-hidden="true">↗</i><span>AGENCY<b>OS</b></span></span><nav class="tabs" role="tablist">${TABS.map(([k,l])=>`<button role="tab" class="${TAB2.includes(k)?'tab2':''}" aria-selected="${S.tab===k}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</nav><button type="button" id="geneb" class="btn sm" title="Note ce qui te ralentit, sans quitter ton appel">🚩 Ça me gêne</button>${DB.mode==='cloud'?'<button class="btn sm" data-act="logout">Déconnexion</button>':'<span class="chip">Mode local</span>'}</header><main>${body}</main>`;
   if(S.chal&&S.loaded&&!S.err)document.body.insertAdjacentHTML('beforeend',challengeHTML());
   if(S.tab==='scripts'&&S.loaded){const m=$('main');m.insertAdjacentHTML('beforeend','<p><button class="btn sm" data-act="addangle">+ Nouvel angle de script</button></p>')}
   if(active&&$('#'+active)&&['cn','pq','on','oh','cq'].includes(active)){const el=$('#'+active);el.focus();try{el.setSelectionRange(el.value.length,el.value.length)}catch(e){}}
@@ -2166,7 +2178,10 @@ document.addEventListener('click',async e=>{
   else if(a==='callclose'){S.call.open='';S.call.pid='';render()}
   else if(a==='chal-ok'){S.chal=false;S.tab='appels';render()}
   else if(a==='tab'){S.tab=b.dataset.v;render()}
-  else if(a==='callres'){const r=b.dataset.r;if(S.rec.on&&S.rec.mr&&S.rec.mr.state!=='inactive'){toast('Appel enregistré : la transcription se fait en arrière-plan.');S.rec.afterStop=r;S.rec.mr.stop()}else callResult(r)}
+  else if(a==='callres'){doCallRes(b.dataset.r)}
+  else if(a==='objpick'){const o=b.dataset.o;S.call.obj=o;const e=$('#co');if(e)e.value=o==='—'?'':o;doCallRes('no')}
+  else if(a==='rapquick'){const k=b.dataset.k,t0=today();let d;if(k==='mon'){d=addDays(t0,1);while(new Date(d+'T12:00:00').getDay()!==1)d=addDays(d,1)}else if(k==='today')d=t0;else if(k==='14')d=addDays(t0,14);else d=workday(+k);
+    S.call.date=d;S.call.time='';const e=$('#cd');if(e)e.value=d;const t=$('#ct');if(t)t.value='';doCallRes('rap')}
   else if(a==='outres')outResult(b.dataset.r);
   else if(a==='outskip'){if(S.out.pid)S.out.skip.push(S.out.pid);S.out.pid='';render()}
   else if(a==='copy'){const t=($('#otext')||{}).textContent||'';try{await navigator.clipboard.writeText(t);toast('Message copié.')}catch(e){toast('Copie impossible : sélectionne le texte.')}}
@@ -2229,6 +2244,32 @@ document.addEventListener('input',e=>{
   else if(t.id==='cq'){S.call.q=t.value;render()}
 });
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lgp'){$('[data-act=login]').click()}});
+document.addEventListener('click',e=>{const t=e.target&&e.target.closest&&e.target.closest('[data-act="copynum"],a[href^="tel:"]');if(t&&S.call&&S.call.pid){S.call.dialAt=Date.now();S.call.dialPid=S.call.pid}},true);
+/* raccourcis clavier de la fiche d'appel : 1-8 résultat, A/N/R/M réponse, P passer ; dans un panneau : chiffres, X, Échap */
+document.addEventListener('keydown',e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey||e.repeat)return;
+  const t=e.target,tag=t&&t.tagName;
+  if(e.key==='Enter'&&t&&t.id==='co'){e.preventDefault();doCallRes('no');return}
+  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||(t&&t.isContentEditable))return;
+  if(S.tab!=='appels'||!S.call.pid||!document.querySelector('.callcard'))return;
+  const dlg=$('#dlg');if((dlg&&dlg.open)||document.getElementById('alarm')||document.getElementById('gene'))return;
+  const k=e.key.toLowerCase(),pn=S.call.panel;let el=null;
+  const nth=(sel,i)=>document.querySelectorAll(sel)[i]||null;
+  if(k==='escape'&&pn){S.call.panel='';render();e.preventDefault();return}
+  if(pn==='no'){if(k>='1'&&k<='9')el=nth('[data-act="objpick"]',+k-1);else if(k==='0')el=nth('[data-act="objpick"]',9);else if(k==='x')el=document.querySelector('[data-act="objpick"][data-o="—"]')}
+  else if(pn==='rap'){if(k>='1'&&k<='5')el=nth('[data-act="rapquick"]',+k-1)}
+  else if(!pn){const MAP={'1':'rdvv','2':'rdvt','3':'rdvp','4':'rap','5':'ans','6':'no','7':'hu','8':'stop'};
+    if(MAP[k])el=document.querySelector('.cres [data-r="'+MAP[k]+'"]');
+    else if(k==='a')el=document.querySelector('[data-act="callstep"][data-s="ans"]');
+    else if(k==='n')el=document.querySelector('.cres2 [data-r="nr"]');
+    else if(k==='r')el=document.querySelector('.cres2 [data-r="rep"]');
+    else if(k==='m')el=document.querySelector('.cres2 [data-r="bad"]');
+    else if(k==='p')el=document.querySelector('[data-act="callskip"]')}
+  if(el){e.preventDefault();el.click()}
+});
+/* 🚩 Ça me gêne : une remarque en un clic, traitée ensuite en lot */
+function geneOpen(){if(document.getElementById('gene'))return;const d=document.createElement('div');d.id='gene';d.innerHTML='<b>Qu\'est-ce qui te gêne ?</b><textarea id="genet" rows="3" placeholder="En une phrase (Ctrl+Entrée pour envoyer)"></textarea><div class="row" style="gap:6px;margin-top:6px"><button class="btn primary sm" id="genes">Noter</button><button class="btn sm" id="genex">Fermer</button></div>';document.body.appendChild(d);const ta=d.querySelector('#genet');ta.focus();const send=async()=>{const v=ta.value.trim();if(!v){d.remove();return}const cur=S.call.pid&&byId(S.call.pid);const doc={kind:'gene',t:new Date().toISOString(),tab:S.tab,fiche:cur?cur.name:'',ficheId:S.call.pid||'',text:v,done:false};try{await DB.set('settings','gene_'+uid(),doc);toast('Noté ('+stamp()+'). Je le traite dans le prochain lot.')}catch(e){toast('Remarque non enregistrée.')}d.remove()};d.querySelector('#genes').addEventListener('click',send);d.querySelector('#genex').addEventListener('click',()=>d.remove());ta.addEventListener('keydown',ev=>{if(ev.key==='Enter'&&(ev.ctrlKey||ev.metaKey)){ev.preventDefault();send()}if(ev.key==='Escape')d.remove();ev.stopPropagation()})}
+document.addEventListener('click',e=>{if(e.target&&e.target.closest&&e.target.closest('#geneb'))geneOpen()});
 
 /* ================= fiche de RDV (fenêtre partageable, sans menu) ================= */
 S.rdvOnly=(()=>{const m=String(location.hash||'').match(/^#rdv=(.+)$/);try{return m?decodeURIComponent(m[1]):''}catch(e){return ''}})();
