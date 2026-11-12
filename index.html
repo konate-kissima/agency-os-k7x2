@@ -498,7 +498,7 @@ let DB;
 /* ================= état ================= */
 const S={tab:'appels',prospects:[],calls:[],clients:[],content:[],settings:{...DEF_SETTINGS},loaded:false,
   out:{pid:'',ch:'dm_insta',variant:'D1',note:'',handle:'',rdvAt:'',skip:[]},
-  call:{pid:'',angle:'',note:'',obj:'—',audio:'',informed:false,skip:[],mob:'all',rdvAt:'',date:''},
+  call:{pid:'',angle:'',note:'',obj:'—',audio:'',informed:false,skip:(()=>{try{return JSON.parse(localStorage.getItem('aos_skip_'+toISO(new Date()))||'[]')}catch(e){return[]}})(),mob:'all',rdvAt:'',date:''},
   pf:{q:'',stage:'',dept:''},st:{days:14},cl:{open:''},err:''};
 const byId=id=>S.prospects.find(p=>p.id===id);
 const cliById=id=>S.clients.find(c=>c.id===id);
@@ -528,7 +528,7 @@ function callQueue(){
   // ordre : rappels du créneau en cours, autres rappels dus, nouvelles fiches (ou nouvelles d'abord une fois le quota de rappels atteint)
   const rank=p=>dueNow(p)?-1:p.stage==='contacte'?(cap?1:(!p.slots||!p.slots.length||p.slots.includes(slot)?0:1)):(cap?0:2);
   return S.prospects.filter(p=>!p.optout&&hasPhone(p.phone)&&!sk.includes(p.id)&&(p.stage==='a_contacter'||(p.stage==='contacte'&&(!p.nextDate||p.nextDate<=t)))&&!notYet(p)
-    &&!(p.stage==='contacte'&&p.rdvAt&&!p.rdvShow&&(p.rdvType||'visio')!=='tel'&&new Date(p.rdvAt).getTime()>Date.now()-3*36e5)
+    &&!(p.stage==='contacte'&&p.rdvAt&&!p.rdvShow&&(p.rdvType||'visio')!=='tel')
     &&(mob==='all'||(mob==='fixe'&&!isMobile(p.phone))||(mob==='mobile'&&isMobile(p.phone))))
    .sort((a,b)=>rank(a)-rank(b)||(+isMobile(b.phone)-+isMobile(a.phone))||(a.stage==='contacte'&&b.stage==='contacte'?String(a.nextDate||'').localeCompare(String(b.nextDate||'')):0)||(+b.score||0)-(+a.score||0)||(+b.reviews||0)-(+a.reviews||0)||String(a.name).localeCompare(String(b.name)));
 }
@@ -703,6 +703,9 @@ function rapPanelHTML(){
   const G=[['En retard',x=>x.nextDate<t],['Aujourd\'hui',x=>x.nextDate===t],['Plus tard',x=>x.nextDate>t]];
   const body=G.map(([l,f])=>{const it=L.filter(f);return it.length?`<div class="muted sm" style="margin-top:8px">${l} (${it.length})</div>`+it.map(p=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:6px 0"><span><b>${esc(p.name)}</b> <span class="muted sm">${p.nextDate<t?fdate(p.nextDate)+' ':''}${p.nextTime?esc(p.nextTime.replace(':','h')):''} · ${esc(fmtPhone(p.phone))}${p.rdvType==='tel'?' · RDV téléphonique':''}</span></span><button class="btn sm primary" data-act="al-open" data-id="${esc(p.id)}">Appeler</button></div>`).join(''):''}).join('');
   return `<div class="card"><div class="row" style="justify-content:space-between"><b>À rappeler (${L.length})</b><button class="btn sm" data-act="rapl-toggle">Fermer</button></div>${body||'<p class="muted sm">Personne à rappeler.</p>'}</div>`}
+function staleRdvBanner(){let h='';
+  S.prospects.filter(p=>p.stage==='contacte'&&p.rdvAt&&!p.rdvShow&&(p.rdvType||'visio')!=='tel'&&!p.optout&&new Date(p.rdvAt).getTime()<=Date.now()-3*36e5).sort((a,b)=>a.rdvAt.localeCompare(b.rdvAt)).forEach(p=>{h+=`<div class="banner">RDV passé à qualifier : <b>${esc(p.name)}</b>, ${esc(fdt(p.rdvAt))}. Il a eu lieu ? <button class="btn sm primary" data-act="rdv-tenu" data-id="${esc(p.id)}">Tenu</button> <button class="btn sm" data-act="rdv-abs" data-id="${esc(p.id)}">Absent</button> <button class="btn sm" data-act="open" data-id="${esc(p.id)}">Fiche</button></div>`});
+  return h}
 function dueBanner(sk){
   const t=today();const items=S.clients.filter(c=>c.status!=='fini'&&c.checklist&&c.checklist.launch&&!c.checklist.j14).map(c=>({c,d:addDays(c.checklist.launch,14)}));
   const due=items.filter(x=>x.d<=t);const soon=items.filter(x=>x.d>t&&x.d<=addDays(t,3));
@@ -786,7 +789,7 @@ function appelsHTML(){
   const MOBO=[['all','Toutes (mobiles d\'abord)'],['mobile','Mobiles (06/07)'],['fixe','Fixes']];
   const filt=`<select data-act="mobsel" aria-label="Type de ligne" class="sm">${MOBO.map(([v,l])=>`<option value="${v}"${S.call.mob===v?' selected':''}>${l}</option>`).join('')}</select>`;
   const bar=callSearchHTML(kp+filt);
-  const above=dueBanner(1)+mailCard()+rdvCard()+remindCard()+nrCard()+(S.lastRes?`<div class="lastres">Dernier appel : ${S.lastRes}</div>`:'');
+  const above=dueBanner(1)+staleRdvBanner()+mailCard()+rdvCard()+remindCard()+nrCard()+(S.lastRes?`<div class="lastres">Dernier appel : ${S.lastRes}</div>`:'');
   if(!cur)return above+bar+trayPanels()+rapPanelHTML()+`<div class="card"><b>Plus personne à appeler pour l'instant.</b><div class="muted sm">Importe une liste (onglet Données) ou attends les rappels programmés.</div></div>`;
   const hist=callsOf(cur.id).slice(-4).reverse();
   const mob=isMobile(cur.phone);
@@ -2158,7 +2161,7 @@ document.addEventListener('click',async e=>{
   else if(a==='outskip'){if(S.out.pid)S.out.skip.push(S.out.pid);S.out.pid='';render()}
   else if(a==='copy'){const t=($('#otext')||{}).textContent||'';try{await navigator.clipboard.writeText(t);toast('Message copié.')}catch(e){toast('Copie impossible : sélectionne le texte.')}}
   else if(a==='ct-add')addContent();
-  else if(a==='callskip'){if(S.call.pid&&!S.call.open)S.call.skip.push(S.call.pid);S.call.pid='';S.call.open='';render()}
+  else if(a==='callskip'){if(S.call.pid&&!S.call.open){S.call.skip.push(S.call.pid);try{localStorage.setItem('aos_skip_'+today(),JSON.stringify(S.call.skip))}catch(e){}}S.call.pid='';S.call.open='';render()}
   else if(a==='open')openProspect(b.dataset.id);
   else if(a==='close')$('#dlg').close();
   else if(a==='savep')saveProspectDlg(b.dataset.id);
