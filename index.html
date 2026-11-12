@@ -537,6 +537,12 @@ function todayStats(){const t=today();const L=S.calls.filter(c=>isCall(c)&&Strin
 function fillScript(txt,p){return String(txt||'').replace(/\{contact\}/g,p.dirigeant||'monsieur/madame').replace(/\{accroche\}/g,hookFor(p)).replace(/\{Valeur\}/g,valueFor(p)).replace(/\{Accroche\}/g,(()=>{let h=hookFor(p);if(/je n'ai pas trouvé de site/.test(h))h=p.city?`j'ai découvert ${p.name} à ${p.city}`:`j'ai découvert ${p.name}`;return h.charAt(0).toUpperCase()+h.slice(1)})()).replace(/\{avis\}/g,p.reviews||'?').replace(/\{note\}/g,p.rating||'?').replace(/\{nom\}/g,p.name||'').replace(/\{ville\}/g,p.city||'').replace(/\{jour\}/g,'demain')}
 
 const RDV_T={visio:'visio',tel:'téléphonique',physique:'physique'};
+// Ligne « RDV » affichée sur la fiche : date, type et ce qui s'est passé (à venir, tenu, absent, passé non confirmé)
+function rdvLine(p){if(!p||!p.rdvAt)return '';const d=new Date(p.rdvAt),past=!isNaN(d)&&d<new Date();
+  const st=p.rdvShow==='tenu'?'✅ tenu':p.rdvShow==='absent'?'⚠️ absent (ne s\'est pas présenté)':past?'❓ passé, pas confirmé':'🗓 à venir';
+  const ty=p.rdvType?' · '+(RDV_T[p.rdvType]||p.rdvType):'';
+  const back=p.rdvShow==='absent'&&p.nextDate?' · rappel le '+fdate(p.nextDate)+(p.nextTime?' à '+p.nextTime.replace(':','h'):''):'';
+  return `<div class="lastcall"><b>RDV</b> · ${esc(fdate(p.rdvAt))}${esc(ty)} · ${st}${esc(back)}</div>`}
 const icsDate=d=>d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'T'+pad(d.getHours())+pad(d.getMinutes())+'00';
 function rdvWhen(p){const d=new Date(p.rdvAt);return d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})+' à '+pad(d.getHours())+'h'+pad(d.getMinutes())}
 const greetName=p=>{const n=String(p.dirigeant||'').trim();return n?' '+n:''};
@@ -758,7 +764,7 @@ function appelsHTML(){
    ${S.call.editNum===cur.id?`<div class="row" style="gap:6px;margin:6px 0;flex-wrap:wrap"><input id="cphone" type="tel" placeholder="Nouveau numéro" value="${esc(cur.phone||'')}" style="min-width:200px"><button class="btn primary sm" data-act="numsave">Enregistrer le numéro</button><button class="btn sm" data-act="numedit">Annuler</button></div>`:''}
    <div class="csec">Résultat de l'appel</div>
    ${resUI}
-   ${lastH?`<div class="lastcall"><b>Dernier appel</b> · ${fdate(lastH.t)} · ${esc(ALL_RES_L[lastH.result]||lastH.result)}${lastH.note?'<div class="muted">'+esc(lastH.note)+'</div>':''}</div>`:''}
+   ${rdvLine(cur)}${lastH?`<div class="lastcall"><b>Dernier appel</b> · ${fdate(lastH.t)} · ${esc(ALL_RES_L[lastH.result]||lastH.result)}${lastH.note?'<div class="muted">'+esc(lastH.note)+'</div>':''}</div>`:''}
    <details class="sm chist"><summary><b>Historique</b> <span class="muted">· notes, enregistrement</span></summary>
     <div style="margin:6px 0">${timelineHTML(cur,12)}</div>
     ${cur.email?`<button class="btn sm" data-act="fathom-sync" data-id="${esc(cur.id)}">Débrief Fathom (par e-mail)</button> `:''}<button class="btn sm" data-act="fathom-link" data-id="${esc(cur.id)}">Coller un lien Fathom</button>
@@ -990,7 +996,7 @@ function pipelineHTML(){
 const fdt=t=>{const d=new Date(t);return isNaN(d)?String(t||''):d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})+' '+pad(d.getHours())+'h'+pad(d.getMinutes())};
 const LOG_L={rdv:'RDV',msg:'Message',fathom:'Fathom',note:'Note'};
 function timeline(p){
-  const ev=callsOf(p.id).map(c=>({t:c.t,k:CH_L[c.channel||'appel'],r:ALL_RES_L[c.result]||c.result,x:[c.obj,c.note&&'✍️ '+c.note,c.auto&&'🤖 '+c.auto].filter(Boolean).join('\n'),a:c.audio,tr:c.transcript,ap:c.audioPath}));
+  const ev=callsOf(p.id).map(c=>({t:c.t,k:CH_L[c.channel||'appel'],r:(ALL_RES_L[c.result]||c.result)+(c.rdvAt?' · RDV le '+fdate(c.rdvAt):''),x:[c.obj,c.note&&'✍️ '+c.note,c.auto&&'🤖 '+c.auto].filter(Boolean).join('\n'),a:c.audio,tr:c.transcript,ap:c.audioPath}));
   (p.log||[]).forEach(l=>ev.push({t:l.t,k:LOG_L[l.k]||l.k,r:'',x:l.txt||'',u:l.url}));
   return ev.sort((a,b)=>String(b.t).localeCompare(String(a.t)));
 }
