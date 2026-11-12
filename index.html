@@ -561,6 +561,18 @@ function rdvMsg(p,kind){
   const jour=kind==='r24'?'demain':'aujourd\'hui',fin=jour==='demain'?'À demain !':'À tout à l\'heure !';
   if(ty==='physique')return `${hi} Petit rappel : notre rendez-vous ${jour} à ${h}${lieu}. ${fin}`;
   return `${hi} Petit rappel : notre visio ${jour} à ${h} : ${lien}. ${fin}`}
+function absWhen(p){const d=new Date(p.rdvAt);if(isNaN(d))return 'récemment';const t=today(),ds=String(p.rdvAt).slice(0,10),h=pad(d.getHours())+'h'+pad(d.getMinutes());
+  if(ds===t)return (d.getHours()<12?'ce matin':'cet après-midi')+' à '+h;if(ds===addDays(t,-1))return 'hier à '+h;return rdvWhen(p)}
+function absMsg(p){
+  const e=(p.rdvs||[]).slice(-1)[0]||{},ty=e.type||'visio',n=greetName(p);
+  const obj=ty==='physique'?'notre rendez-vous':ty==='tel'?'notre appel':'notre visio';
+  const s1=workday(1),s2=workday(2),dl=x=>new Date(x+'T12:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  return `Bonjour${n}, ${SIGN}. Nous devions nous retrouver ${absWhen(p)} pour ${obj} et je n'ai pas pu vous joindre. Aucun souci, ça arrive ! Si vous êtes toujours partant, je peux vous proposer ${dl(s1)} à 10h ou ${dl(s2)} à 14h. Dites-moi ce qui vous arrange, ou proposez-moi un autre créneau.`}
+function absOpen(p){S.abs=p.id;S.absTxt='';S.tab='appels';render();window.scrollTo(0,0)}
+function absCard(){
+  const p=S.abs?byId(S.abs):null;if(!p)return '';
+  const msg=S.absTxt||absMsg(p);
+  return `<div class="card" style="border:2px solid var(--ok,#2a7)"><b>Absent : ${esc(p.name)} (RDV prévu ${esc(rdvWhen(p))}).</b> Envoie-lui ce message pour rebooker un créneau :<textarea id="absmsgbox" rows="6" style="width:100%;margin:6px 0">${esc(msg)}</textarea><div class="row" id="absbtns" style="flex-wrap:wrap">${msgButtons(p,msg,'data-act="absdone"')}<button class="btn sm" data-act="absdone">OK, fait / ignorer</button></div><p class="muted sm" style="margin-top:6px">Un rappel est déjà prévu ${p.nextDate?'le '+esc(fdate(p.nextDate))+(p.nextTime?' à '+esc(p.nextTime.replace(':','h')):''):'demain à 10 h'} pour le recontacter.</p></div>`}
 function msgButtons(p,msg,after){
   const ph=normPhone(p.phone),e=encodeURIComponent(msg),mob=isMobile(p.phone);
   const wa=mob?'whatsapp://send?phone='+(ph.startsWith('0')?'33'+ph.slice(1):ph.replace('+',''))+'&text='+e:'';
@@ -633,7 +645,8 @@ function planRow(e,showDate){
   const place=e.place?`<span class="muted sm">📍 ${esc(e.place)}</span>`:'';
   const hh=(new Date(e.d+'T'+e.t)-Date.now())/36e5;
   const remBtn=(e.kind==='rdv'&&e.type!=='tel'&&hh>-0.25)?`<button class="btn sm primary" data-act="rem-open" data-id="${esc(p.id)}" data-k="${hh>2.5?'r24':'r2'}">Message de rappel${(hh>2.5?p.rem24:p.rem2)?' ✓':''}</button>`:'';
-  const btn=remBtn+(e.kind==='rap'?`<button class="btn sm primary" data-act="al-open" data-id="${esc(p.id)}">Appeler</button>`:`<button class="btn sm" data-act="rdvopen" data-id="${esc(p.id)}">Fiche de RDV</button><button class="btn sm" data-act="open" data-id="${esc(p.id)}">Fiche</button>`);
+  const absBtn=(e.kind==='rdv'&&e.st==='absent')?`<button class="btn sm primary" data-act="abs-open" data-id="${esc(p.id)}">Message d'absence</button>`:'';
+  const btn=remBtn+absBtn+(e.kind==='rap'?`<button class="btn sm primary" data-act="al-open" data-id="${esc(p.id)}">Appeler</button>`:`<button class="btn sm" data-act="rdvopen" data-id="${esc(p.id)}">Fiche de RDV</button><button class="btn sm" data-act="open" data-id="${esc(p.id)}">Fiche</button>`);
   const dt=showDate?`<span class="muted sm">${esc(new Date(e.d+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}))}</span> `:'';
   return `<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:10px 0;gap:8px;flex-wrap:wrap"><span>${dt}<b style="font-size:1.1em">${esc(e.t.replace(':','h'))}</b> · ${ic} ${lab}${esc(ty)} · <b>${esc(p.name)}</b> ${stt}${late}<br>${p.dirigeant?'<span class="muted sm">'+esc(p.dirigeant)+'</span> · ':''}${tel} ${place}</span><span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${link}${btn}</span></div>`}
 const PLAN_H=52,PLAN_DUR={rdv:30,tel:20,rap:15};
@@ -801,7 +814,7 @@ function appelsHTML(){
   const MOBO=[['all','Toutes (mobiles d\'abord)'],['mobile','Mobiles (06/07)'],['fixe','Fixes']];
   const filt=`<select data-act="mobsel" aria-label="Type de ligne" class="sm">${MOBO.map(([v,l])=>`<option value="${v}"${S.call.mob===v?' selected':''}>${l}</option>`).join('')}</select>`;
   const bar=callSearchHTML(kp+filt);
-  const above=wrapAlerts(dueBanner(1)+staleRdvBanner()+mailCard()+rdvCard()+remindCard()+nrCard())+(S.lastRes?`<div class="lastres">Dernier appel : ${S.lastRes}</div>`:'');
+  const above=wrapAlerts(dueBanner(1)+staleRdvBanner()+mailCard()+rdvCard()+remindCard()+absCard()+nrCard())+(S.lastRes?`<div class="lastres">Dernier appel : ${S.lastRes}</div>`:'');
   if(!cur)return above+bar+trayPanels()+rapPanelHTML()+`<div class="card"><b>Plus personne à appeler pour l'instant.</b><div class="muted sm">Importe une liste (onglet Données) ou attends les rappels programmés.</div></div>`;
   const hist=callsOf(cur.id).slice(-4).reverse();
   const mob=isMobile(cur.phone);
@@ -1804,6 +1817,10 @@ function aideHTML(){return aideTabsHTML()+`<div class="card"><h2>Explication de 
 <tr><td>2 heures avant</td><td>Rappel 2 h avant</td><td>Même endroit.</td></tr>
 <tr><td>RDV téléphonique</td><td>Pas de rappel par message</td><td>Une alerte te prévient 5 minutes avant l'appel.</td></tr></tbody></table>
 <p class="muted sm">Si le bandeau « Rappel à envoyer » n'apparaît pas, ouvre le Planning, clique le RDV et utilise « Message de rappel ».</p></details>
+<details open><summary><b>❌ Absent : message pour rebooker</b></summary>
+<p>Quand tu marques un RDV <b>Absent</b> (dans la fenêtre « a-t-il eu lieu ? » ou depuis la fiche), une carte verte s'ouvre en haut de la page Appels avec un message prêt.</p>
+<div class="sm" style="background:var(--surface2);border-radius:12px;padding:12px;margin:8px 0"><div style="border:1px solid #8884;border-radius:10px;padding:8px;margin-bottom:8px"><b>Absent : Martin Plomberie</b><br><i>« Bonjour Paul… nous devions nous retrouver hier à 10h pour notre visio et je n'ai pas pu vous joindre. Aucun souci, ça arrive ! Je peux vous proposer demain à 10h ou après-demain à 14h… »</i></div><span class="btn primary" style="pointer-events:none">WhatsApp</span> <span class="btn" style="pointer-events:none">SMS</span> <span class="btn" style="pointer-events:none">E-mail</span> <span class="btn" style="pointer-events:none">Copier</span> <span class="btn sm" style="pointer-events:none">OK, fait</span></div>
+<ul class="plain"><li>Le message mentionne le bon moment (« ce matin », « hier à 10h »…) et propose deux créneaux (prochains jours ouvrés à 10h et 14h). Tu peux le modifier : les boutons suivent ton texte.</li><li>Le rappel du lendemain à 10 h reste programmé en plus.</li><li>Dans le <b>Planning</b>, clique un RDV absent : bouton <b>Message d'absence</b> pour rouvrir la carte plus tard. <b>OK, fait</b> note l'envoi dans l'historique daté.</li></ul></details>
 <details open><summary><b>📞 Numéros : corriger, ajouter, annoter</b></summary>
 <ul class="plain"><li><b>✏️ Modifier</b> : corrige le numéro principal et ajoute une info dessus (ex. « direct du gérant »).</li>
 <li><b>➕ Numéro</b> : ajoute un autre numéro avec son info (portable, standard, « après 18h »). Chaque numéro a ses boutons pour copier et pour appeler depuis le Mac.</li>
@@ -2166,7 +2183,7 @@ function rdvqCheck(){
 async function rqDo(d){
   const p=byId(S.rq.id);if(!p)return;const v=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
   const n=p.rdvN||1,ent=(show,extra)=>({n,type:p.rdvType||'visio',at:p.rdvAt,show,...extra});
-  if(d==='absent')return rqSave(p,ent('absent'),{rdvShow:'absent',stage:'contacte',nextDate:workday(1),nextTime:'10:00',rdvType:''},`R${n} ${RDV_T[p.rdvType||'visio']} : absent`);
+  if(d==='absent'){const ok=await rqSave(p,ent('absent'),{rdvShow:'absent',stage:'contacte',nextDate:workday(1),nextTime:'10:00',rdvType:''},`R${n} ${RDV_T[p.rdvType||'visio']} : absent`);if(ok)absOpen(p);return ok}
   if(d==='decale'){const at=v('rq-at');if(!at){toast('Choisis la nouvelle date et heure.');return}
     const ok=await rqSave(p,ent('decale'),{rdvAt:at,rdvShow:'',rem24:false,rem2:false},`R${n} décalé au ${fdt(at)}`);if(ok)S.lastRDV=p.id;return}
   if(d==='signe'){const amt=+v('rq-amt')||0;
@@ -2251,9 +2268,11 @@ document.addEventListener('click',async e=>{
   if(a==='day-toggle'){S.call.showDay=!S.call.showDay;render();return}
   if(a==='rem-toggle'){S.call.showRem=!S.call.showRem;render();return}
   if(a==='sstep'){S.call.sstep=Math.max(0,parseInt(b.dataset.i,10)||0);render();return}
+  if(a==='abs-open'){const p=byId(b.dataset.id);if(p)absOpen(p);return}
+  if(a==='absdone'){const p=S.abs&&byId(S.abs);if(p)logEv(p,'msg','Message d\'absence préparé (rebooker)');S.abs='';S.absTxt='';render();return}
   if(a==='rem-open'){S.remind={id:b.dataset.id,k:b.dataset.k};S.tab='appels';render();window.scrollTo(0,0);return}
   if(a==='remdone'){const p=byId(b.dataset.id),k=b.dataset.k==='r24'?'rem24':'rem2';if(p){p[k]=true;DB.update('prospects',p.id,{[k]:true});logEv(p,'msg','Rappel RDV '+(k==='rem24'?'(veille)':'(2 h avant)')+' préparé')}S.remind=null;if(b.tagName==='BUTTON'){render()}else setTimeout(render,50);return}
-  if(a==='rdv-tenu'||a==='rdv-abs'){const p=byId(b.dataset.id);if(p){const ty0=RDV_T[p.rdvType||'visio'];const patch=a==='rdv-tenu'?{rdvShow:'tenu',stage:'rdv_fait'}:{rdvShow:'absent',stage:'contacte',nextDate:workday(1),nextTime:'10:00',rdvType:''};await guard(()=>DB.update('prospects',p.id,patch));Object.assign(p,patch);logEv(p,'rdv','RDV '+ty0+(a==='rdv-tenu'?' tenu':' : absent'));toast(a==='rdv-tenu'?'RDV tenu enregistré.':'Absence enregistrée : rappel prévu demain à 10 h.');render()}return}
+  if(a==='rdv-tenu'||a==='rdv-abs'){const p=byId(b.dataset.id);if(p){const ty0=RDV_T[p.rdvType||'visio'];const patch=a==='rdv-tenu'?{rdvShow:'tenu',stage:'rdv_fait'}:{rdvShow:'absent',stage:'contacte',nextDate:workday(1),nextTime:'10:00',rdvType:''};await guard(()=>DB.update('prospects',p.id,patch));Object.assign(p,patch);logEv(p,'rdv','RDV '+ty0+(a==='rdv-tenu'?' tenu':' : absent'));toast(a==='rdv-tenu'?'RDV tenu enregistré.':'Absence enregistrée : rappel prévu demain à 10 h.');if(a==='rdv-abs'){(p.rdvs=p.rdvs||[]).length||(p.rdvs=[{type:p.rdvType||'visio',at:p.rdvAt,show:'absent'}]);absOpen(p)}else render()}return}
   if(a==='al-open'){const id=b.dataset.id;S.snooze[id]=Date.now()+10*60000;S.tab='appels';S.call.open=id;S.call.pid=id;S.call.q='';S.call.note='';S.call.auto='';S.call.obj='—';S.call.obj2='';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0;alarmCheck();render();window.scrollTo(0,0);return}
   if(a==='copysms'){const t=b.dataset.m||'';const done=()=>toast('SMS copié. Colle-le dans Onoff (iPhone).');try{navigator.clipboard.writeText(t).then(done,()=>toast('Copie impossible.'))}catch(e){toast('Copie impossible.')}}
   if(a==='copynum'){const n=b.dataset.n||'';const done=()=>toast('Numéro copié : '+n+'. Colle-le dans ton application d\'appel.');try{navigator.clipboard.writeText(n).then(done,()=>{const t=document.createElement('textarea');t.value=n;document.body.appendChild(t);t.select();try{document.execCommand('copy')}catch(e){}t.remove();done()})}catch(e){done()}}
@@ -2322,6 +2341,7 @@ document.addEventListener('input',e=>{
   if(t.id==='waq'){S.call.waq=t.value;const r=$('#wares');if(r)r.innerHTML=waList(t.value);return}
   const SCK={cl:'place',cv:'link',pt1:'pt1',pt2:'pt2',pt3:'pt3',cd:'date',ct:'time',cr:'rdvAt',co:'obj',ca2:'auto',cphone:'ephone',cphlab:'elab',cphone2:'aphone',cphlab2:'alab'};
   if(SCK[t.id]){S.call[SCK[t.id]]=t.value;return}
+  if(t.id==='absmsgbox'){const pp=S.abs&&byId(S.abs);if(pp){S.absTxt=t.value;const bx=$('#absbtns');if(bx)bx.innerHTML=msgButtons(pp,t.value,'data-act="absdone"')+'<button class="btn sm" data-act="absdone">OK, fait / ignorer</button>'}return}
   if(t.id==='rdvmsgbox'){const pp=S.lastRDV&&byId(S.lastRDV);if(pp){pp.rdvMsgAI=t.value;pp.rdvMsgFor=pp.rdvAt;const bx=$('#rdvbtns');if(bx)bx.innerHTML=rdvBtns(pp,t.value)}return}
   if(t.id==='cn')S.call.note=t.value;else if(t.id==='mt'||t.id==='ms'||t.id==='mb'){S.call.mail=S.call.mail||{};S.call.mail[{mt:'to',ms:'su',mb:'body'}[t.id]]=t.value}else if(t.id==='ca')S.call.audio=t.value;else if(t.id==='on')S.out.note=t.value;else if(t.id==='oh')S.out.handle=t.value;
   else if(t.id==='pq'){S.pf.q=t.value;render()}
