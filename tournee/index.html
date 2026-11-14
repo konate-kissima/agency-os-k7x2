@@ -58,7 +58,7 @@ const DN={mo:0,tu:1,we:2,th:3,fr:4,sa:5,su:6};
 function parseOH(s){if(!s)return null;s=String(s).trim();if(s==='24/7')return[0,1,2,3,4,5,6].map(()=>[[0,1440]]);
  const h=[[],[],[],[],[],[],[]];const DY='(?:mo|tu|we|th|fr|sa|su)',RNG=DY+'(?:-'+DY+')?',TM='\\d{1,2}:\\d{2}-\\d{1,2}:\\d{2}';
  const re=new RegExp('^('+RNG+'(?:\\s*,\\s*'+RNG+')*)?\\s*(off|closed|'+TM+'(?:\\s*,\\s*'+TM+')*)$','i');
- for(let rule of s.split(';')){rule=rule.trim().replace(/\bPH\b\s*,?\s*/gi,'').trim();if(!rule)continue;const m=rule.match(re);if(!m)return null;
+ for(let rule of s.split(';')){rule=rule.trim();const hadPH=/\bPH\b/i.test(rule);rule=rule.replace(/\bPH\b\s*,?\s*/gi,'').trim();if(!rule)continue;const m=rule.match(re);if(!m)return null;if(hadPH&&!m[1])continue;
   let days=[];if(m[1]){for(const part of m[1].split(',')){const [a,b]=part.trim().toLowerCase().split('-');let i=DN[a],j=b?DN[b]:i;for(let k=i;;k=(k+1)%7){days.push(k);if(k===j)break}}}else days=[0,1,2,3,4,5,6];
   const off=/^(off|closed)$/i.test(m[2]);const iv=off?[]:m[2].split(',').map(x=>{const [a,b]=x.trim().split('-');const p=t=>{const [H,M]=t.split(':');return +H*60+ +M};let A=p(a),B=p(b);if(B<=A)B=1440;return[A,B]});
   for(const d of days)h[d]=iv}
