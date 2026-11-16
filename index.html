@@ -531,12 +531,16 @@ function callQueue(){
   const timed=p=>p.stage==='contacte'&&p.nextDate===t&&!!p.nextTime,notYet=p=>timed(p)&&p.nextTime>hm5,dueNow=p=>timed(p)&&p.nextTime<=hm5;
   // ordre : rappels du créneau en cours, autres rappels dus, nouvelles fiches (ou nouvelles d'abord une fois le quota de rappels atteint)
   const rank=p=>dueNow(p)?-1:p.stage==='contacte'?(cap?1:(!p.slots||!p.slots.length||p.slots.includes(slot)?0:1)):(cap?0:2);
-  return S.prospects.filter(p=>!p.optout&&hasPhone(p.phone)&&!sk.includes(p.id)&&(p.stage==='a_contacter'||(p.stage==='contacte'&&(!p.nextDate||p.nextDate<=t)))&&!notYet(p)
+  return S.prospects.filter(p=>!p.optout&&hasPhone(p.phone)&&!sk.includes(p.id)&&!resting(p)&&(p.stage==='a_contacter'||(p.stage==='contacte'&&(!p.nextDate||p.nextDate<=t)))&&!notYet(p)
     &&!(p.stage==='contacte'&&p.rdvAt&&!p.rdvShow&&(p.rdvType||'visio')!=='tel')
     &&(mob==='all'||(mob==='fixe'&&!isMobile(p.phone))||(mob==='mobile'&&isMobile(p.phone))))
    .sort((a,b)=>rank(a)-rank(b)||(+isMobile(b.phone)-+isMobile(a.phone))||(a.stage==='contacte'&&b.stage==='contacte'?String(a.nextDate||'').localeCompare(String(b.nextDate||'')):0)||(+b.score||0)-(+a.score||0)||(+b.reviews||0)-(+a.reviews||0)||String(a.name).localeCompare(String(b.name)));
 }
 function callsOf(pid){return S.calls.filter(c=>c.prospectId===pid)}
+// Repos : une fiche appelée 2 fois sans réponse (ou répondeur) ne revient pas avant REST_DAYS jours, pour laisser la place aux nouvelles fiches
+const REST_DAYS=3;
+const cycleTries=p=>callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).length;
+const resting=p=>p.stage==='contacte'&&(p.lastResult==='nr'||p.lastResult==='rep')&&!p.nextTime&&!!p.lastCall&&String(p.lastCall).slice(0,10)>addDays(today(),-REST_DAYS)&&cycleTries(p)>=2;
 function todayStats(){const t=today();const L=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t);return{n:L.length,j:L.filter(c=>JOINT.includes(c.result)).length,conv:L.filter(isAns).length,real:L.filter(c=>JOINT.includes(c.result)).length,r:L.filter(c=>isRdvRes(c.result)).length}}
 function fillScript(txt,p){return String(txt||'').replace(/\{contact\}/g,p.dirigeant||'monsieur/madame').replace(/\{accroche\}/g,hookFor(p)).replace(/\{Valeur\}/g,valueFor(p)).replace(/\{Accroche\}/g,(()=>{let h=hookFor(p);if(/je n'ai pas trouvé de site/.test(h))h=p.city?`j'ai découvert ${p.name} à ${p.city}`:`j'ai découvert ${p.name}`;return h.charAt(0).toUpperCase()+h.slice(1)})()).replace(/\{avis\}/g,p.reviews||'?').replace(/\{note\}/g,p.rating||'?').replace(/\{nom\}/g,p.name||'').replace(/\{ville\}/g,p.city||'').replace(/\{jour\}/g,'demain')}
 
@@ -811,7 +815,7 @@ function appelsHTML(){
   if(!cur)S.call.pid='';
   const ang=S.call.angle||sc.angle;
   const gc=goals().conv,zc=zoneOf(st.conv,gc[0],Math.round(gc[0]/2));
-  const kp=`<span class="pill" title="Décroché = une personne qui a répondu (même si elle raccroche). Objectif non négociable : ${gc[0]} par jour."><i class="zdot" style="background:${ZONE_C[zc]}"></i><b>${st.conv}</b> / ${gc[0]} décrochés</span><span class="pill" title="Vraie conversation = il a décroché et vous avez réellement échangé (hors raccroché au nez)."><b>${st.real}</b> vraies conversations</span><span class="pill"><b>${st.r}</b> RDV</span><span class="pill muted"><b>${st.n}</b> appels passés</span><span class="pill"><b>${Q.length}</b> à appeler</span><button class="btn sm${S.call.showRap?' primary':''}" data-act="rapl-toggle">À rappeler (${rapList().length})</button>`+trayBtns();
+  const kp=`<span class="pill" title="Décroché = une personne qui a répondu (même si elle raccroche). Objectif non négociable : ${gc[0]} par jour."><i class="zdot" style="background:${ZONE_C[zc]}"></i><b>${st.conv}</b> / ${gc[0]} décrochés</span><span class="pill" title="Vraie conversation = il a décroché et vous avez réellement échangé (hors raccroché au nez)."><b>${st.real}</b> vraies conversations</span><span class="pill"><b>${st.r}</b> RDV</span><span class="pill muted"><b>${st.n}</b> appels passés</span><span class="pill"><b>${Q.length}</b> à appeler</span>${(n=>n?`<span class="pill muted" title="Appelées 2 fois sans réponse : elles reviennent dans ${REST_DAYS} jours, pour que tu appelles surtout des nouvelles fiches.">😴 ${n} au repos</span>`:'')(S.prospects.filter(p=>!p.optout&&hasPhone(p.phone)&&resting(p)).length)}<button class="btn sm${S.call.showRap?' primary':''}" data-act="rapl-toggle">À rappeler (${rapList().length})</button>`+trayBtns();
   const MOBO=[['all','Toutes (mobiles d\'abord)'],['mobile','Mobiles (06/07)'],['fixe','Fixes']];
   const filt=`<select data-act="mobsel" aria-label="Type de ligne" class="sm">${MOBO.map(([v,l])=>`<option value="${v}"${S.call.mob===v?' selected':''}>${l}</option>`).join('')}</select>`;
   const bar=callSearchHTML(kp+filt);
@@ -905,7 +909,7 @@ async function callResult(r){
   else if(r==='nr'||r==='rep'){const joined=callsOf(p.id).some(c=>c.joint);const ctries=callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).length+1;
     const slots=['m','d','s'].filter(x=>x!==slotOf(call.hour));
     if(ctries>=MAX_TRIES&&!joined){patch=(p.cycle||1)<2?{...base,stage:'contacte',nextDate:addDays(today(),30),slots:[],cycle:2,cycleStart:new Date(now.getTime()+1).toISOString()}:{...base,stage:'perdu',lostReason:'Injoignable (2 cycles de '+MAX_TRIES+' tentatives)'}}
-    else patch={...base,stage:'contacte',nextDate:workday(r==='nr'?1:2),slots}}
+    else patch={...base,stage:'contacte',nextDate:workday(ctries>=2?REST_DAYS:r==='nr'?1:2),slots}}
   else if(r==='hu'){const hus=callsOf(p.id).filter(c=>c.result==='hu').length+1;patch=hus>=2?{...base,stage:'perdu',lostReason:'A raccroché au nez (2 fois)'}:{...base,stage:'contacte',nextDate:workday(3),slots:['m','d','s'].filter(x=>x!==slotOf(call.hour))}}
   else if(r==='no')patch={...base,stage:'perdu',lostReason:call.obj||'Pas intéressé'};
   else if(r==='bad')patch={...base,phone:'',badPhone:true};
