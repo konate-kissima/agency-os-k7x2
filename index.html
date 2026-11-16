@@ -9,6 +9,7 @@
 html{-webkit-text-size-adjust:100%}
 body{margin:0;color:var(--ink);font:15px/1.5 var(--f-body);background:radial-gradient(900px 420px at 88% -8%,rgba(168,189,60,.14),transparent 62%),radial-gradient(700px 380px at -8% 4%,rgba(224,166,58,.08),transparent 58%),var(--bg);background-attachment:fixed;min-height:100vh}
 a{color:var(--accent2)}h1,h2,h3,h4{margin:0 0 8px;font-family:var(--f-disp);letter-spacing:-.01em;text-wrap:balance}h2{font-size:22px}h3{font-size:17px}
+#terrainFrame{position:fixed;left:0;right:0;bottom:0;width:100%;height:auto;border:0;background:var(--bg);z-index:10;display:none}
 header.top{display:flex;gap:14px;align-items:center;padding:10px max(14px,env(safe-area-inset-left)) 10px max(14px,env(safe-area-inset-right));background:color-mix(in srgb,var(--bg) 82%,transparent);-webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
 .brand{display:flex;align-items:center;gap:9px;font-family:var(--f-disp);font-weight:700;letter-spacing:.14em;font-size:13px;white-space:nowrap}.brand b{color:var(--accent);font-weight:700}
 .logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;color:var(--accent-ink);font:700 17px/1 var(--f-disp);box-shadow:var(--glow);letter-spacing:0}
@@ -539,8 +540,10 @@ function callQueue(){
 function callsOf(pid){return S.calls.filter(c=>c.prospectId===pid)}
 // Repos : une fiche appelée 2 fois sans réponse (ou répondeur) ne revient pas avant REST_DAYS jours, pour laisser la place aux nouvelles fiches
 const REST_DAYS=3;
-const cycleTries=p=>callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).length;
-const resting=p=>p.stage==='contacte'&&(p.lastResult==='nr'||p.lastResult==='rep')&&!p.nextTime&&!!p.lastCall&&String(p.lastCall).slice(0,10)>addDays(today(),-REST_DAYS)&&cycleTries(p)>=2;
+const NOANS=['nr','rep'];
+// vrai si les 2 derniers appels de la fiche (dans la série en cours) n'ont pas eu de réponse
+const twoNoAnswer=p=>{const L=callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).sort((a,b)=>String(a.t).localeCompare(String(b.t)));return L.length>=2&&NOANS.includes(L[L.length-1].result)&&NOANS.includes(L[L.length-2].result)};
+const resting=p=>p.stage==='contacte'&&(p.lastResult==='nr'||p.lastResult==='rep')&&!p.nextTime&&!!p.lastCall&&String(p.lastCall).slice(0,10)>addDays(today(),-REST_DAYS)&&twoNoAnswer(p);
 function todayStats(){const t=today();const L=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t);return{n:L.length,j:L.filter(c=>JOINT.includes(c.result)).length,conv:L.filter(isAns).length,real:L.filter(c=>JOINT.includes(c.result)).length,r:L.filter(c=>isRdvRes(c.result)).length}}
 function fillScript(txt,p){return String(txt||'').replace(/\{contact\}/g,p.dirigeant||'monsieur/madame').replace(/\{accroche\}/g,hookFor(p)).replace(/\{Valeur\}/g,valueFor(p)).replace(/\{Accroche\}/g,(()=>{let h=hookFor(p);if(/je n'ai pas trouvé de site/.test(h))h=p.city?`j'ai découvert ${p.name} à ${p.city}`:`j'ai découvert ${p.name}`;return h.charAt(0).toUpperCase()+h.slice(1)})()).replace(/\{avis\}/g,p.reviews||'?').replace(/\{note\}/g,p.rating||'?').replace(/\{nom\}/g,p.name||'').replace(/\{ville\}/g,p.city||'').replace(/\{jour\}/g,'demain')}
 
@@ -909,7 +912,7 @@ async function callResult(r){
   else if(r==='nr'||r==='rep'){const joined=callsOf(p.id).some(c=>c.joint);const ctries=callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).length+1;
     const slots=['m','d','s'].filter(x=>x!==slotOf(call.hour));
     if(ctries>=MAX_TRIES&&!joined){patch=(p.cycle||1)<2?{...base,stage:'contacte',nextDate:addDays(today(),30),slots:[],cycle:2,cycleStart:new Date(now.getTime()+1).toISOString()}:{...base,stage:'perdu',lostReason:'Injoignable (2 cycles de '+MAX_TRIES+' tentatives)'}}
-    else patch={...base,stage:'contacte',nextDate:workday(ctries>=2?REST_DAYS:r==='nr'?1:2),slots}}
+    else patch={...base,stage:'contacte',nextDate:workday(NOANS.includes((callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).sort((a,b)=>String(a.t).localeCompare(String(b.t))).pop()||{}).result)?REST_DAYS:r==='nr'?1:2),slots}}
   else if(r==='hu'){const hus=callsOf(p.id).filter(c=>c.result==='hu').length+1;patch=hus>=2?{...base,stage:'perdu',lostReason:'A raccroché au nez (2 fois)'}:{...base,stage:'contacte',nextDate:workday(3),slots:['m','d','s'].filter(x=>x!==slotOf(call.hour))}}
   else if(r==='no')patch={...base,stage:'perdu',lostReason:call.obj||'Pas intéressé'};
   else if(r==='bad')patch={...base,phone:'',badPhone:true};
@@ -1743,9 +1746,30 @@ function donneesHTML(){
   ${DB.mode==='local'?`<div class="card"><h3>Passer en cloud (Supabase)</h3><ol class="plain sm"><li>Crée TON projet Supabase (pas celui de Germaine ni de Gaston).</li><li>Exécute <code>schema.sql</code> dans l'éditeur SQL, ajoute ton email dans la table <code>membres</code>, crée ton utilisateur (Authentication) et désactive l'inscription libre.</li><li>Colle l'URL et la clé publique (publishable) dans <code>config.js</code>.</li><li>Recharge la page : exporte d'abord tes CSV en mode local, puis réimporte-les.</li></ol></div>`:''}`;
 }
 
+/* ================= terrain (tournée à pied) ================= */
+const terrainHTML=()=>'<div class="card muted" style="min-height:60vh">Chargement de la tournée…</div>';
+function terrainShow(){let f=document.getElementById('terrainFrame');if(S.tab!=='terrain'){if(f)f.style.display='none';return}
+  if(!f){f=document.createElement('iframe');f.id='terrainFrame';f.title='Tournée des commerces';f.setAttribute('allow','geolocation');f.src='tournee/index.html';document.body.appendChild(f)}
+  const h=document.querySelector('header.top');f.style.top=(h?Math.ceil(h.getBoundingClientRect().bottom):60)+'px';f.style.display='block'}
+const TERRAIN_L={rdv:'RDV pris',rappel:'À rappeler / repasser',carte:'Carte laissée',refus:'Pas intéressé',absent:'Patron absent'};
+async function terrainSave(d){
+  if(!d||!d.id||d.r==='passe'||!TERRAIN_L[d.r])return;
+  const id='o'+String(d.id).replace(/[^a-z0-9]/gi,'');
+  let p=byId(id)||(hasPhone(d.tel)&&byId('t'+normPhone(d.tel)))||null;
+  const line=stamp()+' 🚶 Terrain : '+TERRAIN_L[d.r]+(d.note?' : '+d.note:'')+(d.dir?' (dirigeant : '+d.dir+')':'');
+  const next={rdv:workday(1),rappel:workday(1),absent:workday(1),carte:workday(3)}[d.r];
+  const stg=d.r==='refus'?{stage:'perdu',lostReason:'Pas intéressé (terrain)'}:{stage:'contacte',nextDate:next,nextTime:''};
+  const keep=p&&['rdv','rdv_fait','pilote','signe'].includes(p.stage);
+  if(p){const patch={...(keep?{}:stg),notes:[p.notes||'',line].filter(Boolean).join('\n'),lastTerrain:today(),touches:(p.touches||0)+1};if(await saveP(p.id,patch)){await logEv(p,'terrain',TERRAIN_L[d.r]+(d.note?' : '+d.note:''));toast('Fiche mise à jour : '+p.name)}return}
+  const dept=String(d.cp||'').slice(0,2)||(/\b(\d{5})\b/.exec(d.addr||'')||[])[1]?.slice(0,2)||'';
+  const o={name:d.n,phone:hasPhone(d.tel)?d.tel:'',city:'',dept,address:d.addr||'',mapsUrl:'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(d.n+' '+(d.addr||d.lat+','+d.lng)),score:60,source:'terrain',metier:d.catL||'',created:today(),lastTerrain:today(),touches:1,notes:line,...stg};
+  if(await guard(()=>DB.set('prospects',id,o))){S.prospects.push({id,...o});const np=byId(id);await logEv(np,'terrain',TERRAIN_L[d.r]+(d.note?' : '+d.note:''));toast('Fiche créée : '+d.n)}
+}
+window.addEventListener('message',ev=>{if(ev.origin!==location.origin)return;const m=ev.data;if(m&&m.type==='tournee-result')terrainSave(m.d).then(()=>{if(S.tab!=='terrain')render()})});
+
 /* ================= aide ================= */
 
-const AIDE_TABS=[['appels','📞 Appels'],['auj',"🔥 Aujourd'hui"],['plan','🗓 Planning'],['stats','📊 Stats'],['clients','🤝 Clients'],['donnees','🗂 Données'],['outreach','💬 DM & vidéos'],['contenu','🎬 Contenu'],['scripts','📝 Scripts'],['aide','💡 Explication']];
+const AIDE_TABS=[['appels','📞 Appels'],['terrain','🚶 Terrain'],['auj',"🔥 Aujourd'hui"],['plan','🗓 Planning'],['stats','📊 Stats'],['clients','🤝 Clients'],['donnees','🗂 Données'],['outreach','💬 DM & vidéos'],['contenu','🎬 Contenu'],['scripts','📝 Scripts'],['aide','💡 Explication']];
 function aideTabsHTML(){
   const B=(t,c)=>`<span class="wfb ${c||''}">${t}</span>`;
   const W=(t,inner)=>`<div class="wf"><div class="wft">${t}</div>${inner}</div>`;
@@ -1758,6 +1782,10 @@ function aideTabsHTML(){
   auj:P('auj',"c'est ton cockpit du matin : où tu en es, ce qui est prévu, et un seul gros bouton pour lancer les appels.",
    W("🔥 Aujourd'hui",`<div class="wfc"><b>🎯 Objectif d'ici le 31 déc.</b><div class="wfbar"><i style="width:35%"></i></div><span class="sm muted">encaissé / objectif</span></div><div class="wfc"><b>Checklist du jour</b><div class="sm">☑ Appels du matin &nbsp; ☐ Mails du soir &nbsp; ☐ Suivi RDV</div></div><div style="text-align:center">${B('📞 Lancer les appels','pri')}</div><div class="wfc"><b>Au programme aujourd'hui</b><div class="sm muted">RDV, rappels à heure fixe, rappels du jour (Appeler / Fiche)</div></div>`),
    ["Regarde ta jauge d'objectif et la prochaine étape à atteindre.","Coche ta checklist au fil de la journée. « Modifier les objectifs » règle tes cibles quotidiennes.","Ouvre « Au programme aujourd'hui » : RDV, rappels. <b>Appeler</b> ouvre la fiche dans Appels, <b>Fiche</b> la détaille.","Clique <b>📞 Lancer les appels</b> pour démarrer.","En fin de journée, le bilan résume tes appels et te renvoie vers Stats."],null),
+  terrain:P('terrain',"c'est ta tournée des commerces à pied : tu appuies sur « Autour de moi », la liste se construit autour de toi (sans les chaînes), et chaque résultat crée ou met à jour la fiche dans Agency OS.",
+   W('🚶 Terrain',`<div class="wfa">${B('📍 Autour de moi','ok')}${B('🚶 À pied')}${B('Rayon : Auto')} <span class="wfr">0 / 25 faites</span></div><div class="wfc"><b>Opti' Claire</b> · Opticien · Ouvert, ferme à 19h30${B('Y aller · 230 m · 4 min','warn')}<div class="sm muted">RDV pris · À rappeler · Carte laissée · Patron absent · Pas intéressé · Fermé / passer</div></div>`),
+   ["Appuie sur <b>📍 Autour de moi</b> (ou tape une adresse) : les commerces indépendants proches apparaissent, le plus utile d'abord.","Appuie sur <b>Y aller</b> : Google Maps t'emmène au commerce. Lis « Que dire » avant d'entrer.","Note le résultat en un appui : la fiche est créée dans Agency OS (RDV, rappel, carte laissée, absent, pas intéressé) et le commerce suivant s'affiche.","Dans <b>Réglages</b>, change l'objectif (25 par défaut, jamais bloquant) et le rayon (libre, en mètres)."],
+   "Les fiches créées n'ont pas toujours de téléphone : elles n'entrent dans la file d'appels que si le numéro est connu. Les rappels du terrain apparaissent dans « À rappeler » et le Planning."),
   plan:P('plan',"c'est ton agenda interne, comme Google Agenda : les heures à gauche, chaque RDV ou rappel à heure fixe est un bloc.",
    W('🗓 Planning',`<div>${B('←')} ${B("Aujourd'hui")} ${B('→')} &nbsp; ${B('Jour')} ${B('Semaine','pri')}</div><div class="wfgrid"><div>9h</div><div class="wfev g">Visio · Clyma Control</div><div>10h</div><div></div><div>11h</div><div class="wfev b">Tél · Rappel RDV</div><div>12h</div><div class="wfev o">Rappel 12:30</div></div>`),
    ["Choisis <b>Jour</b> ou <b>Semaine</b>, avance avec les flèches, « Aujourd'hui » te ramène à la date du jour.","Vert = visio ou physique, bleu = RDV téléphone, orange = rappel à heure fixe, trait rouge = maintenant.","Clique un bloc : le détail s'ouvre dessous (téléphone, lien visio, fiche de RDV) avec <b>Message de rappel</b>.","Les rappels sans heure ne sont pas dans la grille : ils sont dans la file d'appels."],"Il ne lit pas Google Agenda, seulement ce qui est dans Agency OS."),
@@ -2004,7 +2032,7 @@ async function saveGoals(){
 }
 
 /* ================= rendu ================= */
-const TABS=[['appels','📞 Appels'],['auj','🔥 Aujourd\'hui'],['plan','🗓 Planning'],['stats','📊 Stats'],['clients','🤝 Clients'],['donnees','🗂 Données'],['outreach','💬 DM & vidéos'],['contenu','🎬 Contenu'],['scripts','📝 Scripts'],['aide','💡 Explication']];
+const TABS=[['appels','📞 Appels'],['terrain','🚶 Terrain'],['auj','🔥 Aujourd\'hui'],['plan','🗓 Planning'],['stats','📊 Stats'],['clients','🤝 Clients'],['donnees','🗂 Données'],['outreach','💬 DM & vidéos'],['contenu','🎬 Contenu'],['scripts','📝 Scripts'],['aide','💡 Explication']];
 const TAB2=['outreach','contenu','scripts','aide'];
 function render(){
   const app=$('#app');
@@ -2014,9 +2042,10 @@ function render(){
   let body='';
   if(!S.loaded)body='<div class="card">Chargement…</div>';
   else if(S.err)body=`<div class="banner">Erreur de données : ${esc(S.err)}</div>`;
-  else body={plan:planningHTML,auj:aujourdhuiHTML,appels:appelsHTML,outreach:outreachHTML,contenu:contenuHTML,pipeline:pipelineHTML,clients:clientsHTML,stats:statsHTML,scripts:scriptsHTML,donnees:donneesHTML,aide:aideHTML}[S.tab]();
+  else body={plan:planningHTML,auj:aujourdhuiHTML,appels:appelsHTML,outreach:outreachHTML,contenu:contenuHTML,pipeline:pipelineHTML,clients:clientsHTML,stats:statsHTML,scripts:scriptsHTML,donnees:donneesHTML,aide:aideHTML,terrain:terrainHTML}[S.tab]();
   document.querySelectorAll('.chal').forEach(x=>x.remove());
   app.innerHTML=`<header class="top"><span class="brand"><i class="logo" aria-hidden="true">↗</i><span>AGENCY<b>OS</b></span></span><nav class="tabs" role="tablist">${TABS.map(([k,l])=>`<button role="tab" class="${TAB2.includes(k)?'tab2':''}" aria-selected="${S.tab===k}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</nav><button type="button" id="geneb" class="btn sm" title="Note ce qui te ralentit, sans quitter ton appel">🚩 Ça me gêne</button>${DB.mode==='cloud'?'<button class="btn sm" data-act="logout">Déconnexion</button>':'<span class="chip">Mode local</span>'}</header><main>${body}</main>`;
+  terrainShow();
   if(S.chal&&S.loaded&&!S.err)document.body.insertAdjacentHTML('beforeend',challengeHTML());
   if(S.tab==='scripts'&&S.loaded){const m=$('main');m.insertAdjacentHTML('beforeend','<p><button class="btn sm" data-act="addangle">+ Nouvel angle de script</button></p>')}
   if(active&&$('#'+active)&&['cn','pq','on','oh','cq'].includes(active)){const el=$('#'+active);el.focus();try{el.setSelectionRange(el.value.length,el.value.length)}catch(e){}}
