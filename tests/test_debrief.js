@@ -37,7 +37,7 @@ let h=await pg.evaluate(()=>({d:S.dbd,n:debriefData(...debRange()).rdv,disabled:
 ok(h.n===1,'◀ : hier = 1 RDV ('+h.n+')');
 await pg.click('[data-act="deb-p"][data-v="w"]');
 h=await pg.evaluate(()=>{const [f,t]=debRange(),x=debriefData(f,t);return{f,t,len:x.len,n:x.n,days:x.days.length,mon:new Date(f+'T12:00:00').getDay(),sun:new Date(t+'T12:00:00').getDay(),svg:!!document.querySelector('#debcard svg')}});
-ok(h.len===7&&h.mon===1&&h.sun===0&&h.n===11&&h.days===7&&h.svg,'semaine lundi→dimanche, 11 appels, 7 barres : '+JSON.stringify(h));
+ok(h.len===6&&h.mon===1&&h.sun===6&&h.n===11&&h.days===6&&h.svg,'semaine lundi→samedi, 11 appels, 6 barres : '+JSON.stringify(h));
 await pg.click('[data-act="deb-p"][data-v="c"]');
 await pg.fill('#dbf',await pg.evaluate(()=>addDays(today(),-1)));await pg.waitForTimeout(100);
 h=await pg.evaluate(()=>{const [f,t]=debRange();return{f,t,n:debriefData(f,t).n}});
