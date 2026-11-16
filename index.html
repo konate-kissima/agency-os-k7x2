@@ -902,7 +902,8 @@ async function callResult(r){
   const transcript=S.call.transcript||'',audioPath=S.call.audioPath||'';
   const ty=r==='rdvt'?'tel':r==='rdvp'?'physique':'visio';
   const deadS=(S.call.dialPid===p.id&&S.call.dialAt&&lastSaveAt&&S.call.dialAt>lastSaveAt)?Math.round((S.call.dialAt-lastSaveAt)/1000):null;
-  const call={...(deadS!=null&&deadS<1800?{dead:deadS}:{}),channel:'appel',prospectId:p.id,prospectName:p.name,t:now.toISOString(),hour:now.getHours(),result:r,angle:S.call.angle||sc.angle,obj:obj==='—'||r!=='no'?'':obj,note,auto,audio,informed,dept:p.dept||'',joint:JOINT.includes(r),answered:ANSWERED.includes(r),dur:S.call.dur||0,...(transcript?{transcript}:{}),...(audioPath?{audioPath}:{})};
+  const dialS=(S.call.dialPid===p.id&&S.call.dialAt&&(!lastSaveAt||S.call.dialAt>lastSaveAt))?Math.round((now.getTime()-S.call.dialAt)/1000):null;
+  const call={...(deadS!=null&&deadS<1800?{dead:deadS}:{}),...(dialS!=null&&dialS>=0&&dialS<3600?{dial:dialS}:{}),channel:'appel',prospectId:p.id,prospectName:p.name,t:now.toISOString(),hour:now.getHours(),result:r,angle:S.call.angle||sc.angle,obj:obj==='—'||r!=='no'?'':obj,note,auto,audio,informed,dept:p.dept||'',joint:JOINT.includes(r),answered:ANSWERED.includes(r),dur:S.call.dur||0,...(transcript?{transcript}:{}),...(audioPath?{audioPath}:{})};
   if(isRdvRes(r)){call.rdvType=ty;call.rdvAt=rdvAt}
   const id='c'+uid();
   const touches=(p.touches||0)+1;
@@ -1356,7 +1357,7 @@ function debriefData(from,to,noPrev){
   const sgN=Math.max(sg.length,cl.length),sgR1=sg.filter(e=>(e.n||1)===1).length;
   const amt=sg.reduce((a,e)=>a+(+e.amount||0),0)||cl.reduce((a,c)=>a+(+c.price||0),0);
   const pays=payAll().filter(q=>inRg(q.d,from,to)),enc=pays.reduce((a,q)=>a+q.amt,0),noPay=cl.filter(c=>!(c.payments||[]).length).length;
-  const talk=L.filter(c=>c.dur>0).reduce((a,c)=>a+c.dur,0);
+  const talk=L.reduce((a,c)=>a+(c.dur>0?c.dur:(c.dial>0?c.dial:0)),0),talkN=L.filter(c=>c.dur>0||c.dial>0).length;
   const hh={};L.forEach(c=>{const h=c.hour!=null?c.hour:new Date(c.t).getHours();(hh[h]=hh[h]||{n:0,a:0});hh[h].n++;if(isAns(c))hh[h].a++});
   const bh=Object.entries(hh).filter(([,v])=>v.n>=5).sort((x,y)=>y[1].a/y[1].n-x[1].a/x[1].n)[0];
   let doors=0,terRdv=0;S.prospects.forEach(p=>(p.log||[]).forEach(l=>{if(l.k==='terrain'&&inRg(l.t,from,to)){doors++;if(String(l.txt).indexOf(TERRAIN_L.rdv)===0)terRdv++}}));
@@ -1364,17 +1365,18 @@ function debriefData(from,to,noPrev){
   for(let i=0;i<nd;i++){const d=addDays(from,i),Ld=L.filter(c=>String(c.t).slice(0,10)===d);days.push({d,n:Ld.length,dec:Ld.filter(isAns).length,rdv:Ld.filter(c=>isRdvCnt(c.result)).length,enc:pays.filter(q=>q.d===d).reduce((a,q)=>a+q.amt,0)})}
   const sign=S.clients.reduce((a,c)=>a+(+c.price||0),0),got=payAll().reduce((a,q)=>a+q.amt,0);
   let rec=null;if(from===to&&!noPrev){const by={};S.calls.filter(isCall).forEach(c=>{const d=String(c.t).slice(0,10);if(d!==from)by[d]=(by[d]||0)+1});const best=Math.max(0,...Object.values(by));rec={best,beaten:L.length>best&&best>0}}
-  const len=dayDiff(from,to),x={from,to,d:from,len,n:L.length,dec:ans.length,real:real.length,rdv,tel,prevus:tenus+abs+pend,tenus,abs,pend,r1,r2p,r2,sgN,sgR1,sgR2:sgN-sgR1,amt,enc,noPay,talk,bestHour:bh?{h:+bh[0],rate:Math.round(100*bh[1].a/bh[1].n),n:bh[1].n}:null,doors,terRdv,days,cum:{sign,got,rest:Math.max(0,sign-got)},streak:debStreak(to),rec};
+  const len=dayDiff(from,to),x={from,to,d:from,len,n:L.length,dec:ans.length,real:real.length,rdv,tel,prevus:tenus+abs+pend,tenus,abs,pend,r1,r2p,r2,sgN,sgR1,sgR2:sgN-sgR1,amt,enc,noPay,talk,talkN,bestHour:bh?{h:+bh[0],rate:Math.round(100*bh[1].a/bh[1].n),n:bh[1].n}:null,doors,terRdv,days,cum:{sign,got,rest:Math.max(0,sign-got)},streak:debStreak(to),rec};
   const eTo=to>today()?today():to,pl=Math.max(1,dayDiff(from,eTo));x.plen=pl;
   x.prev=noPrev?null:debriefData(addDays(from,-pl),addDays(from,-1),true);
   if(!noPrev&&eTo<to){const cur=debriefData(from,eTo,true);x.cmp={n:cur.n,dec:cur.dec,rdv:cur.rdv}}
   return x}
 const cap1=t=>t.charAt(0).toUpperCase()+t.slice(1);
+const fmtDur=sec=>{const m=Math.round(sec/60);return m>=60?Math.floor(m/60)+' h '+String(m%60).padStart(2,'0')+' min':m+' min'};
 const debLabel=x=>x.from===x.to?longDate(x.from):(x.len===6&&new Date(x.from+'T12:00:00').getDay()===1?'Semaine du ':'Du ')+longDate(x.from)+' au '+longDate(x.to);
 function debriefText(x){
   const cm=x.cmp||x,dl=(a,b)=>x.prev&&a!==b?' ('+(a>b?'+':'')+(a-b)+' vs '+(x.from===x.to?'veille':'même durée avant')+')':'';
   const per=x.from===x.to?'du jour':(x.len===6&&new Date(x.from+'T12:00:00').getDay()===1)?'de la semaine':'de la période';
-  return `Débrief ${per} · ${debLabel(x)}\n💰 Encaissé (virements reçus) : ${money(x.enc)}\n✍️ Contracté (signé) : ${money(x.amt)}${x.cum.sign?'\n   Reste à encaisser sur tous les contrats : '+money(x.cum.rest)+' ('+money(x.cum.got)+' reçus sur '+money(x.cum.sign)+')':''}\n📞 ${x.n} appels${dl(cm.n,x.prev&&x.prev.n)} · ${x.dec} décrochés (${pct(x.dec,x.n)}) · ${x.real} vraies conversations (${pct(x.real,x.n)})\n📅 ${x.rdv} RDV pris (visio/physique)${dl(cm.rdv,x.prev&&x.prev.rdv)} · ${pct(x.rdv,x.dec)} des décrochés · ${pct(x.rdv,x.n)} des appels${x.tel?' · +'+x.tel+' RDV tél non comptés':''}\n✅ Show up : ${x.tenus} tenus / ${x.tenus+x.abs} (${pct(x.tenus,x.tenus+x.abs)})${x.pend?' · '+x.pend+' à qualifier':''}\n🔁 R2 prévus ${x.r2p} · R2 tenus ${x.r2}\n🤝 Signés ${x.sgN} (${x.sgR1} en R1 direct, ${x.sgR2} en R2) · ${pct(x.sgN,x.tenus)} des RDV tenus${x.sgN?'\n🎯 Pour 1 client signé : '+Math.round(x.n/x.sgN)+' appels · '+Math.round(x.dec/x.sgN)+' décrochés · '+(Math.round(10*x.tenus/x.sgN)/10)+' RDV tenus':''}${x.doors?'\n🚶 Terrain : '+x.doors+' portes · '+x.terRdv+' RDV pris':''}${x.talk?'\n⏱ Conversations enregistrées : '+Math.round(x.talk/60)+' min':''}${x.bestHour?'\n🕘 Meilleure heure : '+x.bestHour.h+' h ('+x.bestHour.rate+' % de décroché)':''}${x.streak>1?'\n🔥 '+x.streak+' jours d\'appels d\'affilée':''}${x.rec&&x.rec.beaten?'\n🏆 Record d\'appels battu (ancien : '+x.rec.best+')':''}`}
+  return `Débrief ${per} · ${debLabel(x)}\n💰 Encaissé (virements reçus) : ${money(x.enc)}\n✍️ Contracté (signé) : ${money(x.amt)}${x.cum.sign?'\n   Reste à encaisser sur tous les contrats : '+money(x.cum.rest)+' ('+money(x.cum.got)+' reçus sur '+money(x.cum.sign)+')':''}\n📞 ${x.n} appels${dl(cm.n,x.prev&&x.prev.n)} · ${x.dec} décrochés (${pct(x.dec,x.n)}) · ${x.real} vraies conversations (${pct(x.real,x.n)})\n📅 ${x.rdv} RDV pris (visio/physique)${dl(cm.rdv,x.prev&&x.prev.rdv)} · ${pct(x.rdv,x.dec)} des décrochés · ${pct(x.rdv,x.n)} des appels${x.tel?' · +'+x.tel+' RDV tél non comptés':''}\n✅ Show up : ${x.tenus} tenus / ${x.tenus+x.abs} (${pct(x.tenus,x.tenus+x.abs)})${x.pend?' · '+x.pend+' à qualifier':''}\n🔁 R2 prévus ${x.r2p} · R2 tenus ${x.r2}\n🤝 Signés ${x.sgN} (${x.sgR1} en R1 direct, ${x.sgR2} en R2) · ${pct(x.sgN,x.tenus)} des RDV tenus${x.sgN?'\n🎯 Pour 1 client signé : '+Math.round(x.n/x.sgN)+' appels · '+Math.round(x.dec/x.sgN)+' décrochés · '+(Math.round(10*x.tenus/x.sgN)/10)+' RDV tenus':''}${x.doors?'\n🚶 Terrain : '+x.doors+' portes · '+x.terRdv+' RDV pris':''}${x.talk?'\n⏱ Temps au téléphone : '+fmtDur(x.talk)+' (≈ '+Math.round(x.talk/x.talkN)+' s par appel)':''}${x.bestHour?'\n🕘 Meilleure heure : '+x.bestHour.h+' h ('+x.bestHour.rate+' % de décroché)':''}${x.streak>1?'\n🔥 '+x.streak+' jours d\'appels d\'affilée':''}${x.rec&&x.rec.beaten?'\n🏆 Record d\'appels battu (ancien : '+x.rec.best+')':''}`}
 function debBars(x){const D=x.days;if(D.length<2)return'';const W=640,H=140,bw=W/D.length,mx=Math.max(1,...D.map(d=>d.n)),u=H-22;
   let s=`<svg viewBox="0 0 ${W} ${H+32}" style="width:100%;height:auto;display:block" role="img" aria-label="Appels et RDV par jour">`;
   D.forEach((d,i)=>{const h=Math.round(u*d.n/mx),hr=d.rdv?Math.max(4,Math.round(u*d.rdv/mx)):0,xx=i*bw+bw*.15,w=bw*.7,wd=DAYS_L[new Date(d.d+'T12:00:00').getDay()].slice(0,3);
@@ -1395,7 +1397,7 @@ function debCard(x,nav){
   ${cell('📅','RDV pris',x.rdv,pct(x.rdv,x.dec)+' des décrochés · '+pct(x.rdv,x.n)+' des appels'+(x.tel?'<br><span class="muted">+ '+x.tel+' RDV tél non comptés</span>':'')+dl(cm.rdv,x.prev&&x.prev.rdv))}
   ${cell('✅','Show up',pct(x.tenus,x.tenus+x.abs),x.tenus+' tenu'+(x.tenus>1?'s':'')+' sur '+(x.tenus+x.abs)+(x.pend?' · '+x.pend+' à qualifier':'')+(x.prevus?'':'<br><span class="muted">aucun RDV sur la période</span>'))}
   ${cell('🔁','R2',x.r2p,x.r2p+' prévus · '+x.r2+' tenus')}${cell('🤝','Signés',x.sgN,x.sgN?x.sgR1+' en R1 direct · '+x.sgR2+' en R2 · '+pct(x.sgN,x.tenus)+' des RDV tenus':'')}
-  ${x.doors?cell('🚶','Terrain',x.doors,'portes · '+x.terRdv+' RDV pris ('+pct(x.terRdv,x.doors)+')'):''}${x.bestHour?cell('🕘','Meilleure heure',x.bestHour.h+' h',x.bestHour.rate+' % de décroché ('+x.bestHour.n+' appels)'):''}${x.streak>1?cell('🔥','Série',x.streak+' j','jours d\'appels d\'affilée (week-ends neutres)'):''}${x.talk?cell('⏱','Conversations',Math.round(x.talk/60)+' min','temps enregistré'):''}</div>
+  ${x.doors?cell('🚶','Terrain',x.doors,'portes · '+x.terRdv+' RDV pris ('+pct(x.terRdv,x.doors)+')'):''}${x.bestHour?cell('🕘','Meilleure heure',x.bestHour.h+' h',x.bestHour.rate+' % de décroché ('+x.bestHour.n+' appels)'):''}${x.streak>1?cell('🔥','Série',x.streak+' j','jours d\'appels d\'affilée (week-ends neutres)'):''}${x.talk?cell('⏱','Temps au téléphone',fmtDur(x.talk),'≈ '+Math.round(x.talk/x.talkN)+' s par appel · '+x.talkN+' mesurés'):''}</div>
   ${x.sgN?`<p class="sm" style="margin:10px 0 0">🎯 <b>Pour 1 client signé :</b> ${Math.round(x.n/x.sgN)} appels · ${Math.round(x.dec/x.sgN)} décrochés · ${Math.round(10*x.tenus/x.sgN)/10} RDV tenu${x.tenus/x.sgN>=2?'s':''}</p>`:''}
   ${x.rec&&x.rec.beaten?`<p class="sm" style="margin:6px 0 0">🏆 <b>Record d'appels sur une journée battu</b> (ancien : ${x.rec.best})</p>`:''}
   ${x.days.length>1?`<div style="margin-top:12px"><div class="muted sm" style="margin-bottom:2px">Appels par jour <span style="color:#a77a12">■</span> dont RDV · <span style="color:#2f7d3a">€</span> virements reçus</div>${debBars(x)}</div>`:''}
@@ -1435,6 +1437,7 @@ function debImage(x,fmt){
   y+=th+(sq?26:36);
   const cells=[['📞 Appels',x.n,x.real+' vraies conversations'],['🙋 Décrochés',pct(x.dec,x.n),x.dec+' décrochés'],['📅 RDV pris',x.rdv,pct(x.rdv,x.dec)+' des décrochés'],['✅ Show up',pct(x.tenus,x.tenus+x.abs),x.tenus+' / '+(x.tenus+x.abs)+' tenus'],['🔁 R2 tenus',x.r2,x.r2p+' prévus'],['🤝 Signés',x.sgN,pct(x.sgN,x.tenus)+' des RDV tenus']];
   if(!sq){if(x.doors)cells.push(['🚶 Terrain',x.doors,x.terRdv+' RDV pris']);if(x.streak>1)cells.push(['🔥 Série',x.streak+' j','jours d\'affilée'])}
+  if(x.talk)cells.push(['⏱ Au téléphone',fmtDur(x.talk),'≈ '+Math.round(x.talk/x.talkN)+' s par appel']);
   const cols=sq?3:2,gap=18,cw=(W-2*M-gap*(cols-1))/cols,ch=sq?132:150;
   cells.forEach((c,i)=>{const cx=M+(i%cols)*(cw+gap),cy=y+Math.floor(i/cols)*(ch+gap);rr(cx,cy,cw,ch,22,'rgba(255,255,255,.08)');tx(c[0],cx+22,cy+(sq?34:40),sq?21:25,'600','#c9d1b0');tx(String(c[1]),cx+22,cy+(sq?86:98),sq?46:58,'800','#ffffff');if(c[2])tx(c[2],cx+22,cy+ch-(sq?14:16),sq?18:22,'500','#aab38c')});
   y+=Math.ceil(cells.length/cols)*(ch+gap)+(sq?0:10);

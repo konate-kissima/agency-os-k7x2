@@ -74,4 +74,6 @@ const cp=await pg.evaluate(()=>({n:S.clients[0].payments.length,sum:S.clients[0]
 ok(cp.n===2&&cp.sum===1050,'fiche client : 2e virement noté (total 1 050 €)');
 await pg.click('[data-act="pay-del"][data-i="1"]');await pg.waitForTimeout(150);
 ok(await pg.evaluate(()=>S.clients[0].payments.length===1),'virement supprimé');
+const tk=await pg.evaluate(()=>{seed();S.calls.slice(0,4).forEach(c=>c.dial=45);S.calls[4].dur=300;const x=debriefData(today(),today());return{talk:x.talk,n:x.talkN,txt:debriefText(x)}});
+ok(tk.talk===480&&tk.n===5&&/Temps au téléphone : 8 min/.test(tk.txt),'temps au téléphone : 4×45 s + 300 s enregistrés = 8 min ('+tk.talk+')');
 ok(errs.length===0,'aucune erreur JS '+errs);await b.close()})();
