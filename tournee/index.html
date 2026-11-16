@@ -98,13 +98,22 @@ function pitch(s){const who=(st.dirs[s.id]&&st.dirs[s.id].pick)||'';const ask=wh
 const dirMode=m=>st.mode==='walk'?'walking':'driving';
 const mapsUrl=s=>'https://www.google.com/maps/dir/?api=1&destination='+s.lat+','+s.lng+'&travelmode='+dirMode();
 const gUrl=s=>'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(s.n+' '+(s.addr||s.lat+','+s.lng));
-function dirBox(s){const d=st.dirs[s.id];if(!d)return `<button data-a="dir" style="margin-top:8px">🔎 Trouver le dirigeant (registre officiel)</button>`;if(d==='busy')return '<p class="mute">Recherche…</p>';
- if(d.err)return `<p class="mute">${esc(d.err)}</p>`;if(!d.items.length)return '<p class="mute">Aucune correspondance fiable dans le registre : demande « le patron » sur place.</p>';
+function dirBox(s){const d=st.dirs[s.id];if(!d)return `<button data-a="dir" style="margin-top:8px">🔎 Trouver le dirigeant (registre officiel)</button>`;if(d==='busy')return '<p class="mute">Recherche du dirigeant…</p>';
+ if(d.err)return `<p class="mute">${esc(d.err)} <button data-a="dirretry" style="min-height:32px;padding:2px 10px">Réessayer</button></p>`;if(!d.items.length)return '<p class="mute">Dirigeant : aucune correspondance fiable dans le registre, demande « le patron » sur place.</p>';
+ if(d.pick)return `<div class="dir">👤 Dirigeant probable : <b>${esc(d.pick)}</b><br><span class="mute">${esc(d.items[0].nom)}, registre officiel. À confirmer sur place.</span></div>`;
  return d.items.map((x,i)=>`<div class="dir"><b>${esc(x.nom)}</b><br><span class="mute">${esc(x.adr||'')}</span><br>${x.dir.length?x.dir.map((p,j)=>`<button data-a="pickdir" data-v="${esc(p.n)}" style="min-height:36px;padding:4px 10px;margin:4px 4px 0 0">${esc(p.l)}</button>`).join(''):'<span class="mute">Dirigeant non publié</span>'}</div>`).join('')+'<p class="mute">Un homonyme est possible : appuie sur un nom pour l\'utiliser dans le script, à confirmer sur place.</p>'}
-async function findDir(s){st.dirs[s.id]='busy';render();try{let cp=s.cp;if(!cp){const r=await fetch('https://nominatim.openstreetmap.org/reverse?format=json&zoom=18&lat='+s.lat+'&lon='+s.lng);const j=await r.json();cp=(j.address&&j.address.postcode)||''}
- const r=await fetch('https://recherche-entreprises.api.gouv.fr/search?q='+encodeURIComponent(s.n)+(cp?'&code_postal='+cp:'')+'&etat_administratif=A&per_page=3');const j=await r.json();
- const tk=norm(s.n).split(/[^a-z0-9]+/).filter(w=>w.length>=4&&!/^(immobilier|immobiliere|agence|garage|optique|opticien|auto|ecole|institut|beaute|coiffure|centre|conseil|conseils|cabinet|studio|espace)$/.test(w));const okm=x=>{const tx=norm((x.nom_complet||'')+' '+((x.siege&&x.siege.nom_commercial)||'')+' '+(((x.siege&&x.siege.liste_enseignes)||[]).join(' ')));return tk.some(w=>tx.includes(w))};st.dirs[s.id]={items:(j.results||[]).filter(okm).map(x=>({nom:String(x.nom_complet||'').replace(/\s*\(.*$/,''),adr:x.siege&&(x.siege.adresse||x.siege.geo_adresse),dir:(x.dirigeants||[]).filter(d=>d.nom).slice(0,2).map(d=>{const tc=t=>String(t).toLowerCase().replace(/(^|[\s'-])([a-zà-ÿ])/g,(m,x,y)=>x+y.toUpperCase());const n=tc(((d.prenoms||'').split(',')[0]+' '+d.nom).trim());return{n,l:n+(d.qualite?' ('+String(d.qualite).toLowerCase()+')':'')}})}))}}catch(e){st.dirs[s.id]={err:'Registre injoignable : '+e.message,items:[]}}
+const tcase=t=>String(t||'').toLowerCase().replace(/(^|[\s'-])([a-zà-ÿ])/g,(m,a,b)=>a+b.toUpperCase());
+const GENERIC=/^(immobilier|immobiliere|agence|garage|optique|opticien|opticiens|auto|ecole|institut|beaute|coiffure|centre|conseil|conseils|cabinet|studio|espace|paris|spa|nails|lunettes|lunetier)$/;
+function nameOk(s,x){const tk=norm(s.n).split(/[^a-z0-9]+/).filter(w=>w.length>=4&&!GENERIC.test(w));if(!tk.length)return false;const ets=(x.matching_etablissements||[]).map(e=>(e.nom_commercial||'')+' '+((e.liste_enseignes||[]).join(' '))).join(' ');const tx=norm((x.nom_complet||'')+' '+((x.siege&&x.siege.nom_commercial)||'')+' '+(((x.siege&&x.siege.liste_enseignes)||[]).join(' '))+' '+ets);return tk.some(w=>tx.includes(w))}
+function dirItems(s,results){return results.filter(x=>nameOk(s,x)).slice(0,3).map(x=>({nom:String(x.nom_complet||'').replace(/\s*\(.*$/,''),adr:x.siege&&(x.siege.adresse||x.siege.geo_adresse),dir:(x.dirigeants||[]).filter(d=>d.nom).slice(0,2).map(d=>{const n=tcase(((d.prenoms||'').split(',')[0]+' '+d.nom).trim());return{n,l:n+(d.qualite?' ('+String(d.qualite).toLowerCase()+')':'')}})}))}
+async function findDir(s){if(st.dirs[s.id]==='busy')return;st.dirs[s.id]='busy';render();let items=[];try{
+ let r=await fetch('https://recherche-entreprises.api.gouv.fr/near_point?lat='+s.lat+'&long='+s.lng+'&radius=0.15&per_page=25');let j=await r.json();items=dirItems(s,j.results||[]);
+ if(!items.length){let cp=s.cp;if(!cp){const r2=await fetch('https://nominatim.openstreetmap.org/reverse?format=json&zoom=18&lat='+s.lat+'&lon='+s.lng);const j2=await r2.json();cp=(j2.address&&j2.address.postcode)||''}
+  r=await fetch('https://recherche-entreprises.api.gouv.fr/search?q='+encodeURIComponent(s.n)+(cp?'&code_postal='+cp:'')+'&etat_administratif=A&per_page=5');j=await r.json();items=dirItems(s,j.results||[])}
+ const one=items.length===1&&items[0].dir.length===1?items[0].dir[0].n:'';
+ st.dirs[s.id]={items,pick:one,auto:!!one}}catch(e){st.dirs[s.id]={err:'Registre injoignable : '+e.message,items:[]}}
  save();render()}
+function autoDir(){const ids=[st.cur,st.nxId].filter(Boolean);for(const id of ids){if(st.dirs[id])continue;const s=st.stops.find(z=>z.id===id);if(s){findDir(s);return}}}
 function card(s,label,from,isCur){const o=openInfo(s),km=dist(from,s);
  return `<section class="card${isCur?' cur':''}"><div class="lab">${label}</div><h2>${esc(s.n)}</h2>
  <div class="chips"><span class="chip">${CAT[s.cat]}</span><span class="chip ${o.open===true?'open':o.open===false?'closed':''}">${o.txt}</span></div>
@@ -128,14 +137,14 @@ function render(){ensureCur();const t=pool(),dn=Object.keys(st.res).length;const
    h+=`<textarea id="note" placeholder="Note : nom du patron, créneau pour repasser, ce qu'il a dit…" aria-label="Note">${esc(st.note)}</textarea>
    <div class="res"><button class="pri" data-a="res" data-v="rdv">✅ RDV pris</button><button data-a="res" data-v="rappel">🔁 À rappeler / repasser</button><button data-a="res" data-v="carte">🪪 Carte laissée</button><button data-a="res" data-v="absent">🚪 Patron absent</button><button data-a="res" data-v="refus">✖ Pas intéressé</button><button data-a="res" data-v="passe">⏭ Fermé / passer</button></div>
    <details open><summary>Que dire</summary>${pitch(cur)}</details></section>`;
-   const nx=pick(cur,t.filter(s=>s.id!==cur.id));
+   const nx=pick(cur,t.filter(s=>s.id!==cur.id));st.nxId=nx?nx.id:null;
    if(nx)h+=card(nx,'Ensuite',cur,false).replace(/<div class="row"[\s\S]*?<\/div>/,`<div class="row" style="margin-top:10px"><a class="btn gold" href="${mapsUrl(nx)}" target="_blank" rel="noopener">${st.mode==='walk'?'🚶':'🚗'} Y aller · ${fmtKm(dist(cur,nx))} depuis ici · ${eta(dist(cur,nx))} min</a></div>`)+'</section>'}
  }
  const ids=Object.keys(st.res);
  h+=`<section class="card"><div class="lab">Récap du jour</div>`+(ids.length?`<div class="list">${ids.sort((a,b)=>st.res[b].at-st.res[a].at).map(id=>{const r=st.res[id];return `<div class="li"><span>${esc(r.n)}${r.note?'<br><span class="mute">'+esc(r.note)+'</span>':''}</span><span class="tag ${RES[r.r][1]}">${RES[r.r][0]}</span></div>`}).join('')}</div>`:'<p class="mute">Aucune visite notée pour le moment.</p>')+
  `<div class="row" style="margin-top:10px"><button data-a="undo"${ids.length?'':' disabled'}>↶ Annuler la dernière</button><button data-a="copy"${ids.length?'':' disabled'}>Copier le récap</button><button data-a="reset"${ids.length?'':' disabled'}>Nouvelle journée</button></div><textarea id="recap" hidden readonly aria-label="Récap à copier"></textarea></section>`;
  h+=`<p class="mute">Commerces : OpenStreetMap, sans les chaînes et franchises. Les horaires y sont souvent absents : ouvre la fiche Google Maps pour les avis et horaires. Ta position sert uniquement à chercher les commerces autour.</p>`;
- const an=$('#note');if(an)st.note=an.value;const ad=$('#addr');const av=ad?ad.value:'';$('#app').innerHTML=h;if(av&&$('#addr'))$('#addr').value=av}
+ setTimeout(autoDir,50);const an=$('#note');if(an)st.note=an.value;const ad=$('#addr');const av=ad?ad.value:'';$('#app').innerHTML=h;if(av&&$('#addr'))$('#addr').value=av}
 document.addEventListener('submit',e=>{const f=e.target.closest('[data-a="addr"]');if(f){e.preventDefault();geoAddr($('#addr').value)}});
 document.addEventListener('click',e=>{const b=e.target.closest('button[data-a]');if(!b)return;const a=b.dataset.a;
  if(a==='geo')geo();
@@ -146,6 +155,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button[data-a]')
  else if(a==='rcust'){const v=Math.round(+$('#rcust').value);if(v>=100&&v<=5000){st.radius=String(v);save();render();if(st.pos)search(st.pos.lat,st.pos.lng,st.posLabel)}}
  else if(a==='cat'){st.cats[b.dataset.v]=st.cats[b.dataset.v]?0:1;st.cur=null;save();render()}
  else if(a==='dir'){const s=st.stops.find(x=>x.id===st.cur);if(s)findDir(s)}
+ else if(a==='dirretry'){const s=st.stops.find(x=>x.id===st.cur);if(s){delete st.dirs[s.id];findDir(s)}}
  else if(a==='pickdir'){const s=st.cur;st.dirs[s]=Object.assign({},st.dirs[s],{pick:b.dataset.v});save();render()}
  else if(a==='res'){const n=$('#note'),s=st.stops.find(x=>x.id===st.cur);if(!s)return;st.res[s.id]={r:b.dataset.v,note:n?n.value.trim():'',at:Date.now(),n:s.n,addr:s.addr,lat:s.lat,lng:s.lng};try{if(window.parent!==window)parent.postMessage({type:'tournee-result',d:{id:s.id,n:s.n,cat:s.cat,catL:CAT[s.cat],addr:s.addr,cp:s.cp,tel:s.tel,lat:s.lat,lng:s.lng,r:b.dataset.v,note:st.res[s.id].note,dir:(st.dirs[s.id]&&st.dirs[s.id].pick)||''}},location.origin)}catch(x){}st.pos={lat:s.lat,lng:s.lng};st.posLabel=s.n;st.note='';st.cur=null;save();render();window.scrollTo(0,0)}
  else if(a==='undo'){const ids=Object.keys(st.res).sort((x,y)=>st.res[y].at-st.res[x].at);const id=ids[0];if(id){const r=st.res[id];if(!st.stops.find(s=>s.id===id))st.stops.push({id,n:r.n,cat:'garage',lat:r.lat,lng:r.lng,addr:r.addr||'',cp:'',tel:'',h:null});st.cur=id;st.note=r.note||'';delete st.res[id];const pv=Object.keys(st.res).sort((x,y)=>st.res[y].at-st.res[x].at)[0];st.pos=pv?{lat:st.res[pv].lat,lng:st.res[pv].lng}:(st.origin||st.pos);save();render()}}
