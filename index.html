@@ -1750,7 +1750,8 @@ function donneesHTML(){
 const terrainHTML=()=>'<div class="card muted" style="min-height:60vh">Chargement de la tournée…</div>';
 function terrainShow(){let f=document.getElementById('terrainFrame');if(S.tab!=='terrain'){if(f)f.style.display='none';return}
   if(!f){f=document.createElement('iframe');f.id='terrainFrame';f.title='Tournée des commerces';f.setAttribute('allow','geolocation');f.src='tournee/index.html';document.body.appendChild(f)}
-  const h=document.querySelector('header.top');f.style.top=(h?Math.ceil(h.getBoundingClientRect().bottom):60)+'px';f.style.display='block'}
+  const h=document.querySelector('header.top');const tp=h?Math.ceil(h.getBoundingClientRect().bottom):60;f.style.top=tp+'px';f.style.height=Math.max(300,innerHeight-tp)+'px';f.style.display='block'}
+window.addEventListener('resize',()=>{if(S.tab==='terrain')terrainShow()});
 const TERRAIN_L={rdv:'RDV pris',rappel:'À rappeler / repasser',carte:'Carte laissée',refus:'Pas intéressé',absent:'Patron absent'};
 async function terrainSave(d){
   if(!d||!d.id||d.r==='passe'||!TERRAIN_L[d.r])return;
@@ -1761,7 +1762,7 @@ async function terrainSave(d){
   const stg=d.r==='refus'?{stage:'perdu',lostReason:'Pas intéressé (terrain)'}:{stage:'contacte',nextDate:next,nextTime:''};
   const keep=p&&['rdv','rdv_fait','pilote','signe'].includes(p.stage);
   if(p){const patch={...(keep?{}:stg),notes:[p.notes||'',line].filter(Boolean).join('\n'),lastTerrain:today(),touches:(p.touches||0)+1};if(await saveP(p.id,patch)){await logEv(p,'terrain',TERRAIN_L[d.r]+(d.note?' : '+d.note:''));toast('Fiche mise à jour : '+p.name)}return}
-  const dept=String(d.cp||'').slice(0,2)||(/\b(\d{5})\b/.exec(d.addr||'')||[])[1]?.slice(0,2)||'';
+  const inParis=d.lat&&Math.hypot((d.lat-48.8534)*111,(d.lng-2.3488)*73)<6.5;const dept=String(d.cp||'').slice(0,2)||(/\b(\d{5})\b/.exec(d.addr||'')||[])[1]?.slice(0,2)||(inParis?'75':'');
   const o={name:d.n,phone:hasPhone(d.tel)?d.tel:'',city:'',dept,address:d.addr||'',mapsUrl:'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(d.n+' '+(d.addr||d.lat+','+d.lng)),score:60,source:'terrain',metier:d.catL||'',created:today(),lastTerrain:today(),touches:1,notes:line,...stg};
   if(await guard(()=>DB.set('prospects',id,o))){S.prospects.push({id,...o});const np=byId(id);await logEv(np,'terrain',TERRAIN_L[d.r]+(d.note?' : '+d.note:''));toast('Fiche créée : '+d.n)}
 }
