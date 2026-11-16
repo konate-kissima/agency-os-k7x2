@@ -277,6 +277,8 @@ const RES_RDV=['rdvv','rdvt','rdvp'];
 const JOINT=['rdv','rdvv','rdvt','rdvp','rap','ans','no','stop'];
 const ANSWERED=[...JOINT,'hu'];
 const isRdvRes=r=>r==='rdv'||RES_RDV.includes(r);
+// Un RDV compté = visio ou physique. Le RDV téléphonique reste un rendez-vous dans l'agenda (rappel), mais ne compte pas dans les chiffres.
+const isRdvCnt=r=>r==='rdv'||r==='rdvv'||r==='rdvp';
 const isAns=c=>ANSWERED.includes(c.result);
 const DEF_RDV=`RENDEZ-VOUS DE VENTE EN 6 TEMPS (tu parles 20 % du temps, lui 80 %)
 
@@ -544,7 +546,7 @@ const NOANS=['nr','rep'];
 // vrai si les 2 derniers appels de la fiche (dans la série en cours) n'ont pas eu de réponse
 const twoNoAnswer=p=>{const L=callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).sort((a,b)=>String(a.t).localeCompare(String(b.t)));return L.length>=2&&NOANS.includes(L[L.length-1].result)&&NOANS.includes(L[L.length-2].result)};
 const resting=p=>p.stage==='contacte'&&(p.lastResult==='nr'||p.lastResult==='rep')&&!p.nextTime&&!!p.lastCall&&String(p.lastCall).slice(0,10)>addDays(today(),-REST_DAYS)&&twoNoAnswer(p);
-function todayStats(){const t=today();const L=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t);return{n:L.length,j:L.filter(c=>JOINT.includes(c.result)).length,conv:L.filter(isAns).length,real:L.filter(c=>JOINT.includes(c.result)).length,r:L.filter(c=>isRdvRes(c.result)).length}}
+function todayStats(){const t=today();const L=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t);return{n:L.length,j:L.filter(c=>JOINT.includes(c.result)).length,conv:L.filter(isAns).length,real:L.filter(c=>JOINT.includes(c.result)).length,r:L.filter(c=>isRdvCnt(c.result)).length}}
 function fillScript(txt,p){return String(txt||'').replace(/\{contact\}/g,p.dirigeant||'monsieur/madame').replace(/\{accroche\}/g,hookFor(p)).replace(/\{Valeur\}/g,valueFor(p)).replace(/\{Accroche\}/g,(()=>{let h=hookFor(p);if(/je n'ai pas trouvé de site/.test(h))h=p.city?`j'ai découvert ${p.name} à ${p.city}`:`j'ai découvert ${p.name}`;return h.charAt(0).toUpperCase()+h.slice(1)})()).replace(/\{avis\}/g,p.reviews||'?').replace(/\{note\}/g,p.rating||'?').replace(/\{nom\}/g,p.name||'').replace(/\{ville\}/g,p.city||'').replace(/\{jour\}/g,'demain')}
 
 const RDV_T={visio:'visio',tel:'téléphonique',physique:'physique'};
@@ -1195,9 +1197,9 @@ const ZONE_C={g:'#3f8f3a',o:'#d28b0f',r:'#c0392b'};
 const zoneOf=(v,g,o,hi=true)=>hi?(v>=g?'g':v>=o?'o':'r'):(v<=g?'g':v<=o?'o':'r');
 const cj=c=>isCall(c)?isAns(c):!!c.joint;
 function averagesHTML(LC,from,to){
-  const n=LC.length,ans=LC.filter(isAns),dec=ans.length,real=ans.filter(c=>JOINT.includes(c.result)).length,rdv=ans.filter(c=>isRdvRes(c.result)).length;
+  const n=LC.length,ans=LC.filter(isAns),dec=ans.length,real=ans.filter(c=>JOINT.includes(c.result)).length,rdv=ans.filter(c=>isRdvCnt(c.result)).length;
   const days=new Set(LC.map(c=>String(c.t).slice(0,10))).size;
-  const E=allRdvs().filter(e=>e.at&&e.at.slice(0,10)>=from&&e.at.slice(0,10)<=to);
+  const E=allRdvs().filter(e=>e.at&&e.type!=='tel'&&e.at.slice(0,10)>=from&&e.at.slice(0,10)<=to);
   const r1=E.filter(e=>(e.n||1)===1&&e.show==='tenu').length;
   const r2p=E.filter(e=>e.out==='r2').length,r2=E.filter(e=>(e.n||1)>=2&&e.show==='tenu').length;
   const sg=E.filter(e=>e.out==='signe'),sgN=sg.length||S.clients.filter(c=>c.signedAt&&c.signedAt>=from&&c.signedAt<=to).length;
@@ -1216,7 +1218,7 @@ function averagesHTML(LC,from,to){
   return `<section class="card"><h3>Mes moyennes · de l'appel au client</h3><div class="row" style="flex-wrap:wrap;gap:8px;align-items:stretch">${cells}</div>${tot}</section>`}
 function targetsHTML(LC,from,to){
   const n=LC.length,ans=LC.filter(isAns),cv=ans.length;
-  const hu=ans.filter(c=>c.result==='hu').length,rap=ans.filter(c=>c.result==='rap').length,rdvC=ans.filter(c=>isRdvRes(c.result)).length;
+  const hu=ans.filter(c=>c.result==='hu').length,rap=ans.filter(c=>c.result==='rap').length,rdvC=ans.filter(c=>isRdvCnt(c.result)).length;
   const days=new Set(LC.map(c=>String(c.t).slice(0,10))).size||1;
   const pct=(a,b)=>b?Math.round(1000*a/b)/10:null;
   const st=todayStats(),g=goals().conv;
@@ -1245,7 +1247,7 @@ function chartsHTML(LC,j,rdv,from,to){
   const K='#5f6b2e',B='#b8892b',G='#e7e1cf',T='#4b4636',M='#8a846e';
   const t00=today(),e0=to<t00?to:t00;let f0=from>'0000-00-00'?from:addDays(e0,-59);if(f0>addDays(e0,-6))f0=addDays(e0,-6);if(f0<addDays(e0,-59))f0=addDays(e0,-59);
   const DR=[];for(let d=f0;d<=e0;d=addDays(d,1))DR.push(d);
-  const days=[];for(const d of DR){const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);days.push({d,n:cs.length,a:cs.filter(isAns).length,r:cs.filter(c=>isRdvRes(c.result)).length})}
+  const days=[];for(const d of DR){const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);days.push({d,n:cs.length,a:cs.filter(isAns).length,r:cs.filter(c=>isRdvCnt(c.result)).length})}
   const goal=100,mx=Math.max(goal,...days.map(x=>x.n))*1.1,W=640,H=250,pl=34,pb=34,pt=26,bw=(W-pl-8)/DR.length,y=v=>H-pb-(H-pb-pt)*v/mx;
   const ticks=[0,25,50,75,100].filter(t=>t<=mx);
   let c1=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Appels par jour sur 14 jours">`;
@@ -1265,13 +1267,13 @@ function chartsHTML(LC,j,rdv,from,to){
   const t0=today(),end=to<t0?to:t0,nd=from>'0000-00-00'?Math.max(1,Math.round((new Date(end+'T12:00:00')-new Date(from+'T12:00:00'))/864e5)+1):0;
   const pvf=nd?addDays(from,-nd):'',pvt=nd?addDays(from,-1):'';
   const prev=nd?S.calls.filter(c=>{const d=String(c.t).slice(0,10);return d>=pvf&&d<=pvt}):[];
-  const pC=prev.filter(isCall),pA=pC.filter(isAns),pR=prev.filter(c=>isRdvRes(c.result));
+  const pC=prev.filter(isCall),pA=pC.filter(isAns),pR=prev.filter(c=>isRdvCnt(c.result));
   const dl=(v,p)=>{if(!nd)return '';const d=v-p;return `<small style="color:${d>=0?'#3f8f3a':'#c0392b'};font-weight:700">${d>=0?'+':''}${d}</small> <small class="muted">vs période d'avant</small>`};
   const tile=(l,v,sub)=>`<div style="background:var(--surface2,#f4f1e8);border-radius:14px;padding:12px 16px"><div class="muted sm">${l}</div><div style="font-size:30px;font-weight:800;line-height:1.15;color:${T}">${v}</div><div>${sub}</div></div>`;
   const rate=LC.length?Math.round(100*j.length/LC.length):0;
   const tiles=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:12px">${tile('Appels',LC.length,dl(LC.length,pC.length))}${tile('Décrochés',j.length+' <span style="font-size:15px;color:'+K+'">'+rate+' %</span>',dl(j.length,pA.length))}${tile('RDV pris',rdv.length,dl(rdv.length,pR.length))}${tile('RDV par décroché',j.length?Math.round(1000*rdv.length/j.length)/10+' %':'—','<small class="muted">objectif 12 % et +</small>')}</div>`;
   // cumul 30 jours, courbe lissée avec aire
-  const N=DR.length,cd=[];let ca=0,cj2=0,cr=0;for(const d of DR){const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);ca+=cs.length;cj2+=cs.filter(isAns).length;cr+=cs.filter(c=>isRdvRes(c.result)).length;cd.push({d,a:ca,j:cj2,r:cr})}
+  const N=DR.length,cd=[];let ca=0,cj2=0,cr=0;for(const d of DR){const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);ca+=cs.length;cj2+=cs.filter(isAns).length;cr+=cs.filter(c=>isRdvCnt(c.result)).length;cd.push({d,a:ca,j:cj2,r:cr})}
   const CW=640,CH=250,cl=40,cb=30,ct=12,cmx=Math.max(10,ca)*1.08,cx=i=>cl+(CW-cl-10)*i/(N-1),cy=v=>CH-cb-(CH-cb-ct)*v/cmx;
   const path=k=>{let p='';cd.forEach((x,i)=>{const X=cx(i),Y=cy(x[k]);if(!i)p+=`M${X},${Y}`;else{const px=cx(i-1),py=cy(cd[i-1][k]),mx=(px+X)/2;p+=` C${mx},${py} ${mx},${Y} ${X},${Y}`}});return p};
   let cu=`<svg viewBox="0 0 ${CW} ${CH}" role="img" aria-label="Cumul sur 30 jours"><defs><linearGradient id="gA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${K}" stop-opacity=".28"/><stop offset="1" stop-color="${K}" stop-opacity=".02"/></linearGradient></defs>`;
@@ -1331,12 +1333,37 @@ function chartsHTML(LC,j,rdv,from,to){
   const deadCard=`<section class="card chartcard"><h3>⏱ Temps mort entre deux appels</h3><p class="muted sm" style="margin:0 0 6px">Du moment où tu enregistres un résultat jusqu'à ce que tu lances l'appel suivant. Plus c'est bas, plus tu gardes ton rythme.</p><div class="row" style="gap:18px;flex-wrap:wrap"><div><div class="muted sm">Aujourd'hui</div><b style="font-size:26px">${fsD(avgD(dtd))}</b><div class="muted sm">${dtd.length} mesure${dtd.length>1?'s':''}</div></div><div><div class="muted sm">Sur la période</div><b style="font-size:26px">${fsD(avgD(ddl))}</b><div class="muted sm">${ddl.length} mesure${ddl.length>1?'s':''}</div></div></div></section>`;
   return tiles+`<div class="chgrid">${chart0}${chart1}</div><div class="chgrid">${chart5}${chart6}</div><div class="chgrid">${chart7}${chart3}</div><div class="chgrid">${chart2}${chart4}</div>${deadCard}`;
 }
+/* ===== Débrief du jour (appels → RDV → show up → R2 → signés → €) ===== */
+const pct=(a,b)=>b?Math.round(100*a/b)+' %':'—';
+function debriefData(d){
+  const L=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d),ans=L.filter(isAns),real=ans.filter(c=>JOINT.includes(c.result));
+  const rdv=L.filter(c=>isRdvCnt(c.result)).length,tel=L.filter(c=>c.result==='rdvt').length;
+  const E=allRdvs().filter(e=>e.at&&e.type!=='tel'&&e.at.slice(0,10)===d);
+  const pend=S.prospects.filter(p=>p.stage==='rdv'&&p.rdvAt&&String(p.rdvAt).slice(0,10)===d&&(p.rdvType||'visio')!=='tel'&&!p.rdvShow).length;
+  const tenus=E.filter(e=>e.show==='tenu').length,abs=E.filter(e=>e.show==='absent').length;
+  const r1=E.filter(e=>(e.n||1)===1&&e.show==='tenu').length,r2p=E.filter(e=>e.out==='r2').length,r2=E.filter(e=>(e.n||1)>=2&&e.show==='tenu').length;
+  const sg=E.filter(e=>e.out==='signe'),cl=S.clients.filter(c=>c.signedAt===d);
+  const sgN=Math.max(sg.length,cl.length),sgR1=sg.filter(e=>(e.n||1)===1).length;
+  const amt=sg.reduce((a,e)=>a+(+e.amount||0),0)||cl.reduce((a,c)=>a+(+c.price||0),0);
+  return{d,n:L.length,dec:ans.length,real:real.length,rdv,tel,prevus:tenus+abs+pend,tenus,abs,pend,r1,r2p,r2,sgN,sgR1,sgR2:sgN-sgR1,amt,enc:amt/2}}
+function debriefText(x){return `Débrief du ${fdate(x.d)}\n💶 Signé : ${money(x.amt)} · encaissé à la signature (50 %) : ${money(x.enc)}\n📞 ${x.n} appels · ${x.dec} décrochés (${pct(x.dec,x.n)}) · ${x.real} vraies conversations (${pct(x.real,x.n)})\n📅 ${x.rdv} RDV pris (visio/physique) · ${pct(x.rdv,x.dec)} des décrochés${x.tel?' · +'+x.tel+' RDV tél non comptés':''}\n✅ Show up : ${x.tenus} tenus / ${x.tenus+x.abs} (${pct(x.tenus,x.tenus+x.abs)})${x.pend?' · '+x.pend+' à qualifier':''}\n🔁 R2 prévus ${x.r2p} · R2 tenus ${x.r2}\n🤝 Signés ${x.sgN} (${x.sgR1} en R1 direct, ${x.sgR2} en R2) · ${pct(x.sgN,x.tenus)} des RDV tenus`}
+function debriefHTML(){
+  const d=S.dbd||today(),x=debriefData(d),isT=d===today();
+  const cell=(e,l,v,m)=>`<div style="flex:1;min-width:130px;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:12px"><div class="muted sm">${e} ${l}</div><div style="font:700 26px var(--f-disp)">${v}</div><div class="sm" style="margin-top:4px">${m||'<span class="muted">—</span>'}</div></div>`;
+  return `<section class="card" id="debrief"><div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><h3 style="margin:0">Débrief du jour · ${isT?"aujourd'hui":fdate(d)}</h3><span class="row" style="gap:6px"><button class="btn sm" data-act="deb-day" data-v="-1" aria-label="Jour précédent">◀</button><button class="btn sm${isT?' primary':''}" data-act="deb-day" data-v="0">Aujourd'hui</button><button class="btn sm" data-act="deb-day" data-v="1" aria-label="Jour suivant"${isT?' disabled':''}>▶</button><button class="btn sm" data-act="deb-copy">Copier le débrief</button></span></div>
+  <div style="margin:10px 0;font:700 34px var(--f-disp);color:#2f7d3a">${money(x.amt)} <span class="muted sm" style="font:400 14px var(--f-body)">signés · ${money(x.enc)} encaissés à la signature (50 %)</span></div>
+  <div class="row" style="flex-wrap:wrap;gap:8px;align-items:stretch">
+  ${cell('📞','Appels',x.n,'')}${cell('🙋','Décrochés',x.dec,'taux de décroché <b>'+pct(x.dec,x.n)+'</b>')}${cell('💬','Vraies conversations',x.real,pct(x.real,x.n)+' des appels')}
+  ${cell('📅','RDV pris',x.rdv,pct(x.rdv,x.dec)+' des décrochés'+(x.tel?'<br><span class="muted">+ '+x.tel+' RDV tél non comptés</span>':''))}
+  ${cell('✅','Show up',pct(x.tenus,x.tenus+x.abs),x.tenus+' tenus sur '+(x.tenus+x.abs)+(x.pend?' · '+x.pend+' à qualifier':'')+(x.prevus?'':'<br><span class="muted">aucun RDV ce jour</span>'))}
+  ${cell('🔁','R2',x.r2p,x.r2p+' prévus · '+x.r2+' tenus')}${cell('🤝','Signés',x.sgN,x.sgN?x.sgR1+' en R1 direct · '+x.sgR2+' en R2 · '+pct(x.sgN,x.tenus)+' des RDV tenus':'')}</div>
+  <p class="muted sm" style="margin:8px 0 0">Un RDV compté = visio ou physique. Les RDV téléphoniques restent dans l'agenda mais ne comptent pas. Le show up se remplit quand tu qualifies le RDV après sa date.</p></section>`}
 function statsHTML(){
   const days=S.st.days;let from,to='9999-99-99';
   if(days==='w')from=weekStart(today());else if(days==='m')from=today().slice(0,8)+'01';else if(days==='c'){from=S.st.from||'0000-00-00';to=S.st.to||'9999-99-99'}else from=days>0?addDays(today(),-(days-1)):'0000-00-00';
   const ln=S.st.line||'all',lineOk=c=>{if(ln==='all')return true;if(!isCall(c))return false;const p=byId(c.prospectId),m=p?isMobile(p.phone):false;return ln==='mobile'?m:!m};
   const L=S.calls.filter(c=>{const d=String(c.t).slice(0,10);return d>=from&&d<=to&&lineOk(c)});
-  const LA=L,LC=L.filter(isCall);L.length;const j=LC.filter(isAns),rdv=LA.filter(c=>isRdvRes(c.result));
+  const LA=L,LC=L.filter(isCall);L.length;const j=LC.filter(isAns),rdv=LA.filter(c=>isRdvCnt(c.result));
   const pct=(a,b)=>b?Math.round(1000*a/b)/10+' %':'—';
   const done=S.prospects.filter(p=>['rdv_fait','pilote','signe'].includes(p.stage)).length;
   const signed=S.prospects.filter(p=>p.stage==='signe').length;
@@ -1352,7 +1379,7 @@ function statsHTML(){
   const mx=Math.max(1,...dayB.map(x=>x.n));
   const chart=`<section class="card"><h3>14 derniers jours (appels, RDV en doré)</h3><div class="bar">${dayB.map(x=>`<div title="${fdate(x.d)} : ${x.n} appels, ${x.r} RDV" style="height:${Math.max(2,Math.round(90*x.n/mx))}px"><span class="b2" style="display:block;position:absolute;bottom:0;left:0;right:0;background:var(--brass);height:${x.n?Math.round(100*x.r/x.n):0}%"></span></div>`).join('')}</div></section>`;
   const extra=`<details class="card" style="margin:12px 0"><summary><b>Stats supplémentaires</b> <span class="muted">canal, angle de script, ancienneté, secteur, avis Google, site, taille, département</span></summary>${grp(c=>CH_L[c.channel||'appel'],'Par canal (appels, DM, vidéos, emails)',30,L)}<div class="grid2">${grp(c=>(sc.scripts[c.angle]||{}).name||c.angle,'Appels : par angle de script')}${grp(c=>ageBucket(byId(c.prospectId)||{}),'Appels : par ancienneté de l\'entreprise',20)}</div><div class="grid2">${grp(c=>sectorOf(byId(c.prospectId)||{}),'Appels : par secteur d\'activité',20)}${grp(c=>reviewBucket(byId(c.prospectId)||{}),'Appels : par nombre d\'avis Google',20)}</div><div class="grid2">${grp(c=>(byId(c.prospectId)||{}).website?'Avec site':'Sans site','Appels : site internet',20)}${grp(c=>EFF_L[(byId(c.prospectId)||{}).effectif]||'Effectif inconnu','Appels : taille de l\'entreprise',20)}</div><div class="grid2">${grp(c=>c.dept,'Appels : par département')}<span></span></div><p class="muted sm">Règle : on ne compare pas deux groupes avant 30 conversations chacun. Un taux sur 10 conversations ne veut rien dire.</p></details>`;
-  return sel+chartsHTML(LC,j,rdv,from,to)+averagesHTML(LC,from,to)+targetsHTML(LC,from,to)+recordsHTML()+extra+`<h2 style="margin:22px 0 8px">🧭 Pipeline <span class="muted sm">(où en sont toutes les fiches)</span></h2>`+pipelineHTML();
+  return debriefHTML()+sel+chartsHTML(LC,j,rdv,from,to)+averagesHTML(LC,from,to)+targetsHTML(LC,from,to)+recordsHTML()+extra+`<h2 style="margin:22px 0 8px">🧭 Pipeline <span class="muted sm">(où en sont toutes les fiches)</span></h2>`+pipelineHTML();
 }
 
 
@@ -1792,7 +1819,7 @@ function aideTabsHTML(){
    ["Choisis <b>Jour</b> ou <b>Semaine</b>, avance avec les flèches, « Aujourd'hui » te ramène à la date du jour.","Vert = visio ou physique, bleu = RDV téléphone, orange = rappel à heure fixe, trait rouge = maintenant.","Clique un bloc : le détail s'ouvre dessous (téléphone, lien visio, fiche de RDV) avec <b>Message de rappel</b>.","Les rappels sans heure ne sont pas dans la grille : ils sont dans la file d'appels."],"Il ne lit pas Google Agenda, seulement ce qui est dans Agency OS."),
   stats:P('stats',"mesurer si ça marche : de l'appel jusqu'au client, avec des zones vertes, orange et rouges par rapport à tes objectifs.",
    W('📊 Stats',`<div class="wfrow"><div class="wfc"><b>Appels</b><br>42</div><div class="wfc"><b>Décrochés</b><br>31 %</div><div class="wfc"><b>RDV</b><br>6</div><div class="wfc"><b>Clients</b><br>1</div></div><div class="wfc sm">14 derniers jours (appels, RDV en doré)<div class="wfbars"><i style="height:30%"></i><i style="height:60%"></i><i style="height:45%"></i><i style="height:80%"></i><i style="height:55%"></i><i style="height:70%"></i></div></div>`),
-   ["Lis l'entonnoir : appel → décroché → RDV → client. Les couleurs disent si tu es dans la cible.","Regarde le graphique des 14 derniers jours et tes records à battre.","Ouvre « Stats supplémentaires » : par angle de script, par heure, par département. Pour exporter les appels : bouton CSV.","Attends environ 30 conversations avant de conclure quoi que ce soit : avant, c'est du bruit."],null),
+   ["En haut, le <b>Débrief du jour</b> : € signés, appels, taux de décroché, RDV pris, show up, R2, signés. Change de jour avec ◀ ▶ et copie-le avec « Copier le débrief ».","Un <b>RDV compté</b> = visio ou physique. Un RDV téléphonique reste dans l'agenda mais ne compte pas.","Lis l'entonnoir : appel → décroché → RDV → client. Les couleurs disent si tu es dans la cible.","Regarde le graphique des 14 derniers jours et tes records à battre.","Ouvre « Stats supplémentaires » : par angle de script, par heure, par département. Pour exporter les appels : bouton CSV.","Attends environ 30 conversations avant de conclure quoi que ce soit : avant, c'est du bruit."],null),
   clients:P('clients',"suivre les artisans signés : mise en place, résultats de chaque semaine et coût par lead.",
    W('🤝 Clients',`<div class="wfc"><b>Artisan Martin</b> ${B('En lancement')} ${B('Ouvrir')}<div class="sm muted">Liste de mise en place · résultats hebdo · coût par lead · revue à J+14</div></div>`),
    ["Quand une fiche est « Signé », crée le client depuis sa fiche.","Coche la liste de mise en place (pub, formulaire, numéro de réception…).","Chaque semaine, saisis leads reçus et dépense : le <b>coût par lead</b> se calcule seul.","Une alerte te rappelle la revue à J+14."],null),
@@ -1963,7 +1990,7 @@ const goals=()=>({...DEF_GOALS,...(S.settings.goals||{})});
 function todayCounts(){
   const t=today();const L=S.calls.filter(c=>String(c.t).slice(0,10)===t);
   const out=L.filter(c=>!isCall(c));
-  return {calls:L.filter(isCall).length,dm:out.filter(c=>c.result==='sent'&&c.channel!=='video').length,videos:out.filter(c=>c.result==='sent'&&c.channel==='video').length,content:S.content.filter(c=>c.d===t).length,rdv:L.filter(c=>isRdvRes(c.result)).length,conv:L.filter(c=>isCall(c)&&isAns(c)).length,real:L.filter(c=>isCall(c)&&JOINT.includes(c.result)).length}
+  return {calls:L.filter(isCall).length,dm:out.filter(c=>c.result==='sent'&&c.channel!=='video').length,videos:out.filter(c=>c.result==='sent'&&c.channel==='video').length,content:S.content.filter(c=>c.d===t).length,rdv:L.filter(c=>isRdvCnt(c.result)).length,conv:L.filter(c=>isCall(c)&&isAns(c)).length,real:L.filter(c=>isCall(c)&&JOINT.includes(c.result)).length}
 }
 function heroHTML(){
   const n=todayCounts(),g=goals(),d=new Date();
@@ -1985,7 +2012,7 @@ function goalCalc(){
   const signed=Math.max(S.clients.length,S.prospects.filter(p=>p.stage==='signe').length);
   const cash=S.clients.reduce((s,c)=>{const k=cliKpi(c);return s+(c.signedAt&&c.signedAt<=t?(+c.price||0)/2:0)+(k.qu>=20?(+c.price||0)/2:0)},0);
   const step=GOAL.steps.find(([d,n])=>signed<n);
-  const LC=S.calls.filter(isCall),conv=LC.filter(isAns).length,rdvAll=S.calls.filter(c=>isRdvRes(c.result)).length;
+  const LC=S.calls.filter(isCall),conv=LC.filter(isAns).length,rdvAll=S.calls.filter(c=>isRdvCnt(c.result)).length;
   const own={sign:rdvAll>=10&&signed?signed/rdvAll:0,rdvConv:conv>=30?rdvAll/conv:0,convCall:LC.length>=100?conv/LC.length:0};
   const r={sign:own.sign||GOAL.rate.sign,rdvConv:own.rdvConv||GOAL.rate.rdvConv,convCall:own.convCall||GOAL.rate.convCall};
   const hyp=!(own.sign&&own.rdvConv&&own.convCall);
@@ -2317,6 +2344,8 @@ document.addEventListener('click',async e=>{
   else if(a==='chal-ok'){S.chal=false;S.tab='appels';render()}
   else if(a==='tab'){S.tab=b.dataset.v;render()}
   else if(a==='aide-tab'){S.aideTab=b.dataset.v;render()}
+  else if(a==='deb-day'){const v=+b.dataset.v;S.dbd=v===0?today():addDays(S.dbd||today(),v);if(S.dbd>today())S.dbd=today();render()}
+  else if(a==='deb-copy'){const t=debriefText(debriefData(S.dbd||today()));(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('Débrief copié.'),()=>{const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('Débrief copié.')}catch(e){toast('Copie impossible.')}ta.remove()})}
   else if(a==='callres'){doCallRes(b.dataset.r)}
   else if(a==='objpick'){const o=b.dataset.o;S.call.obj=o;const e=$('#co');if(e)e.value=o==='—'?'':o;doCallRes('no')}
   else if(a==='rapquick'){const k=b.dataset.k,t0=today();let d;if(k==='mon'){d=addDays(t0,1);while(new Date(d+'T12:00:00').getDay()!==1)d=addDays(d,1)}else if(k==='today')d=t0;else if(k==='14')d=addDays(t0,14);else d=workday(+k);
