@@ -1,33 +1,77 @@
 const { chromium } = require('playwright');const path=require('path'),fs=require('fs');
-(async()=>{const b=await chromium.launch();const pg=await(await b.newContext({viewport:{width:1200,height:900},permissions:['clipboard-read','clipboard-write']})).newPage();const errs=[];pg.on('pageerror',e=>errs.push(e.message));
+(async()=>{const b=await chromium.launch();const ctx=await b.newContext({viewport:{width:1200,height:900},permissions:['clipboard-read','clipboard-write'],acceptDownloads:true});const pg=await ctx.newPage();const errs=[];pg.on('pageerror',e=>errs.push(e.message));pg.on('dialog',d=>d.accept());
 const tmp=fs.mkdtempSync('/tmp/aos-');fs.copyFileSync(path.resolve(__dirname,'../index.html'),tmp+'/index.html');fs.writeFileSync(tmp+'/config.js','window.AOS_CONFIG={url:"",key:""};');
 await pg.goto('file://'+tmp+'/index.html');await pg.waitForSelector('.chal');
 const ok=(c,m)=>{if(!c){console.log('FAIL',m);process.exitCode=1}else console.log('ok  ',m)};
 const r=await pg.evaluate(async()=>{
- S.chal=false;S.prospects.length=0;S.calls.length=0;S.clients.length=0;const t=today(),y=addDays(t,-1);
- const call=(id,res,d)=>S.calls.push({id,channel:'appel',prospectId:'p'+id,result:res,t:d+'T10:'+String(10+S.calls.length).padStart(2,'0')+':00.000Z',hour:10,answered:ANSWERED.includes(res),joint:JOINT.includes(res)});
- // aujourd'hui : 10 appels : 6 décrochés (rdvv, rdvp, rdvt, rap, no, ans), 4 sans réponse
+ S.chal=false;S.clients.length=0;
+ window.seed=()=>{S.prospects.length=0;S.calls.length=0;const t=today(),y=addDays(t,-1);
+ const call=(id,res,d,h)=>S.calls.push({id,channel:'appel',prospectId:'p'+id,result:res,t:d+'T10:'+String(10+S.calls.length%50).padStart(2,'0')+':00.000Z',hour:h||10,answered:ANSWERED.includes(res),joint:JOINT.includes(res)});
  ['rdvv','rdvp','rdvt','rap','no','ans','nr','nr','rep','nr'].forEach((r,i)=>call('a'+i,r,t));
  call('hier','rdvv',y);
- // RDV du jour : 1 tenu signé R1 (1500 €), 1 absent, 1 à qualifier
- S.prospects.push({id:'s1',name:'S1',stage:'signe',rdvs:[{n:1,type:'visio',at:t+'T09:00:00',show:'tenu',out:'signe',amount:1500}]});
+ S.prospects.push({id:'s1',name:'Secret SARL',stage:'signe',rdvs:[{n:1,type:'visio',at:t+'T09:00:00',show:'tenu',out:'signe',amount:1500}]});
  S.prospects.push({id:'s2',name:'S2',stage:'contacte',rdvs:[{n:1,type:'physique',at:t+'T11:00:00',show:'absent',out:''}]});
  S.prospects.push({id:'s3',name:'S3',stage:'rdv',rdvAt:t+'T16:00:00',rdvType:'visio'});
  S.prospects.push({id:'s4',name:'S4',stage:'contacte',rdvs:[{n:1,type:'tel',at:t+'T12:00:00',show:'tenu',out:''}]});
- S.tab='stats';render();
- const x=debriefData(t);
- return{x,ts:todayStats(),card:!!document.getElementById('debrief'),txt:debriefText(x),cardTxt:document.getElementById('debrief').innerText}});
-ok(r.card,'carte Débrief affichée en haut de Stats');
+ S.prospects.push({id:'t1',name:'T1',stage:'contacte',log:[{t:t+'T09:00:00.000Z',k:'terrain',txt:TERRAIN_L.rdv},{t:t+'T09:10:00.000Z',k:'terrain',txt:TERRAIN_L.refus}]});
+ if(!S.clients.length)S.clients.push({id:'c1',prospectId:'s1',name:'Client Un',price:1500,signedAt:t,status:'onboarding',checklist:{},metrics:[]})};
+ const t=today();seed();S.tab='stats';render();
+ const before=debriefData(t,t);
+ await addPay(S.clients[0],t,750,'50 % signature');await new Promise(r=>setTimeout(r,500));seed();S.clients.length=0;S.clients.push({id:'c1',prospectId:'s1',name:'Client Un',price:1500,signedAt:t,status:'onboarding',checklist:{},metrics:[],payments:[{id:'p1',d:t,amt:750,note:''}]});render();
+ const x=debriefData(t,t);
+ return{before:{enc:before.enc,noPay:before.noPay},x,card:!!document.getElementById('debrief'),txt:debriefText(x),cardTxt:document.getElementById('debrief').innerText}});
+ok(r.card,'carte Débrief en haut de Stats');
 ok(r.x.n===10&&r.x.dec===6,'10 appels, 6 décrochés : '+r.x.n+'/'+r.x.dec);
-ok(r.x.rdv===2&&r.x.tel===1,'RDV comptés = 2 (visio+physique), tél à part = 1 : '+r.x.rdv+'/'+r.x.tel);
-ok(r.ts.r===2,'barre du haut (todayStats) : 2 RDV, le tél ne compte pas');
-ok(r.x.prevus===3&&r.x.tenus===1&&r.x.abs===1&&r.x.pend===1,'show up : 3 prévus (RDV tél exclu), 1 tenu, 1 absent, 1 à qualifier');
-ok(r.x.sgN===1&&r.x.amt===1500&&r.x.enc===750,'1 signé, 1 500 € signés, 750 € encaissés');
-ok(/Débrief du/.test(r.txt)&&/55|60 %|%/.test(r.txt)&&/RDV tél non comptés/.test(r.txt),'texte copiable complet');
+ok(r.x.rdv===2&&r.x.tel===1,'RDV comptés = 2 (visio+physique), tél à part = 1');
+ok(r.x.prevus===3&&r.x.tenus===1&&r.x.abs===1&&r.x.pend===1,'show up : 3 prévus, 1 tenu, 1 absent, 1 à qualifier');
+ok(r.x.sgN===1&&r.x.amt===1500,'1 signé, 1 500 € contractés');
+ok(r.before.enc===0&&r.before.noPay===1,'avant saisie : 0 € encaissé et alerte « 1 client sans virement »');
+ok(r.x.enc===750&&r.x.noPay===0&&r.x.cum.got===750&&r.x.cum.rest===750,'virement 750 € noté : encaissé 750, reste 750 '+JSON.stringify([r.x.enc,r.x.noPay,r.x.cum]));
+ok(r.x.doors===2&&r.x.terRdv===1,'terrain : 2 portes, 1 RDV');
+ok(r.x.prev&&r.x.prev.n===1,'comparaison : veille = 1 appel');
+ok(/Encaissé/.test(r.txt)&&/Contracté/.test(r.txt)&&/%/.test(r.txt)&&/RDV tél non comptés/.test(r.txt)&&/Pour 1 client signé/.test(r.txt),'texte copiable complet');
+ok(/Encaissé/i.test(r.cardTxt)&&/Contracté/i.test(r.cardTxt),'carte : encaissé et contracté affichés');
+// navigation
 await pg.click('[data-act="deb-day"][data-v="-1"]');
-const h=await pg.evaluate(()=>({d:S.dbd,n:debriefData(S.dbd).rdv,disabled:document.querySelector('[data-act="deb-day"][data-v="1"]').disabled}));
-ok(h.n===1&&h.d<new Date().toISOString().slice(0,10)+'z','navigation : hier = 1 RDV ('+h.n+')');
-await pg.click('[data-act="deb-day"][data-v="1"]');await pg.click('[data-act="deb-copy"]');await pg.waitForTimeout(300);
+let h=await pg.evaluate(()=>({d:S.dbd,n:debriefData(...debRange()).rdv,disabled:document.querySelector('[data-act="deb-day"][data-v="1"]').disabled}));
+ok(h.n===1,'◀ : hier = 1 RDV ('+h.n+')');
+await pg.click('[data-act="deb-p"][data-v="w"]');
+h=await pg.evaluate(()=>{const [f,t]=debRange(),x=debriefData(f,t);return{f,t,len:x.len,n:x.n,days:x.days.length,mon:new Date(f+'T12:00:00').getDay(),sun:new Date(t+'T12:00:00').getDay(),svg:!!document.querySelector('#debcard svg')}});
+ok(h.len===7&&h.mon===1&&h.sun===0&&h.n===11&&h.days===7&&h.svg,'semaine lundi→dimanche, 11 appels, 7 barres : '+JSON.stringify(h));
+await pg.click('[data-act="deb-p"][data-v="c"]');
+await pg.fill('#dbf',await pg.evaluate(()=>addDays(today(),-1)));await pg.waitForTimeout(100);
+h=await pg.evaluate(()=>{const [f,t]=debRange();return{f,t,n:debriefData(f,t).n}});
+ok(h.n===11,'dates précises (hier→aujourd\'hui) : 11 appels');
+await pg.click('[data-act="deb-p"][data-v="d"]');
+await pg.click('[data-act="deb-copy"]');await pg.waitForTimeout(300);
 const clip=await pg.evaluate(()=>navigator.clipboard.readText().catch(()=>'ERR'));
-ok(/Débrief du/.test(clip),'bouton Copier : texte dans le presse-papiers');
+ok(/Débrief du jour/.test(clip)&&/Encaissé/.test(clip),'Copier : texte dans le presse-papiers');
+// image
+for(const f of['story','square']){const [dl]=await Promise.all([pg.waitForEvent('download'),pg.click(`[data-act="deb-img"][data-f="${f}"]`)]);const fp='/tmp/deb_'+f+'.png';await dl.saveAs(fp);ok(fs.statSync(fp).size>20000,'image '+f+' téléchargée ('+fs.statSync(fp).size+' o)')}
+// image semaine
+await pg.click('[data-act="deb-p"][data-v="w"]');const [dl]=await Promise.all([pg.waitForEvent('download'),pg.click('[data-act="deb-img"][data-f="story"]')]);await dl.saveAs('/tmp/deb_week_story.png');
+// overlay auto
+await pg.evaluate(()=>{localStorage.removeItem('aos_debseen')});
+const o=await pg.evaluate(()=>{const RealDate=Date;const fake=new RealDate();fake.setHours(22,5,0,0);
+ window.Date=class extends RealDate{constructor(...a){if(a.length)return new RealDate(...a);return new RealDate(fake.getTime())}static now(){return fake.getTime()}};
+ localStorage.removeItem('aos_debseen');debAuto();const el=document.getElementById('debOv');const shown=!!el&&/Débrief/.test(el.innerText);const first=S.ov&&S.ov.day===today();
+ window.Date=RealDate;return{shown,first,txt:el?el.innerText.slice(0,120):''}});
+ok(o.shown&&o.first,'22 h : le débrief du jour s\'ouvre tout seul ('+o.txt.replace(/\n/g,' ')+')');
+await pg.click('[data-act="ov-tab"][data-m="week"]');
+ok(await pg.evaluate(()=>/Semaine/.test(document.getElementById('debOv').innerText)),'onglet Semaine dans la fenêtre auto');
+await pg.click('[data-act="ov-close"]');
+const c2=await pg.evaluate(()=>({ov:!!document.getElementById('debOv'),seen:localStorage.getItem('aos_debseen'),t:today()}));
+ok(!c2.ov&&c2.seen===c2.t,'fermeture : fenêtre retirée, jour marqué vu');
+const nb=await pg.evaluate(()=>{debAuto();return !!document.getElementById('debOv')});
+ok(!nb,'ne se rouvre pas une fois vu');
+// avant 22 h : pas de popup
+const early=await pg.evaluate(()=>{const RealDate=Date;const fake=new RealDate();fake.setHours(15,0,0,0);window.Date=class extends RealDate{constructor(...a){if(a.length)return new RealDate(...a);return new RealDate(fake.getTime())}static now(){return fake.getTime()}};localStorage.setItem('aos_debseen',addDays(today(),-1));debAuto();const r=!!document.getElementById('debOv');window.Date=RealDate;return r});
+ok(!early,'15 h avec hier déjà vu : pas de fenêtre');
+// virement dans la fiche client
+await pg.evaluate(()=>{S.tab='clients';S.cl.open='c1';render()});
+await pg.fill('#cp-a','300');await pg.click('[data-act="pay-add"]');await pg.waitForTimeout(150);await pg.evaluate(()=>{seed();const c=S.clients[0];if(!c.price)Object.assign(c,{prospectId:'s1',name:'Client Un',price:1500,signedAt:today(),status:'onboarding',checklist:{},metrics:[]});render()});
+const cp=await pg.evaluate(()=>({n:S.clients[0].payments.length,sum:S.clients[0].payments.reduce((a,q)=>a+q.amt,0),txt:document.querySelector('main').innerText.includes('encaissé 1 050')}));
+ok(cp.n===2&&cp.sum===1050,'fiche client : 2e virement noté (total 1 050 €)');
+await pg.click('[data-act="pay-del"][data-i="1"]');await pg.waitForTimeout(150);
+ok(await pg.evaluate(()=>S.clients[0].payments.length===1),'virement supprimé');
 ok(errs.length===0,'aucune erreur JS '+errs);await b.close()})();
