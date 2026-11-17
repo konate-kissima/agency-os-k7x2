@@ -35,6 +35,7 @@ main{padding:18px max(16px,env(safe-area-inset-left)) 40px max(16px,env(safe-are
 .lastcall{margin-top:10px;font-size:13px;padding:8px 12px;border-radius:10px;background:var(--surface2);border:1px solid var(--line)}.lastcall .muted{margin-top:2px}
 .chist{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:8px 12px}
 .callcard{padding:16px 18px;margin:0}.callcard .chips{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.cname{margin:4px 0 0;font-size:22px;line-height:1.15}
+.backbtn{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:#fff;font-size:20px;line-height:1;cursor:pointer;font-weight:700}.backbtn:hover{background:var(--ink);color:#fff}
 .callcard .callnum{font-size:34px;margin:4px 0 2px}.cnote{width:100%;margin-top:6px;min-height:190px;resize:vertical;line-height:1.45}
 .cfields{display:grid;grid-template-columns:1.2fr 1fr 1.2fr;gap:8px;margin-top:6px}.cfields .f{margin:0 0 2px;font-size:11px}.cfields>div{min-width:0}.cfields select,.cfields input{width:100%;min-width:0;padding:6px 6px;font-size:13px}
 .callcard .cres{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}.cres .btn{padding:10px 6px;font-size:14px;text-align:center;white-space:normal;line-height:1.15}
@@ -827,7 +828,7 @@ function appelsHTML(){
   let cur=forced||(S.call.pid?byId(S.call.pid):null);
   if(!forced&&(!cur||!Q.some(x=>x.id===cur.id)))cur=Q[0]||null;
   if(cur&&S.call.pid!==cur.id&&S.rec&&S.rec.on&&S.rec.mr&&S.rec.mr.state!=='inactive'){S.rec.discard=true;S.rec.mr.stop();S.rec.on=false;toast('Enregistrement de la fiche précédente arrêté (non utilisé).')}
-  if(cur&&S.call.pid!==cur.id){S.call.pid=cur.id;S.call.sstep=0;S.call.note='';S.call.auto='';S.call.obj='—';S.call.obj2='';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0}
+  if(cur&&S.call.pid!==cur.id){S.call.pid=cur.id;S.call.sstep=0;S.call.note='';S.call.auto='';S.call.obj='—';S.call.obj2='';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.audioFile='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0}
   if(!cur)S.call.pid='';
   const ang=S.call.angle||sc.angle;
   const gc=goals().conv,zc=zoneOf(st.conv,gc[0],Math.round(gc[0]/2));
@@ -835,7 +836,7 @@ function appelsHTML(){
   const MOBO=[['all','Toutes (mobiles d\'abord)'],['mobile','Mobiles (06/07)'],['fixe','Fixes']];
   const filt=`<select data-act="mobsel" aria-label="Type de ligne" class="sm">${MOBO.map(([v,l])=>`<option value="${v}"${S.call.mob===v?' selected':''}>${l}</option>`).join('')}</select>`;
   const bar=callSearchHTML(kp+filt);
-  const above=wrapAlerts(dueBanner(1)+staleRdvBanner()+mailCard()+mailWaitCard()+rdvCard()+remindCard()+absCard()+nrCard())+(S.lastRes?`<div class="lastres">Dernier appel : ${S.lastRes}${S.undo?` <button class="btn sm" data-act="calundo" title="Annule cet appel et rouvre la fiche, par exemple si la personne a finalement répondu">↩️ Annuler, il a répondu</button>`:''}</div>`:'');
+  const above=wrapAlerts(dueBanner(1)+staleRdvBanner()+mailCard()+mailWaitCard()+rdvCard()+remindCard()+absCard()+nrCard())+(S.lastRes?`<div class="lastres">Dernier appel : ${S.lastRes}</div>`:'');
   if(!cur)return above+bar+trayPanels()+rapPanelHTML()+`<div class="card"><b>Plus personne à appeler pour l'instant.</b><div class="muted sm">Importe une liste (onglet Données) ou attends les rappels programmés.</div></div>`;
   const hist=callsOf(cur.id).slice(-4).reverse();
   const mob=isMobile(cur.phone);
@@ -862,13 +863,13 @@ function appelsHTML(){
    <div class="chips2">${OBJC.map((o,i)=>`<button class="btn chip2${/Signal chaud/.test(o)?' hotc':''}" data-act="objpick" data-o="${esc(o)}"><kbd>${i<9?i+1:0}</kbd>${esc(o)}</button>`).join('')}<button class="btn chip2" data-act="objpick" data-o="—"><kbd>X</kbd>Aucune objection dite</button></div>
    <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><input id="co" style="flex:1;min-width:200px" autocomplete="off" placeholder="Autre : écris-la puis Entrée" value="${esc(S.call.obj&&S.call.obj!=='—'&&!OBJ.includes(S.call.obj)?S.call.obj:'')}"><button class="btn primary" data-act="callres" data-r="no">Enregistrer</button>${pcancel}</div></div>`:'';
   const rc=S.rec||{};
-  const recRow=window.__sb?`<div class="row sm" style="margin:8px 0;flex-wrap:wrap;gap:6px">${rc.busy?'<span class="muted">⏳ Transcription et résumé en cours…</span>':rc.on?`<button class="btn sm primary" data-act="rec-stop">⏹ Arrêter et résumer</button><span style="color:#c0392b"><b>● Enregistrement</b></span>`:`<button class="btn sm" data-act="rec-start">🎙 Enregistrer</button><label class="btn sm" style="cursor:pointer">Importer un audio<input type="file" id="recf" accept="audio/*,video/mp4" hidden></label>`}${rc.msg?`<span class="muted">${esc(rc.msg)}</span>`:''}${rc.pending>0&&!rc.busy?`<span class="muted">⏳ ${rc.pending} transcription${rc.pending>1?'s':''} en arrière-plan</span>`:''}</div>`:'';
+  const recRow=window.__sb?`<div class="row sm" style="margin:8px 0;flex-wrap:wrap;gap:6px">${rc.busy?'<span class="muted">⏳ Transcription et résumé en cours…</span>':rc.on?`<button class="btn sm primary" data-act="rec-stop">⏹ Arrêter et résumer</button><span style="color:#c0392b"><b>● Enregistrement</b></span>`:`<button class="btn sm" data-act="rec-start">🎙 Enregistrer</button><label class="btn sm" style="cursor:pointer">Importer un audio<input type="file" id="recf" accept="audio/*,video/mp4" hidden></label><button class="btn sm${rc.dirName?'':' primary'}" data-act="recfolder" title="Dossier de ton Mac où chaque appel est enregistré, nommé avec la personne">📁 ${rc.dirName?esc(rc.dirName)+' (changer)':'Choisir le dossier des appels'}</button>`}${rc.msg?`<span class="muted">${esc(rc.msg)}</span>`:''}${rc.pending>0&&!rc.busy?`<span class="muted">⏳ ${rc.pending} transcription${rc.pending>1?'s':''} en arrière-plan</span>`:''}</div>`:'';
   const showRes=S.call.step==='ans'||!!S.call.panel;
   const resUI=recRow+`<div class="res cres2"><button class="btn primary big${S.call.step==='ans'?' on':''}" data-act="callstep" data-s="ans" title="Il a décroché : lance l'enregistrement">✅ Répondu<kbd class="kh">A</kbd></button><button class="btn big" data-act="callres" data-r="nr">📵 Pas répondu<kbd class="kh">N</kbd></button><button class="btn" data-act="callres" data-r="bad">Mauvais n°<kbd class="kh">M</kbd></button></div>${showRes?`   <div class="sm muted" style="margin:10px 0 2px"><b>Résultat de la conversation</b> <span class="muted">(clique, ou touches 1 à 8)</span></div>
    <div class="res cres">${['rdvv','rdvt','rdvp'].map(rb).join('')}</div><div class="res cres">${['rap','ans','no','hu','stop'].map(rb).join('')}</div>
    <div class="row sm" style="margin:6px 0"><button class="btn" data-act="mailprep" title="Prépare un mail avec ce que la personne t'a dit et ton offre">✉️ Mail de suivi</button><button class="btn sm" data-act="callskip" title="Passer cette fiche sans rien enregistrer">⏭ Passer<kbd class="kh">P</kbd></button></div>`:`<div class="row sm" style="margin:6px 0"><button class="btn sm" data-act="callskip" title="Passer cette fiche sans rien enregistrer">⏭ Passer<kbd class="kh">P</kbd></button></div>`}
    ${isPop?pnlHTML+'</div>':pnlHTML}`;
-  const left=`<div class="card callcard"><div class="chead"><div class="chips"><span class="chip" title="Nombre de fois où tu as appelé cette fiche">${(cur.touches||0)===0?'1er appel':'Appel n°'+((cur.touches||0)+1)}</span>${cur.stage==='contacte'?'<span class="chip warn">'+((cur.cycle||1)>=2?'Rappel de réserve':'Rappel')+'</span>':'<span class="chip hot">Premier appel</span>'}${cur.stage==='contacte'&&cur.slots&&cur.slots.length&&cur.slots.length<3?'<span class="chip" title="Les artisans sont souvent sur chantier : on varie le moment de l\'appel">Mieux : '+cur.slots.map(x=>SLOT_L[x]).join(' ou ')+'</span>':''}${mob?'<span class="chip bad" title="Mobile : le régime consommateur peut s\'appliquer aux indépendants, à vérifier">Mobile</span>':''}<span class="muted sm">${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}</span></div>
+  const left=`<div class="card callcard"><div class="chead"><div class="chips">${S.undo?`<button type="button" class="backbtn" data-act="calundo" aria-label="Revenir à la fiche précédente" title="Revenir à la fiche précédente : annule le dernier appel et rouvre cette fiche (par exemple s'il a finalement répondu)">←</button>`:''}<span class="chip" title="Nombre de fois où tu as appelé cette fiche">${(cur.touches||0)===0?'1er appel':'Appel n°'+((cur.touches||0)+1)}</span>${cur.stage==='contacte'?'<span class="chip warn">'+((cur.cycle||1)>=2?'Rappel de réserve':'Rappel')+'</span>':'<span class="chip hot">Premier appel</span>'}${cur.stage==='contacte'&&cur.slots&&cur.slots.length&&cur.slots.length<3?'<span class="chip" title="Les artisans sont souvent sur chantier : on varie le moment de l\'appel">Mieux : '+cur.slots.map(x=>SLOT_L[x]).join(' ou ')+'</span>':''}${mob?'<span class="chip bad" title="Mobile : le régime consommateur peut s\'appliquer aux indépendants, à vérifier">Mobile</span>':''}<span class="muted sm">${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}</span></div>
    <h2 class="cname">${esc(cur.name)}</h2>
    ${cur.mailReply?`<div class="card" style="border:2px solid #b8892b;margin:6px 0;padding:8px 10px"><b>${cur.mailBounce?'✉️ Mail rejeté (adresse invalide)':'✉️ Il a répondu à ton mail'}</b> <span class="muted sm">le ${esc(fdate(cur.mailReply))}</span>${cur.mailReplyTxt?`<div class="sm" style="margin-top:4px">${esc(cur.mailReplyTxt)}</div>`:''}</div>`:''}
    <div class="sm muted cmeta">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a> · `:''}${socialLinksHTML(cur)}score ${esc(cur.score||'—')}</div></div>
@@ -912,11 +913,11 @@ async function callResult(r){
   if(isRdvRes(r)&&!rdvAt){toast('Renseigne la date et l\'heure du RDV.');return}
   if(r==='rdvp'&&!place){toast('Indique le lieu du rendez-vous physique.');return}
   const now=new Date();
-  const transcript=S.call.transcript||'',audioPath=S.call.audioPath||'';
+  const transcript=S.call.transcript||'',audioPath=S.call.audioPath||'',audioFile=S.call.audioFile||'';
   const ty=r==='rdvt'?'tel':r==='rdvp'?'physique':'visio';
   const deadS=(S.call.dialPid===p.id&&S.call.dialAt&&lastSaveAt&&S.call.dialAt>lastSaveAt)?Math.round((S.call.dialAt-lastSaveAt)/1000):null;
   const dialS=(S.call.dialPid===p.id&&S.call.dialAt&&(!lastSaveAt||S.call.dialAt>lastSaveAt))?Math.round((now.getTime()-S.call.dialAt)/1000):null;
-  const call={...(deadS!=null&&deadS<1800?{dead:deadS}:{}),...(dialS!=null&&dialS>=0&&dialS<3600?{dial:dialS}:{}),channel:'appel',prospectId:p.id,prospectName:p.name,t:now.toISOString(),hour:now.getHours(),result:r,angle:S.call.angle||sc.angle,obj:obj==='—'||r!=='no'?'':obj,note,auto,audio,informed,dept:p.dept||'',joint:JOINT.includes(r),answered:ANSWERED.includes(r),dur:S.call.dur||0,...(transcript?{transcript}:{}),...(audioPath?{audioPath}:{})};
+  const call={...(deadS!=null&&deadS<1800?{dead:deadS}:{}),...(dialS!=null&&dialS>=0&&dialS<3600?{dial:dialS}:{}),channel:'appel',prospectId:p.id,prospectName:p.name,t:now.toISOString(),hour:now.getHours(),result:r,angle:S.call.angle||sc.angle,obj:obj==='—'||r!=='no'?'':obj,note,auto,audio,informed,dept:p.dept||'',joint:JOINT.includes(r),answered:ANSWERED.includes(r),dur:S.call.dur||0,...(transcript?{transcript}:{}),...(audioPath?{audioPath}:{}),...(audioFile?{audioFile}:{})};
   if(isRdvRes(r)){call.rdvType=ty;call.rdvAt=rdvAt}
   const id='c'+uid();
   const touches=(p.touches||0)+1;
@@ -1122,13 +1123,13 @@ function pipelineHTML(){
 const fdt=t=>{const d=new Date(t);return isNaN(d)?String(t||''):d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})+' '+pad(d.getHours())+'h'+pad(d.getMinutes())};
 const LOG_L={rdv:'RDV',msg:'Message',fathom:'Fathom',note:'Note'};
 function timeline(p){
-  const ev=callsOf(p.id).map(c=>({t:c.t,k:CH_L[c.channel||'appel'],r:(ALL_RES_L[c.result]||c.result)+(c.rdvAt?' · RDV le '+fdate(c.rdvAt):''),x:[c.obj,c.note&&'✍️ '+c.note,c.auto&&'🤖 '+(c.autoAt?'[résumé du '+fdt(c.autoAt)+'] ':'')+c.auto].filter(Boolean).join('\n'),a:c.audio,tr:c.transcript,ap:c.audioPath}));
+  const ev=callsOf(p.id).map(c=>({t:c.t,k:CH_L[c.channel||'appel'],r:(ALL_RES_L[c.result]||c.result)+(c.rdvAt?' · RDV le '+fdate(c.rdvAt):''),x:[c.obj,c.note&&'✍️ '+c.note,c.auto&&'🤖 '+(c.autoAt?'[résumé du '+fdt(c.autoAt)+'] ':'')+c.auto].filter(Boolean).join('\n'),a:c.audio,tr:c.transcript,ap:c.audioPath,af:c.audioFile}));
   (p.log||[]).forEach(l=>ev.push({t:l.t,k:LOG_L[l.k]||l.k,r:'',x:l.txt||'',u:l.url}));
   return ev.sort((a,b)=>String(b.t).localeCompare(String(a.t)));
 }
 function timelineHTML(p,max){
   const ev=timeline(p).slice(0,max||200);if(!ev.length)return '<p class="muted sm">Aucune action pour l\'instant.</p>';
-  return `<div class="sm tl">${ev.map(e=>`<div style="border-top:1px solid var(--line);padding:5px 0"><b>${esc(fdt(e.t))}</b> · ${esc(e.k)}${e.r?' · '+esc(e.r):''}${e.x?`<div class="muted" style="white-space:pre-wrap">${esc(e.x)}</div>`:''}${e.u?`<a href="${esc(e.u)}" target="_blank" rel="noopener">Ouvrir</a>`:''}${e.a?` <a href="${esc(e.a)}" target="_blank" rel="noopener">audio</a>`:''}${e.ap?` <button type="button" class="btn sm" data-act="playaudio" data-path="${esc(e.ap)}">▶ Réécouter l'appel</button>`:''}${e.tr?`<details style="margin-top:4px"><summary class="muted">Conversation complète</summary><div class="muted" style="white-space:pre-wrap;margin-top:4px">${esc(e.tr)}</div></details>`:''}</div>`).join('')}</div>`}
+  return `<div class="sm tl">${ev.map(e=>`<div style="border-top:1px solid var(--line);padding:5px 0"><b>${esc(fdt(e.t))}</b> · ${esc(e.k)}${e.r?' · '+esc(e.r):''}${e.x?`<div class="muted" style="white-space:pre-wrap">${esc(e.x)}</div>`:''}${e.u?`<a href="${esc(e.u)}" target="_blank" rel="noopener">Ouvrir</a>`:''}${e.a?` <a href="${esc(e.a)}" target="_blank" rel="noopener">audio</a>`:''}${e.af?` <button type="button" class="btn sm" data-act="playlocal" data-f="${esc(e.af)}" title="Lit le fichier du dossier des appels">▶️ Écouter l'appel</button>`:''}${e.ap?` <button type="button" class="btn sm" data-act="playaudio" data-path="${esc(e.ap)}">▶ Réécouter l'appel</button>`:''}${e.tr?`<details style="margin-top:4px"><summary class="muted">Conversation complète</summary><div class="muted" style="white-space:pre-wrap;margin-top:4px">${esc(e.tr)}</div></details>`:''}</div>`).join('')}</div>`}
 async function logEv(p,k,txt,url){const l={t:new Date().toISOString(),k,txt:txt||'',...(url?{url}:{})};p.log=[...(p.log||[]),l];try{if(DB.mode==='cloud'){const {error}=await DB.sb.rpc('ajoute_log',{doc_id:p.id,entry:l});if(error)throw error}else await DB.update('prospects',p.id,{log:p.log})}catch(e){}}
 function openProspect(id){
   const p=byId(id);if(!p)return;const d=$('#dlg');
@@ -2297,6 +2298,31 @@ async function purgeAudios(){
     const {data:fs}=await bk.list(d.name,{limit:1000});
     const old=(fs||[]).filter(f=>f.created_at&&new Date(f.created_at).getTime()<cutoff).map(f=>d.name+'/'+f.name);
     if(old.length)await bk.remove(old)}}
+/* ===== enregistrement des appels dans un dossier du Mac (Chrome) ===== */
+function recIdb(){return new Promise((ok,ko)=>{const r=indexedDB.open('aos-rec',1);r.onupgradeneeded=()=>r.result.createObjectStore('h');r.onsuccess=()=>ok(r.result);r.onerror=()=>ko(r.error)})}
+async function recIdbGet(k){const d=await recIdb();return new Promise((ok,ko)=>{const r=d.transaction('h').objectStore('h').get(k);r.onsuccess=()=>ok(r.result);r.onerror=()=>ko(r.error)})}
+async function recIdbSet(k,v){const d=await recIdb();return new Promise((ok,ko)=>{const t=d.transaction('h','readwrite');t.objectStore('h').put(v,k);t.oncomplete=()=>ok();t.onerror=()=>ko(t.error)})}
+let recDir=null;
+async function recDirGet(ask){
+  try{if(!recDir)recDir=await recIdbGet('dir')||null;if(!recDir)return null;
+    let p=await recDir.queryPermission({mode:'readwrite'});
+    if(p!=='granted'&&ask)p=await recDir.requestPermission({mode:'readwrite'});
+    return p==='granted'?recDir:null}catch(e){return null}}
+async function recDirPick(){
+  if(!window.showDirectoryPicker){toast('Le dossier ne marche que dans Chrome sur ordinateur.');return}
+  try{const h=await window.showDirectoryPicker({id:'appels-instinct',mode:'readwrite',startIn:'documents'});recDir=h;await recIdbSet('dir',h);S.rec.dirName=h.name;toast('Dossier choisi : '+h.name);render()}
+  catch(e){if(!e||e.name!=='AbortError')toast('Dossier non choisi : '+((e&&e.message)||e))}}
+try{recIdbGet('dir').then(h=>{if(h){recDir=h;S.rec.dirName=h.name;if(S.loaded)render()}}).catch(()=>{})}catch(e){}
+const fileSafe=s=>String(s||'').replace(/\(.*?\)/g,' ').replace(/[\\/:*?"<>|\u0000-\u001f]/g,' ').replace(/\s+/g,' ').trim().slice(0,60);
+function recBaseName(p){const d=new Date();return [fileSafe(p&&p.dirigeant),fileSafe(p&&p.name)].filter(Boolean).join(' - ')+' - '+today()+' '+pad(d.getHours())+'h'+pad(d.getMinutes())}
+// Écrit l'appel (MP3 compressé) dans le dossier choisi ; sinon le télécharge pour ne rien perdre
+async function saveLocalAudio(blob,base){
+  let out=blob,ext='webm';
+  try{out=await compressAudio(blob);ext='mp3'}catch(e){}
+  const dir=await recDirGet(false);
+  if(dir){try{const fh=await dir.getFileHandle(base+'.'+ext,{create:true});const w=await fh.createWritable();await w.write(out);await w.close();toast('🎙 Appel enregistré dans « '+dir.name+' »');return true}catch(e){}}
+  const a=document.createElement('a');a.href=URL.createObjectURL(out);a.download=base+'.'+ext;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),6e4);
+  toast('Dossier non autorisé : l\'appel est dans tes Téléchargements.');return false}
 async function loadLame(){
   if(window.lamejs)return;
   for(const u of ['https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js','https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js']){
@@ -2375,10 +2401,11 @@ function recAsk(){
   clearTimeout(S.rec.askT);S.rec.askT=setTimeout(()=>{if(S.rec.on&&S.rec.mr&&S.rec.mr.state!=='inactive'){toast('Pas de réponse : enregistrement arrêté.');S.rec.mr.stop()}},10*60000)}
 async function recStart(){
   try{
+    S.rec.base=recBaseName(byId(S.call.pid));recDirGet(true);
     const st=await navigator.mediaDevices.getUserMedia({audio:true});
     const mr=new MediaRecorder(st);S.rec.chunks=[];S.rec.mr=mr;
     mr.ondataavailable=e=>{if(e.data.size)S.rec.chunks.push(e.data)};
-    mr.onstop=()=>{clearTimeout(S.rec.timer);clearTimeout(S.rec.askT);recAskHide();S.rec.on=false;if(S.rec.discard){S.rec.discard=false;st.getTracks().forEach(t=>t.stop());S.rec.chunks=[];render();return}S.call.dur=Math.round((Date.now()-S.rec.t0)/1000);st.getTracks().forEach(t=>t.stop());const bl=new Blob(S.rec.chunks,{type:mr.mimeType||'audio/webm'});recSend(bl,'appel.webm');if(S.rec.afterStop){const rr=S.rec.afterStop;S.rec.afterStop=null;callResult(rr)}};
+    mr.onstop=()=>{clearTimeout(S.rec.timer);clearTimeout(S.rec.askT);recAskHide();S.rec.on=false;if(S.rec.discard){S.rec.discard=false;st.getTracks().forEach(t=>t.stop());S.rec.chunks=[];render();return}S.call.dur=Math.round((Date.now()-S.rec.t0)/1000);st.getTracks().forEach(t=>t.stop());const bl=new Blob(S.rec.chunks,{type:mr.mimeType||'audio/webm'});if(S.rec.base){S.call.audioFile=S.rec.base;saveLocalAudio(bl,S.rec.base)}recSend(bl,'appel.webm');if(S.rec.afterStop){const rr=S.rec.afterStop;S.rec.afterStop=null;callResult(rr)}};
     S.rec.t0=Date.now();mr.start(1000);S.rec.on=true;clearTimeout(S.rec.timer);S.rec.timer=setTimeout(recAsk,30*60000);S.rec.msg='Dis à ton interlocuteur que l\'appel est enregistré.';render();
   }catch(e){S.rec.msg='Micro refusé : autorise-le dans Chrome (cadenas de la barre d\'adresse).';toast(S.rec.msg);render()}
 }
@@ -2495,6 +2522,8 @@ document.addEventListener('click',async e=>{
   if(a==='rq-go'){S.rq.step=b.dataset.s||'';rdvqCheck();return}
   if(a==='rq-do'){rqDo(b.dataset.d);return}
   if(a==='rec-start'){recStart();return}
+  if(a==='recfolder'){recDirPick();return}
+  if(a==='playlocal'){const base=b.dataset.f;try{const dir=await recDirGet(true);if(!dir)throw 0;let f=null;for(const e of ['mp3','webm']){try{f=await (await dir.getFileHandle(base+'.'+e)).getFile();break}catch(_){}}if(!f)throw 0;b.outerHTML='<audio controls autoplay src="'+URL.createObjectURL(f)+'" style="vertical-align:middle;max-width:100%"></audio>'}catch(e){toast('Fichier introuvable dans le dossier choisi : « '+base+' ». Il est sur un autre ordinateur, déplacé, ou le dossier n\'est pas autorisé.')}return}
   if(a==='rec-keep'){recAskHide();clearTimeout(S.rec.askT);clearTimeout(S.rec.timer);S.rec.timer=setTimeout(recAsk,30*60000);return}
   if(a==='rec-end'){recAskHide();clearTimeout(S.rec.askT);if(S.rec.mr&&S.rec.mr.state!=='inactive')S.rec.mr.stop();return}
   if(a==='rec-stop'){if(S.rec.mr&&S.rec.mr.state!=='inactive')S.rec.mr.stop();return}
@@ -2534,10 +2563,10 @@ document.addEventListener('click',async e=>{
   if(a==='rem-open'){S.remind={id:b.dataset.id,k:b.dataset.k};S.tab='appels';render();window.scrollTo(0,0);return}
   if(a==='remdone'){const p=byId(b.dataset.id),k=b.dataset.k==='r24'?'rem24':'rem2';if(p){p[k]=true;DB.update('prospects',p.id,{[k]:true});logEv(p,'msg','Rappel RDV '+(k==='rem24'?'(veille)':'(2 h avant)')+' préparé')}S.remind=null;if(b.tagName==='BUTTON'){render()}else setTimeout(render,50);return}
   if(a==='rdv-tenu'||a==='rdv-abs'){const p=byId(b.dataset.id);if(p){const ty0=RDV_T[p.rdvType||'visio'];const patch=a==='rdv-tenu'?{rdvShow:'tenu',stage:'rdv_fait'}:{rdvShow:'absent',stage:'contacte',nextDate:workday(1),nextTime:'10:00',rdvType:''};await guard(()=>DB.update('prospects',p.id,patch));Object.assign(p,patch);logEv(p,'rdv','RDV '+ty0+(a==='rdv-tenu'?' tenu':' : absent'));toast(a==='rdv-tenu'?'RDV tenu enregistré.':'Absence enregistrée : rappel prévu demain à 10 h.');if(a==='rdv-abs'){(p.rdvs=p.rdvs||[]).length||(p.rdvs=[{type:p.rdvType||'visio',at:p.rdvAt,show:'absent'}]);absOpen(p)}else render()}return}
-  if(a==='al-open'){const id=b.dataset.id;S.snooze[id]=Date.now()+10*60000;S.tab='appels';S.call.open=id;S.call.pid=id;S.call.q='';S.call.note='';S.call.auto='';S.call.obj='—';S.call.obj2='';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0;alarmCheck();render();window.scrollTo(0,0);return}
+  if(a==='al-open'){const id=b.dataset.id;S.snooze[id]=Date.now()+10*60000;S.tab='appels';S.call.open=id;S.call.pid=id;S.call.q='';S.call.note='';S.call.auto='';S.call.obj='—';S.call.obj2='';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.audioFile='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0;alarmCheck();render();window.scrollTo(0,0);return}
   if(a==='copysms'){const t=b.dataset.m||'';const done=()=>toast('SMS copié. Colle-le dans Onoff (iPhone).');try{navigator.clipboard.writeText(t).then(done,()=>toast('Copie impossible.'))}catch(e){toast('Copie impossible.')}}
   if(a==='copynum'){const n=b.dataset.n||'';const done=()=>toast('Numéro copié : '+n+'. Colle-le dans ton application d\'appel.');try{navigator.clipboard.writeText(n).then(done,()=>{const t=document.createElement('textarea');t.value=n;document.body.appendChild(t);t.select();try{document.execCommand('copy')}catch(e){}t.remove();done()})}catch(e){done()}}
-  else if(a==='callopen'){S.call.open=b.dataset.id;S.call.pid=b.dataset.id;S.call.q='';S.call.note='';S.call.auto='';S.call.obj='—';S.call.obj2='';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0;render();window.scrollTo(0,0)}
+  else if(a==='callopen'){S.call.open=b.dataset.id;S.call.pid=b.dataset.id;S.call.q='';S.call.note='';S.call.auto='';S.call.obj='—';S.call.obj2='';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.audioFile='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0;render();window.scrollTo(0,0)}
   else if(a==='callclose'){S.call.open='';S.call.pid='';render()}
   else if(a==='chal-ok'){S.chal=false;S.tab='appels';render()}
   else if(a==='tab'){S.tab=b.dataset.v;render()}
@@ -2564,7 +2593,7 @@ document.addEventListener('click',async e=>{
   else if(a==='ct-add')addContent();
   else if(a==='calundo'){const u=S.undo;if(!u)return;const p=byId(u.pid);if(!p){S.undo=null;render();return}
     const ok=await guard(async()=>{await DB.update('prospects',p.id,u.prev);await DB.del('calls',u.callId)});
-    if(ok){Object.assign(p,u.prev);S.calls=S.calls.filter(c=>c.id!==u.callId);S.undo=null;S.lastRes='';S.lastNR='';S.call.skip=S.call.skip.filter(x=>x!==p.id);S.call.open=p.id;S.call.pid=p.id;S.call.q='';S.call.note=u.note;S.call.auto=u.auto;S.call.obj='—';S.call.obj2='';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='ans';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0;toast('Appel annulé : note maintenant la vraie réponse.');render();window.scrollTo(0,0)}return}
+    if(ok){Object.assign(p,u.prev);S.calls=S.calls.filter(c=>c.id!==u.callId);S.undo=null;S.lastRes='';S.lastNR='';S.call.skip=S.call.skip.filter(x=>x!==p.id);S.call.open=p.id;S.call.pid=p.id;S.call.q='';S.call.note=u.note;S.call.auto=u.auto;S.call.obj='—';S.call.obj2='';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='ans';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.audioFile='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0;toast('Appel annulé : note maintenant la vraie réponse.');render();window.scrollTo(0,0)}return}
   else if(a==='callskip'){if(S.call.pid&&!S.call.open){S.call.skip.push(S.call.pid);try{localStorage.setItem('aos_skip_'+today(),JSON.stringify(S.call.skip))}catch(e){}}S.call.pid='';S.call.open='';render()}
   else if(a==='open')openProspect(b.dataset.id);
   else if(a==='close')$('#dlg').close();

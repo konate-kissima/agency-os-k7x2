@@ -27,9 +27,9 @@ const path = require('path'), fs = require('fs');
   await pg.waitForTimeout(400);
   let st = await pg.evaluate(() => { const p = byId('U1'); return { r: p.lastResult, t: p.touches, n: S.calls.length, u: !!S.undo } });
   ok(st.r === 'nr' && st.n === 1 && st.u, 'touche R = Pas répondu (le répondeur est inclus) : ' + JSON.stringify(st));
-  ok(await pg.locator('[data-act=calundo]').count() === 1, 'bouton « Annuler, il a répondu » affiché');
+  ok(await pg.locator('.backbtn[data-act=calundo]').count() === 1, 'flèche retour à gauche de la fiche affichée');
   // annulation
-  await pg.locator('[data-act=calundo]').click();
+  await pg.locator('.backbtn[data-act=calundo]').click();
   await pg.waitForTimeout(400);
   st = await pg.evaluate(() => { const p = byId('U1'); return { r: p.lastResult || null, t: p.touches || 0, stage: p.stage, n: S.calls.length, pid: S.call.pid, step: S.call.step, u: !!S.undo } });
   ok(st.r === null && st.t === 0 && st.stage === 'a_contacter' && st.n === 0, 'appel annulé : fiche et historique restaurés : ' + JSON.stringify(st));
