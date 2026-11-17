@@ -27,7 +27,7 @@ ok(r.x.prevus===3&&r.x.tenus===1&&r.x.abs===1&&r.x.pend===1,'show up : 3 prévus
 ok(r.x.sgN===1&&r.x.amt===1500,'1 signé, 1 500 € contractés');
 ok(r.before.enc===0&&r.before.noPay===1,'avant saisie : 0 € encaissé et alerte « 1 client sans virement »');
 ok(r.x.enc===750&&r.x.noPay===0&&r.x.cum.got===750&&r.x.cum.rest===750,'virement 750 € noté : encaissé 750, reste 750 '+JSON.stringify([r.x.enc,r.x.noPay,r.x.cum]));
-ok(r.x.doors===2&&r.x.terRdv===1,'terrain : 2 portes, 1 RDV');
+ok(r.x.doors===2&&r.x.terRdv===1&&r.x.ter.refus===1&&/50 %/.test(r.cardTxt),'terrain : 2 entreprises vues, 1 RDV (50 %), 1 refus');
 ok(r.x.prev&&r.x.prev.n===1,'comparaison : veille = 1 appel');
 ok(/Encaissé/.test(r.txt)&&/Contracté/.test(r.txt)&&/%/.test(r.txt)&&/RDV tél non comptés/.test(r.txt)&&/Pour 1 client signé/.test(r.txt),'texte copiable complet');
 ok(/Encaissé/i.test(r.cardTxt)&&/Contracté/i.test(r.cardTxt),'carte : encaissé et contracté affichés');
