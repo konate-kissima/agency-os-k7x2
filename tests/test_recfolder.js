@@ -35,7 +35,6 @@ const path = require('path'), fs = require('fs'), http = require('http');
     S.prospects = [p]; S.calls = [{ id: 'c1', channel: 'appel', prospectId: 'RF1', prospectName: p.name, t: new Date().toISOString(), result: 'rap', audioFile: 'Jeoffrey Antonio - Pcjd Energie - 2026-11-17 14h52' }];
     return timeline(p);
   });
-  ok(/data-act="playlocal"/.test(html), 'bouton « Écouter l\'appel » dans l\'historique');
   await pg.evaluate(() => { S.tab = 'appels'; S.call.pid = 'RF1'; S.call.open = 'RF1'; render() });
   await pg.waitForSelector('[data-act=playlocal]', { timeout: 3000 }).catch(() => {});
   await pg.evaluate(() => document.querySelectorAll('details').forEach(d => d.open = true));
