@@ -2310,11 +2310,11 @@ async function recDirGet(ask){
     return p==='granted'?recDir:null}catch(e){return null}}
 async function recDirPick(){
   if(!window.showDirectoryPicker){toast('Le dossier ne marche que dans Chrome sur ordinateur.');return}
-  try{const h=await window.showDirectoryPicker({id:'appels-instinct',mode:'readwrite',startIn:'documents'});recDir=h;await recIdbSet('dir',h);S.rec.dirName=h.name;toast('Dossier choisi : '+h.name);render()}
+  try{let h=await window.showDirectoryPicker({id:'appels-instinct',mode:'readwrite',startIn:'documents'});if(h.name!=='Appels Instinct')h=await h.getDirectoryHandle('Appels Instinct',{create:true});recDir=h;await recIdbSet('dir',h);S.rec.dirName=h.name;toast('Dossier choisi : '+h.name);render()}
   catch(e){if(!e||e.name!=='AbortError')toast('Dossier non choisi : '+((e&&e.message)||e))}}
 try{recIdbGet('dir').then(h=>{if(h){recDir=h;S.rec.dirName=h.name;if(S.loaded)render()}}).catch(()=>{})}catch(e){}
 const fileSafe=s=>String(s||'').replace(/\(.*?\)/g,' ').replace(/[\\/:*?"<>|\u0000-\u001f]/g,' ').replace(/\s+/g,' ').trim().slice(0,60);
-function recBaseName(p){const d=new Date();return [fileSafe(p&&p.dirigeant),fileSafe(p&&p.name)].filter(Boolean).join(' - ')+' - '+today()+' '+pad(d.getHours())+'h'+pad(d.getMinutes())}
+function recBaseName(p){const d=new Date();return [fileSafe(p&&p.dirigeant),fileSafe(p&&p.name),(p&&p.touches)>0?'Appel '+((p.touches||0)+1):'1er appel'].filter(Boolean).join(' - ')+' - '+today()+' '+pad(d.getHours())+'h'+pad(d.getMinutes())}
 // Écrit l'appel (MP3 compressé) dans le dossier choisi ; sinon le télécharge pour ne rien perdre
 async function saveLocalAudio(blob,base){
   let out=blob,ext='webm';

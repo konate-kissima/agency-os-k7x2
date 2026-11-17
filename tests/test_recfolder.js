@@ -8,23 +8,23 @@ const path = require('path'), fs = require('fs'), http = require('http');
   const tmp = fs.mkdtempSync('/tmp/aos-');
   fs.copyFileSync(path.resolve(__dirname, '../index.html'), tmp + '/index.html');
   fs.writeFileSync(tmp + '/config.js', 'window.AOS_CONFIG={url:"",key:""};');
-  await pg.addInitScript(() => { window.showDirectoryPicker = async () => { const r = await navigator.storage.getDirectory(); return r.getDirectoryHandle('Appels Instinct', { create: true }) } });
+  await pg.addInitScript(() => { window.showDirectoryPicker = async () => { const r = await navigator.storage.getDirectory(); return r.getDirectoryHandle('Mes dossiers', { create: true }) } });
   const srv = http.createServer((q, r) => { const f = tmp + (q.url.split('?')[0] === '/' ? '/index.html' : q.url.split('?')[0]); fs.readFile(f, (e, d) => { if (e) { r.statusCode = 404; r.end() } else { r.setHeader('Content-Type', f.endsWith('.js') ? 'text/javascript' : 'text/html'); r.end(d) } }) }).listen(0);
   await pg.goto('http://localhost:' + srv.address().port + '/'); await pg.waitForSelector('.chal'); await pg.evaluate(() => { S.chal = false; render() });
   await pg.waitForSelector('nav.tabs');
   const ok = (c, m) => { if (!c) { console.log('FAIL', m); process.exitCode = 1; } else console.log('ok  ', m); };
   // nom de fichier
-  const nm = await pg.evaluate(() => [recBaseName({ dirigeant: 'Jeoffrey Antonio', name: 'Pcjd/Energie: SARL' }), recBaseName({ name: 'Seule Entreprise' }), recBaseName({ dirigeant: 'Kissima (gérant)', name: 'Test' })]);
-  ok(/^Jeoffrey Antonio - Pcjd Energie SARL - \d{4}-\d\d-\d\d \d\dh\d\d$/.test(nm[0]), 'nom dirigeant - entreprise - date : ' + nm[0]);
-  ok(/^Seule Entreprise - \d{4}-/.test(nm[1]), 'sans dirigeant : entreprise seule : ' + nm[1]);
-  ok(/^Kissima - Test - /.test(nm[2]), 'parenthèses retirées : ' + nm[2]);
+  const nm = await pg.evaluate(() => [recBaseName({ dirigeant: 'Jeoffrey Antonio', name: 'Pcjd/Energie: SARL' }), recBaseName({ name: 'Seule Entreprise' }), recBaseName({ dirigeant: 'Kissima (gérant)', name: 'Test', touches: 2 })]);
+  ok(/^Jeoffrey Antonio - Pcjd Energie SARL - 1er appel - \d{4}-\d\d-\d\d \d\dh\d\d$/.test(nm[0]), 'nom dirigeant - entreprise - date : ' + nm[0]);
+  ok(/^Seule Entreprise - 1er appel - \d{4}-/.test(nm[1]), 'sans dirigeant : entreprise seule : ' + nm[1]);
+  ok(/^Kissima - Test - Appel 3 - /.test(nm[2]), 'parenthèses retirées : ' + nm[2]);
   // choix du dossier + écriture
   await pg.evaluate(async () => { await recDirPick() });
   ok(await pg.evaluate(() => S.rec.dirName) === 'Appels Instinct', 'dossier choisi et mémorisé');
   const res = await pg.evaluate(async () => {
     const base = 'Jeoffrey Antonio - Pcjd Energie - 2026-11-17 14h52';
     const r = await saveLocalAudio(new Blob([new Uint8Array(4000)], { type: 'audio/webm' }), base);
-    const d = await navigator.storage.getDirectory(), dir = await d.getDirectoryHandle('Appels Instinct');
+    const d = await navigator.storage.getDirectory(), dir = await (await d.getDirectoryHandle('Mes dossiers')).getDirectoryHandle('Appels Instinct');
     const names = []; for await (const [n] of dir.entries()) names.push(n);
     return { r, names };
   });
