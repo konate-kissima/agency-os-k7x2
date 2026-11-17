@@ -503,7 +503,7 @@ function cloudBackend(sb){
 let DB;
 
 /* ================= état ================= */
-const S={tab:'appels',prospects:[],calls:[],clients:[],content:[],settings:{...DEF_SETTINGS},loaded:false,
+const S={act:(()=>{try{return JSON.parse(localStorage.getItem('aos_act')||'{}')}catch(e){return{}}})(),tab:'appels',prospects:[],calls:[],clients:[],content:[],settings:{...DEF_SETTINGS},loaded:false,
   out:{pid:'',ch:'dm_insta',variant:'D1',note:'',handle:'',rdvAt:'',skip:[]},
   call:{pid:'',angle:'',note:'',obj:'—',audio:'',informed:false,skip:(()=>{try{return JSON.parse(localStorage.getItem('aos_skip_'+toISO(new Date()))||'[]')}catch(e){return[]}})(),mob:'all',rdvAt:'',date:''},
   pf:{q:'',stage:'',dept:''},st:{days:14},cl:{open:''},err:''};
@@ -517,7 +517,8 @@ const ALL_RES_L=Object.assign({},Object.fromEntries(OUT_RES.map(r=>[r[0],r[1]]))
 async function loadAll(){
   const [p,c,cl,st,ct]=await Promise.all(['prospects','calls','clients','settings','content'].map(x=>DB.list(x)));
   S.content=ct.sort((a,b)=>String(b.d).localeCompare(String(a.d)));S.prospects=p;S.calls=c.sort((a,b)=>String(a.t).localeCompare(String(b.t)));S.clients=cl;
-  const m=st.find(x=>x.id==='main');S.settings=m?(({id,...r})=>r)(m):{};S.loaded=true;
+  const m=st.find(x=>x.id==='main');S.settings=m?(({id,...r})=>r)(m):{};
+  st.filter(x=>String(x.id).indexOf('active_')===0).forEach(x=>{const d=String(x.id).slice(7);S.act[d]=Math.max(S.act[d]||0,+x.sec||0)});S.loaded=true;
 }
 let rt;function refresh(){if(S.bulk){S.bulkDirty=1;return}clearTimeout(rt);rt=setTimeout(async()=>{try{await loadAll()}catch(e){S.err=String(e.message||e)}render()},150)}
 async function guard(fn){try{await fn();return true}catch(e){toast('Erreur : '+(e.message||e));return false}}
@@ -1336,6 +1337,18 @@ function chartsHTML(LC,j,rdv,from,to){
   const deadCard=`<section class="card chartcard"><h3>⏱ Temps mort entre deux appels</h3><p class="muted sm" style="margin:0 0 6px">Du moment où tu enregistres un résultat jusqu'à ce que tu lances l'appel suivant. Plus c'est bas, plus tu gardes ton rythme.</p><div class="row" style="gap:18px;flex-wrap:wrap"><div><div class="muted sm">Aujourd'hui</div><b style="font-size:26px">${fsD(avgD(dtd))}</b><div class="muted sm">${dtd.length} mesure${dtd.length>1?'s':''}</div></div><div><div class="muted sm">Sur la période</div><b style="font-size:26px">${fsD(avgD(ddl))}</b><div class="muted sm">${ddl.length} mesure${ddl.length>1?'s':''}</div></div></div></section>`;
   return tiles+`<div class="chgrid">${chart0}${chart1}</div><div class="chgrid">${chart5}${chart6}</div><div class="chgrid">${chart7}${chart3}</div><div class="chgrid">${chart2}${chart4}</div>${deadCard}`;
 }
+/* ===== temps de travail dans l'app : s'arrête après 10 min sans aucune action ===== */
+const IDLE_MS=10*60000;let lastAct=Date.now(),lastTick=Date.now(),actSaveAt=Date.now();const actDirty=new Set();
+['pointerdown','keydown','input','scroll','touchstart','wheel','mousemove'].forEach(ev=>addEventListener(ev,()=>{lastAct=Date.now()},{passive:true,capture:true}));
+function actSave(cloud){try{localStorage.setItem('aos_act',JSON.stringify(S.act))}catch(e){}
+  if(cloud&&DB&&DB.mode==='cloud'&&S.user)actDirty.forEach(d=>{DB.set('settings','active_'+d,{sec:Math.round(S.act[d]||0)}).catch(()=>{})});
+  if(cloud)actDirty.clear();actSaveAt=Date.now()}
+function actTick(){const n=Date.now(),dt=Math.min(10000,n-lastTick);lastTick=n;
+  const on=(document.visibilityState==='visible'&&n-lastAct<IDLE_MS)||(S.rec&&S.rec.on);
+  if(on&&S.loaded){const d=today();S.act[d]=(S.act[d]||0)+dt/1000;actDirty.add(d)}
+  if(actDirty.size&&n-actSaveAt>180000)actSave(true);else if(on&&n-actSaveAt>30000)actSave(false)}
+setInterval(actTick,5000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')actSave(true)});addEventListener('pagehide',()=>actSave(true));
 /* ===== Débrief (jour / semaine / période) : appels → RDV → show up → R2 → signés → contracté vs encaissé ===== */
 const pct=(a,b)=>b?Math.round(100*a/b)+' %':'—';
 const DAYS_L=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
@@ -1361,11 +1374,12 @@ function debriefData(from,to,noPrev){
   const hh={};L.forEach(c=>{const h=c.hour!=null?c.hour:new Date(c.t).getHours();(hh[h]=hh[h]||{n:0,a:0});hh[h].n++;if(isAns(c))hh[h].a++});
   const bh=Object.entries(hh).filter(([,v])=>v.n>=5).sort((x,y)=>y[1].a/y[1].n-x[1].a/x[1].n)[0];
   let doors=0,terRdv=0;S.prospects.forEach(p=>(p.log||[]).forEach(l=>{if(l.k==='terrain'&&inRg(l.t,from,to)){doors++;if(String(l.txt).indexOf(TERRAIN_L.rdv)===0)terRdv++}}));
+  const work=Object.keys(S.act).filter(d=>inRg(d,from,to)).reduce((a,d)=>a+(S.act[d]||0),0);
   const nd=Math.min(62,dayDiff(from,to)),days=[];
   for(let i=0;i<nd;i++){const d=addDays(from,i),Ld=L.filter(c=>String(c.t).slice(0,10)===d);days.push({d,n:Ld.length,dec:Ld.filter(isAns).length,rdv:Ld.filter(c=>isRdvCnt(c.result)).length,enc:pays.filter(q=>q.d===d).reduce((a,q)=>a+q.amt,0)})}
   const sign=S.clients.reduce((a,c)=>a+(+c.price||0),0),got=payAll().reduce((a,q)=>a+q.amt,0);
   let rec=null;if(from===to&&!noPrev){const by={};S.calls.filter(isCall).forEach(c=>{const d=String(c.t).slice(0,10);if(d!==from)by[d]=(by[d]||0)+1});const best=Math.max(0,...Object.values(by));rec={best,beaten:L.length>best&&best>0}}
-  const len=dayDiff(from,to),x={from,to,d:from,len,n:L.length,dec:ans.length,real:real.length,rdv,tel,prevus:tenus+abs+pend,tenus,abs,pend,r1,r2p,r2,sgN,sgR1,sgR2:sgN-sgR1,amt,enc,noPay,talk,talkN,bestHour:bh?{h:+bh[0],rate:Math.round(100*bh[1].a/bh[1].n),n:bh[1].n}:null,doors,terRdv,days,cum:{sign,got,rest:Math.max(0,sign-got)},streak:debStreak(to),rec};
+  const len=dayDiff(from,to),x={from,to,d:from,len,n:L.length,dec:ans.length,real:real.length,rdv,tel,prevus:tenus+abs+pend,tenus,abs,pend,r1,r2p,r2,sgN,sgR1,sgR2:sgN-sgR1,amt,enc,noPay,talk,talkN,work,bestHour:bh?{h:+bh[0],rate:Math.round(100*bh[1].a/bh[1].n),n:bh[1].n}:null,doors,terRdv,days,cum:{sign,got,rest:Math.max(0,sign-got)},streak:debStreak(to),rec};
   const eTo=to>today()?today():to,pl=Math.max(1,dayDiff(from,eTo));x.plen=pl;
   x.prev=noPrev?null:debriefData(addDays(from,-pl),addDays(from,-1),true);
   if(!noPrev&&eTo<to){const cur=debriefData(from,eTo,true);x.cmp={n:cur.n,dec:cur.dec,rdv:cur.rdv}}
@@ -1376,7 +1390,7 @@ const debLabel=x=>x.from===x.to?longDate(x.from):(x.len===6&&new Date(x.from+'T1
 function debriefText(x){
   const cm=x.cmp||x,dl=(a,b)=>x.prev&&a!==b?' ('+(a>b?'+':'')+(a-b)+' vs '+(x.from===x.to?'veille':'même durée avant')+')':'';
   const per=x.from===x.to?'du jour':(x.len===6&&new Date(x.from+'T12:00:00').getDay()===1)?'de la semaine':'de la période';
-  return `Débrief ${per} · ${debLabel(x)}\n💰 Encaissé (virements reçus) : ${money(x.enc)}\n✍️ Contracté (signé) : ${money(x.amt)}${x.cum.sign?'\n   Reste à encaisser sur tous les contrats : '+money(x.cum.rest)+' ('+money(x.cum.got)+' reçus sur '+money(x.cum.sign)+')':''}\n📞 ${x.n} appels${dl(cm.n,x.prev&&x.prev.n)} · ${x.dec} décrochés (${pct(x.dec,x.n)}) · ${x.real} vraies conversations (${pct(x.real,x.n)})\n📅 ${x.rdv} RDV pris (visio/physique)${dl(cm.rdv,x.prev&&x.prev.rdv)} · ${pct(x.rdv,x.dec)} des décrochés · ${pct(x.rdv,x.n)} des appels${x.tel?' · +'+x.tel+' RDV tél non comptés':''}\n✅ Show up : ${x.tenus} tenus / ${x.tenus+x.abs} (${pct(x.tenus,x.tenus+x.abs)})${x.pend?' · '+x.pend+' à qualifier':''}\n🔁 R2 prévus ${x.r2p} · R2 tenus ${x.r2}\n🤝 Signés ${x.sgN} (${x.sgR1} en R1 direct, ${x.sgR2} en R2) · ${pct(x.sgN,x.tenus)} des RDV tenus${x.sgN?'\n🎯 Pour 1 client signé : '+Math.round(x.n/x.sgN)+' appels · '+Math.round(x.dec/x.sgN)+' décrochés · '+(Math.round(10*x.tenus/x.sgN)/10)+' RDV tenus':''}${x.doors?'\n🚶 Terrain : '+x.doors+' portes · '+x.terRdv+' RDV pris':''}${x.talk?'\n⏱ Temps au téléphone : '+fmtDur(x.talk)+' (≈ '+Math.round(x.talk/x.talkN)+' s par appel)':''}${x.bestHour?'\n🕘 Meilleure heure : '+x.bestHour.h+' h ('+x.bestHour.rate+' % de décroché)':''}${x.streak>1?'\n🔥 '+x.streak+' jours d\'appels d\'affilée':''}${x.rec&&x.rec.beaten?'\n🏆 Record d\'appels battu (ancien : '+x.rec.best+')':''}`}
+  return `Débrief ${per} · ${debLabel(x)}\n💰 Encaissé (virements reçus) : ${money(x.enc)}\n✍️ Contracté (signé) : ${money(x.amt)}${x.cum.sign?'\n   Reste à encaisser sur tous les contrats : '+money(x.cum.rest)+' ('+money(x.cum.got)+' reçus sur '+money(x.cum.sign)+')':''}\n📞 ${x.n} appels${dl(cm.n,x.prev&&x.prev.n)} · ${x.dec} décrochés (${pct(x.dec,x.n)}) · ${x.real} vraies conversations (${pct(x.real,x.n)})\n📅 ${x.rdv} RDV pris (visio/physique)${dl(cm.rdv,x.prev&&x.prev.rdv)} · ${pct(x.rdv,x.dec)} des décrochés · ${pct(x.rdv,x.n)} des appels${x.tel?' · +'+x.tel+' RDV tél non comptés':''}\n✅ Show up : ${x.tenus} tenus / ${x.tenus+x.abs} (${pct(x.tenus,x.tenus+x.abs)})${x.pend?' · '+x.pend+' à qualifier':''}\n🔁 R2 prévus ${x.r2p} · R2 tenus ${x.r2}\n🤝 Signés ${x.sgN} (${x.sgR1} en R1 direct, ${x.sgR2} en R2) · ${pct(x.sgN,x.tenus)} des RDV tenus${x.sgN?'\n🎯 Pour 1 client signé : '+Math.round(x.n/x.sgN)+' appels · '+Math.round(x.dec/x.sgN)+' décrochés · '+(Math.round(10*x.tenus/x.sgN)/10)+' RDV tenus':''}${x.doors?'\n🚶 Terrain : '+x.doors+' portes · '+x.terRdv+' RDV pris':''}${x.work?'\n💻 Temps de travail dans l\'app : '+fmtDur(x.work)+(x.n?' · '+(Math.round(10*x.n/(x.work/3600))/10)+' appels par heure de travail':''):''}${x.talk?'\n⏱ Temps au téléphone : '+fmtDur(x.talk)+' (≈ '+Math.round(x.talk/x.talkN)+' s par appel)'+(x.work?' · '+pct(x.talk,x.work)+' du temps de travail':''):''}${x.bestHour?'\n🕘 Meilleure heure : '+x.bestHour.h+' h ('+x.bestHour.rate+' % de décroché)':''}${x.streak>1?'\n🔥 '+x.streak+' jours d\'appels d\'affilée':''}${x.rec&&x.rec.beaten?'\n🏆 Record d\'appels battu (ancien : '+x.rec.best+')':''}`}
 function debBars(x){const D=x.days;if(D.length<2)return'';const W=640,H=140,bw=W/D.length,mx=Math.max(1,...D.map(d=>d.n)),u=H-22;
   let s=`<svg viewBox="0 0 ${W} ${H+32}" style="width:100%;height:auto;display:block" role="img" aria-label="Appels et RDV par jour">`;
   D.forEach((d,i)=>{const h=Math.round(u*d.n/mx),hr=d.rdv?Math.max(4,Math.round(u*d.rdv/mx)):0,xx=i*bw+bw*.15,w=bw*.7,wd=DAYS_L[new Date(d.d+'T12:00:00').getDay()].slice(0,3);
@@ -1397,7 +1411,7 @@ function debCard(x,nav){
   ${cell('📅','RDV pris',x.rdv,pct(x.rdv,x.dec)+' des décrochés · '+pct(x.rdv,x.n)+' des appels'+(x.tel?'<br><span class="muted">+ '+x.tel+' RDV tél non comptés</span>':'')+dl(cm.rdv,x.prev&&x.prev.rdv))}
   ${cell('✅','Show up',pct(x.tenus,x.tenus+x.abs),x.tenus+' tenu'+(x.tenus>1?'s':'')+' sur '+(x.tenus+x.abs)+(x.pend?' · '+x.pend+' à qualifier':'')+(x.prevus?'':'<br><span class="muted">aucun RDV sur la période</span>'))}
   ${cell('🔁','R2',x.r2p,x.r2p+' prévus · '+x.r2+' tenus')}${cell('🤝','Signés',x.sgN,x.sgN?x.sgR1+' en R1 direct · '+x.sgR2+' en R2 · '+pct(x.sgN,x.tenus)+' des RDV tenus':'')}
-  ${x.doors?cell('🚶','Terrain',x.doors,'portes · '+x.terRdv+' RDV pris ('+pct(x.terRdv,x.doors)+')'):''}${x.bestHour?cell('🕘','Meilleure heure',x.bestHour.h+' h',x.bestHour.rate+' % de décroché ('+x.bestHour.n+' appels)'):''}${x.streak>1?cell('🔥','Série',x.streak+' j','jours d\'appels d\'affilée (week-ends neutres)'):''}${x.talk?cell('⏱','Temps au téléphone',fmtDur(x.talk),'≈ '+Math.round(x.talk/x.talkN)+' s par appel · '+x.talkN+' mesurés'):''}</div>
+  ${x.doors?cell('🚶','Terrain',x.doors,'portes · '+x.terRdv+' RDV pris ('+pct(x.terRdv,x.doors)+')'):''}${x.bestHour?cell('🕘','Meilleure heure',x.bestHour.h+' h',x.bestHour.rate+' % de décroché ('+x.bestHour.n+' appels)'):''}${x.streak>1?cell('🔥','Série',x.streak+' j','jours d\'appels d\'affilée (week-ends neutres)'):''}${x.work?cell('💻','Temps de travail',fmtDur(x.work),'actif dans l\'app'+(x.n?'<br>'+(Math.round(10*x.n/(x.work/3600))/10)+' appels / h de travail':'')):''}${x.talk?cell('⏱','Temps au téléphone',fmtDur(x.talk),'≈ '+Math.round(x.talk/x.talkN)+' s par appel'+(x.work?'<br>'+pct(x.talk,x.work)+' du temps de travail':'')):''}</div>
   ${x.sgN?`<p class="sm" style="margin:10px 0 0">🎯 <b>Pour 1 client signé :</b> ${Math.round(x.n/x.sgN)} appels · ${Math.round(x.dec/x.sgN)} décrochés · ${Math.round(10*x.tenus/x.sgN)/10} RDV tenu${x.tenus/x.sgN>=2?'s':''}</p>`:''}
   ${x.rec&&x.rec.beaten?`<p class="sm" style="margin:6px 0 0">🏆 <b>Record d'appels sur une journée battu</b> (ancien : ${x.rec.best})</p>`:''}
   ${x.days.length>1?`<div style="margin-top:12px"><div class="muted sm" style="margin-bottom:2px">Appels par jour <span style="color:#a77a12">■</span> dont RDV · <span style="color:#2f7d3a">€</span> virements reçus</div>${debBars(x)}</div>`:''}
@@ -1437,7 +1451,8 @@ function debImage(x,fmt){
   y+=th+(sq?26:36);
   const cells=[['📞 Appels',x.n,x.real+' vraies conversations'],['🙋 Décrochés',pct(x.dec,x.n),x.dec+' décrochés'],['📅 RDV pris',x.rdv,pct(x.rdv,x.dec)+' des décrochés'],['✅ Show up',pct(x.tenus,x.tenus+x.abs),x.tenus+' / '+(x.tenus+x.abs)+' tenus'],['🔁 R2 tenus',x.r2,x.r2p+' prévus'],['🤝 Signés',x.sgN,pct(x.sgN,x.tenus)+' des RDV tenus']];
   if(!sq){if(x.doors)cells.push(['🚶 Terrain',x.doors,x.terRdv+' RDV pris']);if(x.streak>1)cells.push(['🔥 Série',x.streak+' j','jours d\'affilée'])}
-  if(x.talk)cells.push(['⏱ Au téléphone',fmtDur(x.talk),'≈ '+Math.round(x.talk/x.talkN)+' s par appel']);
+  if(x.work)cells.push(['💻 Travail',fmtDur(x.work),x.n?(Math.round(10*x.n/(x.work/3600))/10)+' appels / heure':'']);
+  if(x.talk)cells.push(['⏱ Au téléphone',fmtDur(x.talk),x.work?pct(x.talk,x.work)+' du travail':'≈ '+Math.round(x.talk/x.talkN)+' s par appel']);
   const cols=sq?3:2,gap=18,cw=(W-2*M-gap*(cols-1))/cols,ch=sq?132:150;
   cells.forEach((c,i)=>{const cx=M+(i%cols)*(cw+gap),cy=y+Math.floor(i/cols)*(ch+gap);rr(cx,cy,cw,ch,22,'rgba(255,255,255,.08)');tx(c[0],cx+22,cy+(sq?34:40),sq?21:25,'600','#c9d1b0');tx(String(c[1]),cx+22,cy+(sq?86:98),sq?46:58,'800','#ffffff');if(c[2])tx(c[2],cx+22,cy+ch-(sq?14:16),sq?18:22,'500','#aab38c')});
   y+=Math.ceil(cells.length/cols)*(ch+gap)+(sq?0:10);
@@ -2842,7 +2857,7 @@ async function start(){
   try{
     await loadAll();
     if(!S.settings||!Object.keys(S.settings).length){/* réglages par défaut en mémoire, écrits à la première sauvegarde */}
-    ['prospects','calls','clients','settings','content'].forEach(c=>DB.watch(c,refresh));
+    ['prospects','calls','clients','content'].forEach(c=>DB.watch(c,refresh));DB.watch('settings',pl=>{const id=pl&&((pl.new&&pl.new.id)||(pl.old&&pl.old.id));if(id&&String(id).indexOf('active_')===0)return;refresh()});
   }catch(e){S.err=String(e.message||e);S.loaded=true}
   S.chal=true;
   try{const x=localStorage.getItem('aos-leads');if(x)S.leads=JSON.parse(x)}catch(e){}
