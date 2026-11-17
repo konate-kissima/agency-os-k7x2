@@ -1,0 +1,10 @@
+const { chromium } = require('playwright');const path=require('path'),fs=require('fs');
+(async()=>{const b=await chromium.launch();const pg=await(await b.newContext()).newPage();const errs=[];pg.on('pageerror',e=>errs.push(e.message));
+const tmp=fs.mkdtempSync('/tmp/aos-');fs.copyFileSync(path.resolve(__dirname,'../index.html'),tmp+'/index.html');fs.writeFileSync(tmp+'/config.js','window.AOS_CONFIG={url:"",key:""};');
+await pg.goto('file://'+tmp+'/index.html');await pg.waitForSelector('.chal');
+const ok=(c,m)=>{if(!c){console.log('FAIL',m);process.exitCode=1}else console.log('ok  ',m)};
+await pg.evaluate(()=>{S.chal=false;const mk=(id,n,sc)=>({id,name:n,phone:'06 30 00 00 0'+id.slice(-1),stage:'a_contacter',score:sc});S.prospects=[mk('B1','Avant',10),mk('B2','Courant',99)];S.calls=[{id:'c1',channel:'appel',prospectId:'B1',prospectName:'Avant',t:new Date().toISOString(),result:'nr'}];S.undo=null;S.tab='appels';S.call.pid='B2';S.call.open='B2';render()});
+ok(await pg.locator('.backbtn[data-act=callopen]').count()===1,'flèche présente sans annulation en cours');
+await pg.locator('.backbtn').click();
+ok(await pg.evaluate(()=>S.call.pid)==='B1','clic : ouvre la fiche précédente');
+ok(errs.length===0,'aucune erreur JS '+errs);await b.close()})();
