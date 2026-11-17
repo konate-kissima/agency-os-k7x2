@@ -93,7 +93,7 @@ function pitch(s){const who=(st.dirs[s.id]&&st.dirs[s.id].pick)||'';const ask=wh
  <div class="say"><b>2. Accroche</b>« Je fais venir ${WHAT[s.cat]} par Facebook et Instagram, pour les commerces de la zone. Aujourd'hui, vos nouveaux clients viennent plutôt de Google ou du bouche-à-oreille ? »</div>
  <div class="say"><b>3. Offre en une phrase</b>« Je lance la pub, je gère les visuels et le suivi, vous recevez les demandes directement. C'est un programme pilote : la première partie vous est remboursée si l'objectif n'est pas atteint. Les chiffres, je vous les détaille au rendez-vous. »</div>
  <div class="say"><b>4. Demande</b>« Je peux vous montrer ça en 10 minutes : tout à l'heure en repassant, ou mardi 10 h / jeudi 14 h ? »</div>
- <div class="say"><b>Si le patron est absent</b>« Quand est-il là ? Je repasse à ce moment. Je vous laisse ma carte, qui puis-je citer ? » Note le nom et le créneau ci-dessous.</div>
+ <div class="say"><b>Si le patron est absent</b>« Quand est-il là ? Je repasse à ce moment. Qui puis-je citer ? » Note le nom et le créneau ci-dessous. Aucune carte papier : tu repasses.</div>
  <details><summary>Réponses aux objections</summary><ul class="l"><li><b>Pas le temps</b> : « Justement, 10 minutes sur le créneau qui vous arrange, vous choisissez. »</li><li><b>J'ai déjà quelqu'un</b> : « Très bien. Est-ce qu'il s'engage sur un nombre de demandes ? Moi, la première partie est remboursée si l'objectif n'est pas atteint. »</li><li><b>Ça marche par le bouche-à-oreille</b> : « Parfait, on le garde. La pub sert à remplir les creux. »</li><li><b>Combien ça coûte ?</b> : « Ça dépend de votre zone et de votre objectif, on le chiffre ensemble en 10 minutes. »</li></ul></details>`}
 const dirMode=m=>st.mode==='walk'?'walking':'driving';
 const mapsUrl=s=>'https://www.google.com/maps/dir/?api=1&destination='+s.lat+','+s.lng+'&travelmode='+dirMode();
@@ -135,7 +135,7 @@ function render(){ensureCur();const t=pool(),dn=Object.keys(st.res).length;const
   else{h+=card(cur,'En cours · société '+(dn+1),st.pos,true);
    h+=dirBox(cur);
    h+=`<textarea id="note" placeholder="Note : nom du patron, créneau pour repasser, ce qu'il a dit…" aria-label="Note">${esc(st.note)}</textarea>
-   <div class="res"><button class="pri" data-a="res" data-v="rdv">✅ RDV pris</button><button data-a="res" data-v="rappel">🔁 À rappeler / repasser</button><button data-a="res" data-v="carte">🪪 Carte laissée</button><button data-a="res" data-v="absent">🚪 Patron absent</button><button data-a="res" data-v="refus">✖ Pas intéressé</button><button data-a="res" data-v="passe">⏭ Fermé / passer</button></div>
+   <div class="res"><button class="pri" data-a="res" data-v="rdv">✅ RDV pris</button><button data-a="res" data-v="rappel">🔁 À rappeler / repasser</button><button data-a="res" data-v="absent">🚪 Patron absent</button><button data-a="res" data-v="refus">✖ Pas intéressé</button><button data-a="res" data-v="passe">⏭ Fermé / passer</button></div>
    <details open><summary>Que dire</summary>${pitch(cur)}</details></section>`;
    const nx=pick(cur,t.filter(s=>s.id!==cur.id));st.nxId=nx?nx.id:null;
    if(nx)h+=card(nx,'Ensuite',cur,false).replace(/<div class="row"[\s\S]*?<\/div>/,`<div class="row" style="margin-top:10px"><a class="btn gold" href="${mapsUrl(nx)}" target="_blank" rel="noopener">${st.mode==='walk'?'🚶':'🚗'} Y aller · ${fmtKm(dist(cur,nx))} depuis ici · ${eta(dist(cur,nx))} min</a></div>`)+'</section>'}
