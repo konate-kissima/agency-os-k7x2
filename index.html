@@ -537,13 +537,15 @@ const RAPPEL_CAP=45; // au-delà, les nouvelles fiches passent devant : les rapp
 const SLOT_L={m:'matin tôt (avant 11 h)',d:'midi / après-midi (11 h–17 h)',s:'fin de journée (après 17 h)'};
 const slotOf=h=>h<11?'m':h<17?'d':'s';
 function rappelsToday(){const t=today(),first={};S.calls.forEach(c=>{if(isCall(c)&&(first[c.prospectId]===undefined||c.t<first[c.prospectId]))first[c.prospectId]=c.t});return S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t&&c.t>first[c.prospectId]).length}
+const mailWaiting=p=>!!p.mailSent&&!!p.mailDue&&p.mailDue>today()&&!p.mailReply;
+const mailBack=p=>!!p.mailReply&&!p.mailBounce;
 function callQueue(){
   const t=today(),sk=S.call.skip,mob=S.call.mob,cap=rappelsToday()>=RAPPEL_CAP,nw=new Date(),slot=slotOf(nw.getHours()),hm5=(d=>pad(d.getHours())+':'+pad(d.getMinutes()))(new Date(nw.getTime()+5*60000));
   // un rappel à heure fixe n'entre dans la file que 5 minutes avant son heure ; il passe alors devant tout
   const timed=p=>p.stage==='contacte'&&p.nextDate===t&&!!p.nextTime,notYet=p=>timed(p)&&p.nextTime>hm5,dueNow=p=>timed(p)&&p.nextTime<=hm5;
   // ordre : rappels du créneau en cours, autres rappels dus, nouvelles fiches (ou nouvelles d'abord une fois le quota de rappels atteint)
-  const rank=p=>dueNow(p)?-1:p.stage==='contacte'?(cap?1:(!p.slots||!p.slots.length||p.slots.includes(slot)?0:1)):(cap?0:2);
-  return S.prospects.filter(p=>!p.optout&&hasPhone(p.phone)&&!sk.includes(p.id)&&!resting(p)&&(p.stage==='a_contacter'||(p.stage==='contacte'&&(!p.nextDate||p.nextDate<=t)))&&!notYet(p)
+  const rank=p=>mailBack(p)?-2:dueNow(p)?-1:p.stage==='contacte'?(cap?1:(!p.slots||!p.slots.length||p.slots.includes(slot)?0:1)):(cap?0:2);
+  return S.prospects.filter(p=>!p.optout&&hasPhone(p.phone)&&!sk.includes(p.id)&&!mailWaiting(p)&&!resting(p)&&(p.stage==='a_contacter'||(p.stage==='contacte'&&(!p.nextDate||p.nextDate<=t))||(mailBack(p)&&p.stage!=='stop'))&&!notYet(p)
     &&!(p.stage==='contacte'&&p.rdvAt&&!p.rdvShow&&(p.rdvType||'visio')!=='tel')
     &&(mob==='all'||(mob==='fixe'&&!isMobile(p.phone))||(mob==='mobile'&&isMobile(p.phone))))
    .sort((a,b)=>rank(a)-rank(b)||(+isMobile(b.phone)-+isMobile(a.phone))||(a.stage==='contacte'&&b.stage==='contacte'?String(a.nextDate||'').localeCompare(String(b.nextDate||'')):0)||(+b.score||0)-(+a.score||0)||(+b.reviews||0)-(+a.reviews||0)||String(a.name).localeCompare(String(b.name)));
@@ -833,7 +835,7 @@ function appelsHTML(){
   const MOBO=[['all','Toutes (mobiles d\'abord)'],['mobile','Mobiles (06/07)'],['fixe','Fixes']];
   const filt=`<select data-act="mobsel" aria-label="Type de ligne" class="sm">${MOBO.map(([v,l])=>`<option value="${v}"${S.call.mob===v?' selected':''}>${l}</option>`).join('')}</select>`;
   const bar=callSearchHTML(kp+filt);
-  const above=wrapAlerts(dueBanner(1)+staleRdvBanner()+mailCard()+rdvCard()+remindCard()+absCard()+nrCard())+(S.lastRes?`<div class="lastres">Dernier appel : ${S.lastRes}</div>`:'');
+  const above=wrapAlerts(dueBanner(1)+staleRdvBanner()+mailCard()+mailWaitCard()+rdvCard()+remindCard()+absCard()+nrCard())+(S.lastRes?`<div class="lastres">Dernier appel : ${S.lastRes}</div>`:'');
   if(!cur)return above+bar+trayPanels()+rapPanelHTML()+`<div class="card"><b>Plus personne à appeler pour l'instant.</b><div class="muted sm">Importe une liste (onglet Données) ou attends les rappels programmés.</div></div>`;
   const hist=callsOf(cur.id).slice(-4).reverse();
   const mob=isMobile(cur.phone);
@@ -868,6 +870,7 @@ function appelsHTML(){
    ${isPop?pnlHTML+'</div>':pnlHTML}`;
   const left=`<div class="card callcard"><div class="chead"><div class="chips"><span class="chip" title="Nombre de fois où tu as appelé cette fiche">${(cur.touches||0)===0?'1er appel':'Appel n°'+((cur.touches||0)+1)}</span>${cur.stage==='contacte'?'<span class="chip warn">'+((cur.cycle||1)>=2?'Rappel de réserve':'Rappel')+'</span>':'<span class="chip hot">Premier appel</span>'}${cur.stage==='contacte'&&cur.slots&&cur.slots.length&&cur.slots.length<3?'<span class="chip" title="Les artisans sont souvent sur chantier : on varie le moment de l\'appel">Mieux : '+cur.slots.map(x=>SLOT_L[x]).join(' ou ')+'</span>':''}${mob?'<span class="chip bad" title="Mobile : le régime consommateur peut s\'appliquer aux indépendants, à vérifier">Mobile</span>':''}<span class="muted sm">${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}</span></div>
    <h2 class="cname">${esc(cur.name)}</h2>
+   ${cur.mailReply?`<div class="card" style="border:2px solid #b8892b;margin:6px 0;padding:8px 10px"><b>${cur.mailBounce?'✉️ Mail rejeté (adresse invalide)':'✉️ Il a répondu à ton mail'}</b> <span class="muted sm">le ${esc(fdate(cur.mailReply))}</span>${cur.mailReplyTxt?`<div class="sm" style="margin-top:4px">${esc(cur.mailReplyTxt)}</div>`:''}</div>`:''}
    <div class="sm muted cmeta">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a> · `:''}${socialLinksHTML(cur)}score ${esc(cur.score||'—')}</div></div>
    <div class="cinfo"><div class="irow"><span class="ilab">Entreprise</span><span class="ival">${companyLine(cur)}</span></div><div class="irow"><span class="ilab">Publicité</span><span class="ival">${adsBlock(cur)}</span></div></div>
    <div class="numrow phonebox"><button type="button" class="callnum" data-act="copynum" data-n="${esc(normPhone(cur.phone))}" title="Clique pour copier le numéro, puis colle-le dans ton application d'appel (Onoff…)">${esc(fmtPhone(cur.phone))}</button>${cur.phoneLabel?`<span class="muted sm" style="margin-left:6px">${esc(cur.phoneLabel)}</span>`:''}<span class="numact"><a class="btn sm" href="tel:${esc(normPhone(cur.phone))}" title="Ouvre l'app téléphone du Mac (FaceTime) ou de l'iPhone">Appel Mac</a> <button type="button" class="btn sm" data-act="numedit" title="Corriger le numéro ou ajouter une info dessus">✏️ Modifier</button> <button type="button" class="btn sm" data-act="numadd" title="Ajouter un autre numéro (direct du dirigeant, portable, standard…)">➕ Numéro</button></span></div>
@@ -931,6 +934,7 @@ async function callResult(r){
   else if(r==='bad')patch={...base,phone:'',badPhone:true};
   else patch={...base,stage:'stop',optout:true};
   patch.nextTime=r==='rdvt'?rdvAt.slice(11,16):(r==='rap'||r==='ans')?ntime:'';
+  if(p.mailReply){patch.mailReply='';patch.mailReplyTxt='';patch.mailDue='';patch.mailBounce=false}
   const ok=await guard(async()=>{await DB.set('calls',id,call);await DB.update('prospects',p.id,patch)});
   if(ok){lastSaveAt=Date.now();S.calls.push({id,...call});Object.assign(p,patch);if((patch.stage==='perdu'&&!SIB_SKIP.test(patch.lostReason||''))||patch.optout===true)siblingsLost(p,patch.lostReason||'ne plus appeler');S.call.pid='';S.call.open='';S.call.q='';S.call.step='';if(r==='nr'||r==='rep')S.lastNR=isMobile(p.phone)?p.id:'';if(isRdvRes(r)){S.lastRDV=p.id;if(!pendingTr)genRdvMsg(p.id,transcript,ty,rdvAt,place,link)}
     if(pendingTr)S.rec.busy=false;
@@ -965,6 +969,11 @@ function mailCard(){
   const L=(S.prospects||[]).filter(p=>p.mailTodo&&!p.mailSent);
   if(!L.length)return '';
   return `<div class="card" style="border:2px solid #b8892b;margin:8px 0"><b>✉️ Mails à envoyer ce soir (${L.length})</b><div class="muted sm">Personnes qui voulaient un mail. Chaque brouillon reprend ce qu'elles t'ont dit.</div>${L.map(p=>`<div class="row" style="gap:8px;margin-top:6px;flex-wrap:wrap"><span>${esc(p.name)}${p.dirigeant?' ('+esc(p.dirigeant)+')':''}</span><button class="btn sm primary" data-act="mailopen" data-id="${esc(p.id)}">Préparer le mail</button></div>`).join('')}</div>`;
+}
+function mailWaitCard(){
+  const L=(S.prospects||[]).filter(mailWaiting);
+  if(!L.length)return '';
+  return `<details class="card" style="margin:8px 0"><summary><b>✉️ Mails en attente de réponse (${L.length})</b> <span class="muted sm">Agency OS vérifie ta boîte à 9 h, 13 h et 18 h</span></summary>${L.sort((a,b)=>String(a.mailSent).localeCompare(String(b.mailSent))).map(p=>`<div class="row" style="gap:8px;margin-top:6px;flex-wrap:wrap"><span>${esc(p.name)} <span class="muted sm">envoyé le ${esc(fdate(p.mailSent))}, retour dans la file le ${esc(fdate(p.mailDue))}</span></span><button class="btn sm" data-act="mailreply" data-id="${esc(p.id)}">Il a répondu</button><button class="btn sm" data-act="mailback" data-id="${esc(p.id)}">Rappeler maintenant</button></div>`).join('')}</details>`;
 }
 function mailDraft(p){
   const sc=settings(),pre=String(p.dirigeant||'').trim().split(/\s+/)[0]||'';
@@ -2501,8 +2510,9 @@ document.addEventListener('click',async e=>{
   if(a==='playaudio'){const path=b.dataset.path;try{const {data,error}=await window.__sb.storage.from('appels').createSignedUrl(path,3600);if(error||!data)throw 0;b.outerHTML='<audio controls autoplay src="'+data.signedUrl+'" style="vertical-align:middle;max-width:100%"></audio>'}catch(e){toast('Audio introuvable : les enregistrements sont supprimés après 6 mois.')}return}
   if(a==='scripttoggle'){let v=false;try{v=localStorage.getItem('aos-hidescript')==='1';localStorage.setItem('aos-hidescript',v?'0':'1')}catch(e){}const n=($('#cn')||{}).value;if(n!==undefined)S.call.note=n;render();return}
   if(a==='mailprep'){const p=byId(S.call.pid);if(!p)return;S.call.mail=mailDraft(p);S.call.panel='mail';render();return}
-  if(a==='mailgmail'){const m=S.call.mail||{},p=byId(S.call.pid);const u='https://mail.google.com/mail/?view=cm&fs=1&authuser='+encodeURIComponent(settings().mailFrom||'')+'&to='+encodeURIComponent(m.to||'')+'&su='+encodeURIComponent(m.su||'')+'&body='+encodeURIComponent(m.body||'');window.open(u,'_blank','noopener');if(p){const pt={mailSent:today(),mailTodo:false,mailDraft:null,...(m.to&&!p.email?{email:m.to}:{})};await guard(async()=>{await DB.update('prospects',p.id,pt)});Object.assign(p,pt);logEv(p,'mail','Mail de suivi ouvert : '+(m.su||''));S.call.panel='';render()}return}
+  if(a==='mailgmail'){const m=S.call.mail||{},p=byId(S.call.pid);const u='https://mail.google.com/mail/?view=cm&fs=1&authuser='+encodeURIComponent(settings().mailFrom||'')+'&to='+encodeURIComponent(m.to||'')+'&su='+encodeURIComponent(m.su||'')+'&body='+encodeURIComponent(m.body||'');window.open(u,'_blank','noopener');if(p){const pt={mailSent:today(),mailDue:workday(5),mailReply:'',mailReplyTxt:'',mailBounce:false,mailTodo:false,mailDraft:null,...(m.to&&!p.email?{email:m.to}:{})};await guard(async()=>{await DB.update('prospects',p.id,pt)});Object.assign(p,pt);logEv(p,'mail','Mail de suivi envoyé : '+(m.su||'')+' (en attente de réponse jusqu\'au '+fdate(pt.mailDue)+')');S.call.panel='';S.call.mail=null;S.call.pid='';S.call.open='';S.call.q='';S.call.step='';toast('Mail noté : fiche en attente de réponse, fiche suivante.');render()}return}
   if(a==='mailtodo'){const p=byId(S.call.pid),m=S.call.mail||{};if(!p)return;const pt={mailTodo:true,mailSent:'',mailDraft:{to:m.to||'',su:m.su||'',body:m.body||''},...(m.to&&!p.email?{email:m.to}:{})};const ok=await guard(async()=>{await DB.update('prospects',p.id,pt)});if(ok){Object.assign(p,pt);toast('Mail gardé pour ce soir.');S.call.panel='';render()}return}
+  if(a==='mailreply'||a==='mailback'){const p=byId(b.dataset.id);if(!p)return;const pt=a==='mailreply'?{mailReply:new Date().toISOString(),mailReplyTxt:''}:{mailDue:''};const ok=await guard(async()=>{await DB.update('prospects',p.id,pt)});if(ok){Object.assign(p,pt);toast(a==='mailreply'?'Réponse notée : la fiche passe en haut de la file.':'La fiche revient dans la file.');render()}return}
   if(a==='mailopen'){const p=byId(b.dataset.id);if(!p)return;S.tab='appels';S.call.open=p.id;S.call.pid=p.id;S.call.step='';S.call.mail=p.mailDraft?{...p.mailDraft}:mailDraft(p);S.call.panel='mail';render();return}
   if(a==='mailcopy'){const m=S.call.mail||{};try{navigator.clipboard.writeText((m.su?'Objet : '+m.su+'\n\n':'')+(m.body||'')).then(()=>toast('Mail copié.'),()=>toast('Copie impossible.'))}catch(e){toast('Copie impossible.')}return}
   if(a==='alerts-toggle'){try{localStorage.setItem('aos_alerts_hidden',alertsHidden()?'0':'1')}catch(e){}render();return}
