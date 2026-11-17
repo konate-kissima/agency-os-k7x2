@@ -84,4 +84,7 @@ const ac=await pg.evaluate(()=>{const d=today();S.act[d]=0;S.loaded=true;lastAct
 ok(ac.idle===0,'11 min sans action : le chrono ne bouge pas');
 ok(ac.act9>=4&&ac.act9<=6,'9 min après la dernière action : le chrono tourne ('+ac.act9+' s)');
 ok(ac.work===7200&&/Temps de travail dans l'app : 2 h 00 min/.test(ac.txt)&&/appels par heure de travail/.test(ac.txt)&&/du temps de travail/.test(ac.txt),'débrief : 2 h de travail, appels/heure, part au téléphone');
+const al=await pg.evaluate(()=>{seed();const old=addDays(today(),-100);S.calls.push({id:'old1',channel:'appel',prospectId:'x',result:'ans',t:old+'T10:00:00.000Z',hour:10,answered:true,joint:true});S.dbp='a';S.tab='stats';render();const [f,t]=debRange(),x=debX();return{f,old,bucket:x.bucket,days:x.days.length,txt:document.getElementById('debcard').innerText,pill:!!document.querySelector('[data-act="deb-p"][data-v="a"]'),prev:x.prev,txt2:debriefText(x)}});
+ok(al.f===al.old&&al.bucket==='week'&&al.days>=14&&al.days<=18,'depuis le début : démarre à la 1re activité, barres par semaine ('+al.days+')');
+ok(/depuis le début/i.test(al.txt)&&al.pill&&al.prev===null&&!/vs même durée/.test(al.txt)&&/Jours travaillés/.test(al.txt)&&/Débrief depuis le début/.test(al.txt2),'carte et texte « depuis le début », sans comparaison, jours travaillés');
 ok(errs.length===0,'aucune erreur JS '+errs);await b.close()})();

@@ -4,7 +4,7 @@ await pg.goto('file://'+path.resolve(__dirname,'../tournee/index.html'));await p
 const ok=(c,m)=>{if(!c){console.log('FAIL',m);process.exitCode=1}else console.log('ok  ',m)};
 await pg.evaluate(()=>{st.pos={lat:48.86,lng:2.38};st.posLabel='test';st.stops=[{id:'a1',n:'Boutique A',cat:'garage',lat:48.861,lng:2.381,addr:'1 rue A',cp:'75011',tel:'',h:null},{id:'a2',n:'Boutique B',cat:'garage',lat:48.862,lng:2.382,addr:'2 rue B',cp:'75011',tel:'',h:null}];st.cur='a1';render()});
 const t=await pg.evaluate(()=>document.body.innerText);
-ok(/dirigeant est là/i.test(t)&&/dirigeant n'est pas là/i.test(t),'deux groupes : dirigeant là / pas là');
+ok(/responsable est là/i.test(t)&&/responsable n'est pas là/i.test(t),'deux groupes : dirigeant là / pas là');
 for(const v of['rdv','interesse','refus','rappel','planif','absent','passe'])ok(await pg.$('button[data-v="'+v+'"]')!==null,'bouton '+v);
 ok(await pg.$('button[data-v="carte"]')===null,'plus de carte papier');
 await pg.click('button[data-v="rdv"]');

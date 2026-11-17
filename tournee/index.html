@@ -136,9 +136,9 @@ function render(){ensureCur();const t=pool(),dn=Object.keys(st.res).length;const
    h+=dirBox(cur);
    h+=`<textarea id="note" placeholder="Note : nom du patron, créneau pour repasser, ce qu'il a dit…" aria-label="Note">${esc(st.note)}</textarea>
    <div class="inp" style="margin-top:10px;flex-wrap:wrap"><label class="mute" for="rat" style="align-self:center;flex:1 1 100%">Date et heure (pour « RDV pris » et « Rencontre planifiée »)</label><input id="rat" type="datetime-local" value="${esc(st.rat||'')}" aria-label="Date et heure"><select id="rtype" aria-label="Type de RDV" style="font:16px var(--body);border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--card);color:var(--ink)"><option value="visio"${st.rtype==='physique'?'':' selected'}>RDV visio</option><option value="physique"${st.rtype==='physique'?' selected':''}>RDV physique</option></select></div>
-   <div class="lab" style="margin-top:12px">Le dirigeant est là</div>
+   <div class="lab" style="margin-top:12px">Le responsable est là</div>
    <div class="res"><button class="pri" data-a="res" data-v="rdv">✅ RDV pris</button><button data-a="res" data-v="interesse">🙂 Intéressé, pas de RDV</button><button data-a="res" data-v="refus">✖ Pas intéressé</button><button data-a="res" data-v="rappel">🔁 Occupé, à repasser</button></div>
-   <div class="lab" style="margin-top:12px">Le dirigeant n'est pas là</div>
+   <div class="lab" style="margin-top:12px">Le responsable n'est pas là</div>
    <div class="res"><button data-a="res" data-v="planif">📅 Rencontre planifiée</button><button data-a="res" data-v="absent">🚪 Absent, à repasser</button></div>
    <div class="res"><button data-a="res" data-v="passe">⏭ Fermé / passer</button></div>
    <details open><summary>Que dire</summary>${pitch(cur)}</details></section>`;
