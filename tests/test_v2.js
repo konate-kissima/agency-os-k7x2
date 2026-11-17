@@ -17,7 +17,7 @@ const path = require('path'), fs = require('fs');
     { id: 'P3', name: 'Gamma', phone: '06 00 00 00 03', stage: 'contacte', nextDate: today(), nextTime: '00:01' }]; S.calls = []; S.tab = 'appels'; S.call.pid = 'P1'; S.call.open = 'P1'; render(); S.prospects.forEach(p => DB.set('prospects', p.id, p)) });
   await pg.waitForTimeout(300);
   ok(await pg.locator('[data-act=callstep][data-s=ans]').count() === 1 && await pg.locator('[data-act=callres][data-r=nr]').count() === 1, 'étape 1 : Répondu / Pas répondu');
-  ok(await pg.locator('[data-r=rep]').count() === 1 && await pg.locator('[data-r=bad]').count() === 1, 'Répondeur + Mauvais numéro visibles');
+  ok(await pg.locator('[data-r=rep]').count() === 0 && await pg.locator('[data-r=bad]').count() === 1, 'Répondeur fusionné avec Pas répondu, Mauvais numéro visible');
   // tout fermer
   await pg.evaluate(() => alarmCheck()); ok(await pg.locator('#alarm').count() === 1, 'pop-up de retard affiché');
   await pg.click('[data-act=al-closeall][data-m="60"]');
