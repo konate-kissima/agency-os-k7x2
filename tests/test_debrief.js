@@ -78,7 +78,7 @@ await pg.click('[data-act="pay-del"][data-i="1"]');await pg.waitForTimeout(150);
 ok(await pg.evaluate(()=>S.clients[0].payments.length===1),'virement supprimé');
 const tk=await pg.evaluate(()=>{seed();S.calls.slice(0,4).forEach(c=>c.dial=45);S.calls[4].dur=300;const x=debriefData(today(),today());return{talk:x.talk,n:x.talkN,txt:debriefText(x)}});
 ok(tk.talk===480&&tk.n===5&&/Temps au téléphone : 8 min/.test(tk.txt),'temps au téléphone : 4×45 s + 300 s enregistrés = 8 min ('+tk.talk+')');
-const ac=await pg.evaluate(()=>{const d=today();S.act[d]=0;S.loaded=true;lastAct=Date.now()-11*60000;lastTick=Date.now()-5000;actTick();const idle=S.act[d]||0;
+const ac=await pg.evaluate(()=>{const d=today();S.act[d]=0;WK.on=true;S.loaded=true;lastAct=Date.now()-11*60000;lastTick=Date.now()-5000;actTick();const idle=S.act[d]||0;
  lastAct=Date.now()-9*60000;lastTick=Date.now()-5000;actTick();const act9=S.act[d]||0;
  S.act[d]=3600*2;seed();S.calls.slice(0,4).forEach(c=>c.dial=45);const x=debriefData(d,d);return{idle,act9,work:x.work,txt:debriefText(x),}});
 ok(ac.idle===0,'11 min sans action : le chrono ne bouge pas');

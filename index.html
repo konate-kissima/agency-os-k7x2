@@ -899,7 +899,7 @@ function appelsHTML(){
   return above+bar+trayPanels()+rapPanelHTML()+`<div class="callgrid">${left}${right}</div>`;
 }
 
-function doCallRes(r){if(S.rec.on&&S.rec.mr&&S.rec.mr.state!=='inactive'){toast('Appel enregistré : la transcription se fait en arrière-plan.');S.rec.afterStop=r;S.rec.mr.stop()}else callResult(r)}
+function doCallRes(r){if(!WK.on)workSet(true,true,true);if(S.rec.on&&S.rec.mr&&S.rec.mr.state!=='inactive'){toast('Appel enregistré : la transcription se fait en arrière-plan.');S.rec.afterStop=r;S.rec.mr.stop()}else callResult(r)}
 let lastSaveAt=0;
 async function callResult(r){
   const p=byId(S.call.pid);if(!p)return;
@@ -1260,7 +1260,7 @@ function journalHTML(L,from,to){
   return `<section class="card"><h3>Journal daté <span class="muted">(${rows.length})</span></h3><p class="muted sm">Chaque action avec sa date et son heure exactes. L'export complet est dans l'onglet Données.</p><div class="scroll-x"><table class="t"><thead><tr><th>Date et heure</th><th>Type</th><th>Entreprise</th><th>Résultat</th><th>Objection</th><th>Note</th></tr></thead><tbody>${shown.map(r=>`<tr><td>${esc(fdateFull(r.t))}</td><td>${esc(r.k)}</td><td>${esc(r.n)}</td><td>${esc(r.r)}</td><td>${esc(r.o)}</td><td class="muted sm">${esc(String(r.note).slice(0,90))}</td></tr>`).join('')||'<tr><td colspan="6" class="muted">Rien sur cette période.</td></tr>'}</tbody></table></div>${rows.length>shown.length?`<p class="muted sm">+ ${rows.length-shown.length} lignes plus anciennes (voir l'export).</p>`:''}</section>`}
 const ZONE_C={g:'#3f8f3a',o:'#d28b0f',r:'#c0392b'};
 const zoneOf=(v,g,o,hi=true)=>hi?(v>=g?'g':v>=o?'o':'r'):(v<=g?'g':v<=o?'o':'r');
-const cj=c=>isCall(c)?isAns(c):!!c.joint;
+const cj=c=>isCall(c)?JOINT.includes(c.result):!!c.joint;
 function averagesHTML(LC,from,to){
   const n=LC.length,ans=LC.filter(isAns),dec=ans.length,real=ans.filter(c=>JOINT.includes(c.result)).length,rdv=ans.filter(c=>isRdvCnt(c.result)).length;
   const days=new Set(LC.map(c=>String(c.t).slice(0,10))).size;
@@ -1310,7 +1310,7 @@ function targetsHTML(LC,from,to){
   <p class="muted sm">Les targets sont des ordres de grandeur de départ, à ajuster avec tes chiffres réels (peu de données la 1re semaine).</p></section>`}
 function chartsHTML(LC,j,rdv,from,to){
   const K='#5f6b2e',B='#b8892b',G='#e7e1cf',T='#4b4636',M='#8a846e';
-  const t00=today(),e0=to<t00?to:t00;let f0=from>'0000-00-00'?from:addDays(e0,-59);if(f0>addDays(e0,-6))f0=addDays(e0,-6);if(f0<addDays(e0,-59))f0=addDays(e0,-59);
+  const t00=today(),e0=to<t00?to:t00;let f0=from>'0000-00-00'?from:addDays(e0,-59);if(f0<addDays(e0,-59))f0=addDays(e0,-59);{const first=LC.map(c=>String(c.t).slice(0,10)).sort()[0];if(first&&first>f0)f0=first}if(f0>=e0)f0=addDays(e0,-1);
   const DR=[];for(let d=f0;d<=e0;d=addDays(d,1))DR.push(d);
   const days=[];for(const d of DR){const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);days.push({d,n:cs.length,a:cs.filter(isAns).length,r:cs.filter(c=>isRdvCnt(c.result)).length})}
   const goal=100,mx=Math.max(goal,...days.map(x=>x.n))*1.1,W=640,H=250,pl=34,pb=34,pt=26,bw=(W-pl-8)/DR.length,y=v=>H-pb-(H-pb-pt)*v/mx;
@@ -1354,15 +1354,15 @@ function chartsHTML(LC,j,rdv,from,to){
   cu+='</svg>';
   const chart0=`<section class="card chartcard"><h3>Ta progression <span class="muted sm">(cumul sur les ${N} derniers jours)</span></h3><div class="lg"><span><i style="background:${K}"></i>Appels : <b>${ca}</b></span><span><i style="background:${B}"></i>Décrochés : <b>${cj2}</b></span><span><i style="background:#8f3b1f;border-radius:50%"></i>RDV pris : <b>${cr}</b> (rond rouge, le jour où il est pris)</span></div>${cu}</section>`;
   // funnel
-  const conv=LC.filter(cj).length;
-  const steps=[['Appels',LC.length],['Décrochés',j.length],['Vraies conversations',conv],['RDV pris',rdv.length],['RDV tenus',S.prospects.filter(p=>['rdv_fait','pilote','signe'].includes(p.stage)).length],['Signés',S.prospects.filter(p=>p.stage==='signe').length]];
+  const conv=LC.filter(cj).length;const EV=allRdvs().filter(e=>e.at&&e.type!=='tel'&&e.at.slice(0,10)>=from&&e.at.slice(0,10)<=to);
+  const steps=[['Appels',LC.length],['Décrochés',j.length],['Vraies conversations',conv],['RDV pris',rdv.length],['RDV tenus',EV.filter(e=>e.show==='tenu').length],['Signés',EV.filter(e=>e.out==='signe').length||S.clients.filter(c=>c.signedAt&&c.signedAt>=from&&c.signedAt<=to).length]];
   const top=Math.max(1,steps[0][1]);let f=`<svg viewBox="0 0 640 ${steps.length*42+8}" role="img" aria-label="Entonnoir">`;
   steps.forEach(([l,v],i)=>{const yy=6+i*42,w=Math.max(3,(640-290)*v/top),prev=i?steps[i-1][1]:0;
     f+=`<text x="0" y="${yy+22}" font-size="13" fill="${T}">${l}</text><rect x="165" y="${yy+4}" width="${w}" height="26" rx="5" fill="${i<2?K:i<4?B:'#8f3b1f'}"/><text x="${165+w+8}" y="${yy+22}" font-size="13" font-weight="800" fill="${T}">${v}${i&&prev?`<tspan font-weight="400" fill="${M}">  (${Math.round(100*v/prev)} % de l'étape d'avant)</tspan>`:''}</text>`});
   f+='</svg>';
   const chart2=`<section class="card chartcard"><h3>Entonnoir de la période</h3>${f}</section>`;
   // answer rate by hour
-  const hrs={};LC.forEach(c=>{if(c.hour==null)return;const h=c.hour;(hrs[h]=hrs[h]||{n:0,a:0});hrs[h].n++;if(isAns(c))hrs[h].a++});
+  const hrs={};LC.forEach(c=>{if(c.hour==null||c.hour<7||c.hour>21)return;const h=c.hour;(hrs[h]=hrs[h]||{n:0,a:0});hrs[h].n++;if(isAns(c))hrs[h].a++});
   const hl=Object.keys(hrs).map(Number).sort((a,b)=>a-b),bw3=hl.length?Math.min(48,(W-pl-8)/hl.length):40;
   let h3=`<svg viewBox="0 0 ${W} 220" role="img" aria-label="Taux de décroché par heure">`;
   [0,25,50,75,100].forEach(t=>{const yy=190-(190-14)*t/100;h3+=`<line x1="${pl}" x2="${W-4}" y1="${yy}" y2="${yy}" stroke="${G}"/><text x="${pl-6}" y="${yy+4}" font-size="11" fill="${M}" text-anchor="end">${t}%</text>`});
@@ -1384,7 +1384,7 @@ function chartsHTML(LC,j,rdv,from,to){
   c5+='</svg>';
   const chart5=`<section class="card chartcard"><h3>Taux de décroché par jour</h3><p class="muted sm">Part des appels où quelqu'un a décroché. Point clair = moins de 8 appels ce jour-là.</p>${tot?c5:'<p class="muted sm">Pas encore de données.</p>'}</section>`;
   // répartition des résultats
-  const rs={};LC.forEach(c=>{const k=ALL_RES_L[c.result]||c.result||'—';rs[k]=(rs[k]||0)+1});const rl2=Object.entries(rs).sort((a,b)=>b[1]-a[1]).slice(0,9),rm=Math.max(1,...rl2.map(x=>x[1]));
+  const rs={};LC.forEach(c=>{const k=ALL_RES_L[c.result==='rep'?'nr':c.result]||c.result||'—';rs[k]=(rs[k]||0)+1});const rl2=Object.entries(rs).sort((a,b)=>b[1]-a[1]).slice(0,9),rm=Math.max(1,...rl2.map(x=>x[1]));
   let c6=`<svg viewBox="0 0 640 ${rl2.length*32+6}" role="img" aria-label="Résultats des appels">`;
   rl2.forEach(([l,v],i)=>{const yy=4+i*32,w=Math.max(3,(640-330)*v/rm);c6+=`<text x="0" y="${yy+19}" font-size="12.5" fill="${T}">${esc(l.length>30?l.slice(0,29)+'…':l)}</text><rect x="230" y="${yy+3}" width="${w}" height="22" rx="5" fill="${/RDV|rdv/.test(l)?'#8f3b1f':/Pas intéress|Raccroch|Ne plus/.test(l)?'#a09878':K}"/><text x="${230+w+8}" y="${yy+19}" font-size="13" font-weight="800" fill="${T}">${v}<tspan font-weight="400" fill="${M}"> (${Math.round(100*v/Math.max(1,LC.length))}%)</tspan></text>`});c6+='</svg>';
   const chart6=`<section class="card chartcard"><h3>Ce qui se passe à chaque appel</h3>${rl2.length?c6:'<p class="muted sm">Pas encore de données.</p>'}</section>`;
@@ -1410,8 +1410,20 @@ const IDLE_MS=10*60000;let lastAct=Date.now(),lastTick=Date.now(),actSaveAt=Date
 function actSave(cloud){try{localStorage.setItem('aos_act',JSON.stringify(S.act))}catch(e){}
   if(cloud&&DB&&DB.mode==='cloud'&&S.user)actDirty.forEach(d=>{DB.set('settings','active_'+d,{sec:Math.round(S.act[d]||0)}).catch(()=>{})});
   if(cloud)actDirty.clear();actSaveAt=Date.now()}
+/* ===== chrono de travail : Démarrer / Pause / Fin de journée (le temps ne court que quand il est sur ON) ===== */
+const WK=(()=>{try{const o=JSON.parse(localStorage.getItem('aos_work')||'{}');return {on:!!o.on&&o.d===today()}}catch(e){return {on:false}}})();
+const fmtHM=sec=>{const m=Math.floor(sec/60);return Math.floor(m/60)+'h'+String(m%60).padStart(2,'0')};
+const workLabel=()=>fmtHM(S.act[today()]||0);
+function workSave(){try{localStorage.setItem('aos_work',JSON.stringify({on:WK.on,d:today()}))}catch(e){}}
+function workSet(on,auto,quiet){if(WK.on===on)return;WK.on=on;lastAct=Date.now();lastTick=Date.now();workSave();if(auto&&on)toast('Chrono démarré : tu es au travail.');if(S.loaded&&!quiet)render()}
+function workEnd(){const wasOn=WK.on;WK.on=false;workSave();actSave(true);const t=today(),cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t),rd=cs.filter(c=>isRdvCnt(c.result)).length;
+  toast('Journée terminée : '+workLabel()+' de travail, '+cs.length+' appel'+(cs.length>1?'s':'')+', '+rd+' RDV pris.');render()}
+function workWidget(){const sec=S.act[today()]||0;
+  if(WK.on)return `<span class="chip" id="worktimer" title="Temps de travail aujourd'hui" style="background:#EAF3DE;color:#27500A;border-color:#97C459;font-weight:700">● ${workLabel()}</span><button type="button" class="btn sm" data-act="work-pause" title="Mets en pause : le temps ne compte plus">⏸ Pause</button><button type="button" class="btn sm" data-act="work-end" title="Arrête le chrono et affiche le bilan de la journée">⏹ Fin de journée</button>`;
+  return `<button type="button" class="btn sm primary" data-act="work-start" title="Lance le chrono de travail">▶ Démarrer</button>${sec>=60?`<span class="chip" id="worktimer" title="Temps de travail aujourd'hui (en pause)">⏸ ${workLabel()}</span>`:''}`}
 function actTick(){const n=Date.now(),dt=Math.min(10000,n-lastTick);lastTick=n;
-  const on=(document.visibilityState==='visible'&&n-lastAct<IDLE_MS)||(S.rec&&S.rec.on);
+  const on=WK.on&&((document.visibilityState==='visible'&&n-lastAct<IDLE_MS)||(S.rec&&S.rec.on));
+  const wt=document.getElementById('worktimer');if(wt&&WK.on)wt.textContent='● '+workLabel();
   if(on&&S.loaded){const d=today();S.act[d]=(S.act[d]||0)+dt/1000;actDirty.add(d)}
   if(actDirty.size&&n-actSaveAt>180000)actSave(true);else if(on&&n-actSaveAt>30000)actSave(false)}
 setInterval(actTick,5000);
@@ -2317,7 +2329,7 @@ function render(){
   else if(S.err)body=`<div class="banner">Erreur de données : ${esc(S.err)}</div>`;
   else body={plan:planningHTML,auj:aujourdhuiHTML,appels:appelsHTML,outreach:outreachHTML,contenu:contenuHTML,pipeline:pipelineHTML,clients:clientsHTML,stats:statsHTML,scripts:scriptsHTML,donnees:donneesHTML,aide:aideHTML,terrain:terrainHTML}[S.tab]();
   document.querySelectorAll('.chal').forEach(x=>x.remove());
-  app.innerHTML=`<header class="top"><span class="brand"><i class="logo" aria-hidden="true">↗</i><span>AGENCY<b>OS</b></span></span><nav class="tabs" role="tablist">${TABS.map(([k,l])=>`<button role="tab" class="${TAB2.includes(k)?'tab2':''}" aria-selected="${S.tab===k}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</nav><button type="button" id="geneb" class="btn sm" title="Note ce qui te ralentit, sans quitter ton appel">🚩 Ça me gêne</button>${DB.mode==='cloud'?'<button class="btn sm" data-act="logout">Déconnexion</button>':'<span class="chip">Mode local</span>'}</header><main>${body}</main>`;
+  app.innerHTML=`<header class="top"><span class="brand"><i class="logo" aria-hidden="true">↗</i><span>AGENCY<b>OS</b></span></span><nav class="tabs" role="tablist">${TABS.map(([k,l])=>`<button role="tab" class="${TAB2.includes(k)?'tab2':''}" aria-selected="${S.tab===k}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</nav><span class="workbox" style="display:inline-flex;gap:6px;align-items:center;flex-wrap:nowrap">${workWidget()}</span><button type="button" id="geneb" class="btn sm" title="Note ce qui te ralentit, sans quitter ton appel">🚩 Ça me gêne</button>${DB.mode==='cloud'?'<button class="btn sm" data-act="logout">Déconnexion</button>':'<span class="chip">Mode local</span>'}</header><main>${body}</main>`;
   terrainShow();debAuto();
   if(S.chal&&S.loaded&&!S.err)document.body.insertAdjacentHTML('beforeend',challengeHTML());
   if(S.tab==='scripts'&&S.loaded){const m=$('main');m.insertAdjacentHTML('beforeend','<p><button class="btn sm" data-act="addangle">+ Nouvel angle de script</button></p>')}
@@ -2447,6 +2459,7 @@ function recAsk(){
   try{beep()}catch(e){}
   clearTimeout(S.rec.askT);S.rec.askT=setTimeout(()=>{if(S.rec.on&&S.rec.mr&&S.rec.mr.state!=='inactive'){toast('Pas de réponse : enregistrement arrêté.');S.rec.mr.stop()}},10*60000)}
 async function recStart(){
+  if(!WK.on)workSet(true,true,true);
   try{
     S.rec.base=recBaseName(byId(S.call.pid));recDirGet(true);
     const st=await navigator.mediaDevices.getUserMedia({audio:true});
@@ -2562,6 +2575,9 @@ document.addEventListener('click',async e=>{
     }catch(e){toast('Échec : '+e.message)}return}
   if(a==='rq-go'){S.rq.step=b.dataset.s||'';rdvqCheck();return}
   if(a==='rq-do'){rqDo(b.dataset.d);return}
+  if(a==='work-start'){workSet(true);return}
+  if(a==='work-pause'){workSet(false);toast('Pause : le chrono est arrêté.');return}
+  if(a==='work-end'){workEnd();return}
   if(a==='rec-start'){recStart();return}
   if(a==='recfolder'){recDirPick();return}
   if(a==='playlocal'){const base=b.dataset.f;try{const dir=await recDirGet(true);if(!dir)throw 0;let f=null;for(const e of ['mp3','webm']){try{f=await (await dir.getFileHandle(base+'.'+e)).getFile();break}catch(_){}}if(!f)throw 0;b.outerHTML='<audio controls autoplay src="'+URL.createObjectURL(f)+'" style="vertical-align:middle;max-width:100%"></audio>'}catch(e){toast('Fichier introuvable dans le dossier choisi : « '+base+' ». Il est sur un autre ordinateur, déplacé, ou le dossier n\'est pas autorisé.')}return}
