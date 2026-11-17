@@ -871,6 +871,7 @@ function appelsHTML(){
    ${isPop?pnlHTML+'</div>':pnlHTML}`;
   const left=`<div class="card callcard"><div class="chead"><div class="chips">${S.undo?`<button type="button" class="backbtn" data-act="calundo" aria-label="Revenir à la fiche précédente" title="Revenir à la fiche précédente : annule le dernier appel et rouvre cette fiche (par exemple s'il a finalement répondu)">←</button>`:(()=>{const lc=[...S.calls].filter(c=>c.channel==='appel'&&c.prospectId!==cur.id&&byId(c.prospectId)).sort((x,y)=>String(y.t).localeCompare(String(x.t)))[0];return lc?`<button type="button" class="backbtn" data-act="callopen" data-id="${esc(lc.prospectId)}" aria-label="Fiche précédente" title="Revenir à la fiche précédente : ${esc(lc.prospectName||'')}">←</button>`:''})()}<span class="chip" title="Nombre de fois où tu as appelé cette fiche">${(cur.touches||0)===0?'1er appel':'Appel n°'+((cur.touches||0)+1)}</span>${cur.stage==='contacte'?'<span class="chip warn">'+((cur.cycle||1)>=2?'Rappel de réserve':'Rappel')+'</span>':'<span class="chip hot">Premier appel</span>'}${cur.stage==='contacte'&&cur.slots&&cur.slots.length&&cur.slots.length<3?'<span class="chip" title="Les artisans sont souvent sur chantier : on varie le moment de l\'appel">Mieux : '+cur.slots.map(x=>SLOT_L[x]).join(' ou ')+'</span>':''}${mob?'<span class="chip bad" title="Mobile : le régime consommateur peut s\'appliquer aux indépendants, à vérifier">Mobile</span>':''}<span class="muted sm">${esc(cur.city||'')}${cur.dept?' ('+esc(cur.dept)+')':''}</span></div>
    <h2 class="cname">${esc(cur.name)}</h2>
+   ${parcours(cur)}
    ${cur.mailReply?`<div class="card" style="border:2px solid #b8892b;margin:6px 0;padding:8px 10px"><b>${cur.mailBounce?'✉️ Mail rejeté (adresse invalide)':'✉️ Il a répondu à ton mail'}</b> <span class="muted sm">le ${esc(fdate(cur.mailReply))}</span>${cur.mailReplyTxt?`<div class="sm" style="margin-top:4px">${esc(cur.mailReplyTxt)}</div>`:''}</div>`:''}
    <div class="sm muted cmeta">${cur.rating?'★ '+esc(cur.rating)+' · ':''}${cur.reviews?esc(cur.reviews)+' avis · ':''}${cur.website?`<a href="${esc(cur.website)}" target="_blank" rel="noopener">site</a> · `:'pas de site · '}${cur.mapsUrl?`<a href="${esc(cur.mapsUrl)}" target="_blank" rel="noopener">fiche Google</a> · `:''}${socialLinksHTML(cur)}score ${esc(cur.score||'—')}</div></div>
    <div class="cinfo"><div class="irow"><span class="ilab">Entreprise</span><span class="ival">${companyLine(cur)}</span></div><div class="irow"><span class="ilab">Publicité</span><span class="ival">${adsBlock(cur)}</span></div></div>
@@ -1122,6 +1123,46 @@ function pipelineHTML(){
 
 const fdt=t=>{const d=new Date(t);return isNaN(d)?String(t||''):d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})+' '+pad(d.getHours())+'h'+pad(d.getMinutes())};
 const LOG_L={rdv:'RDV',msg:'Message',fathom:'Fathom',note:'Note'};
+/* ===== Fathom : récupération du débrief d'une visio (manuelle ou automatique) ===== */
+async function fathomPull(p,body){
+  const cfg=window.AOS_CONFIG||{};const {data}=await window.__sb.auth.getSession();
+  const res=await fetch(cfg.url+'/functions/v1/fathom-sync',{method:'POST',headers:{Authorization:'Bearer '+data.session.access_token,apikey:cfg.key,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await res.json().catch(()=>({}));
+  if(!res.ok)throw new Error(j.message||('Erreur '+res.status));
+  const have=new Set((p.log||[]).map(l=>l.url).filter(Boolean));let n=0;
+  for(const m of j.items||[]){if(m.url&&have.has(m.url))continue;const l={t:m.created_at||new Date().toISOString(),k:'fathom',txt:(m.title?m.title+'\n':'')+(m.summary||'(pas de résumé)'),url:m.url||''};p.log=[...(p.log||[]),l];n++}
+  if(n)await DB.update('prospects',p.id,{log:p.log});
+  return n}
+// Automatique : 1 h après l'heure d'une visio, on cherche le débrief Fathom du prospect (par e-mail). Jusqu'à 4 essais espacés de 2 h.
+let fathomBusy=false;
+async function fathomAuto(){
+  if(fathomBusy||!S.loaded||S.err||!window.__sb||S.rdvOnly)return;fathomBusy=true;
+  try{const now=Date.now();
+    for(const p of S.prospects){
+      if(!p.email||!p.rdvAt||p.rdvShow==='absent'||p.rdvType==='tel'||p.optout)continue;
+      const at=new Date(p.rdvAt).getTime();if(isNaN(at)||now-at<3600e3||now-at>14*864e5)continue;
+      const fa=p.fathomAuto&&p.fathomAuto.k===p.rdvAt?p.fathomAuto:{k:p.rdvAt,n:0,t:0};
+      if(fa.n>=4||now-fa.t<2*3600e3)continue;
+      if((p.log||[]).some(l=>l.k==='fathom'&&new Date(l.t).getTime()>at-3600e3))continue;
+      let n=0;try{n=await fathomPull(p,{email:p.email})}catch(e){}
+      p.fathomAuto={k:p.rdvAt,n:fa.n+1,t:now};
+      try{await DB.update('prospects',p.id,{fathomAuto:p.fathomAuto})}catch(e){}
+      if(n){toast('🎥 Débrief Fathom ajouté : '+p.name);render()}}
+  }finally{fathomBusy=false}}
+setInterval(fathomAuto,10*60000);setTimeout(fathomAuto,20000);
+/* ===== Parcours d'un prospect : 1er appel → appels suivants → RDV → signature ===== */
+function parcours(p){
+  const st=[];const fd=t=>{const d=new Date(t);return isNaN(d)?'':d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})};
+  const cs=(S.calls||[]).filter(c=>c.prospectId===p.id&&(c.channel||'appel')==='appel').sort((a,b)=>String(a.t).localeCompare(String(b.t)));
+  cs.forEach((c,i)=>st.push({t:c.t,l:i===0?'1er appel':'Appel '+(i+1),r:ALL_RES_L[c.result]||c.result||''}));
+  (p.rdvs||[]).forEach(e=>st.push({t:e.at,l:'R'+(e.n||1)+' '+(RDV_T[e.type||'visio']||''),r:e.show==='tenu'?(e.out==='signe'?'signé':'tenu'):e.show==='absent'?'absent':'décalé'}));
+  if(p.stage==='rdv'&&p.rdvAt&&!p.rdvShow)st.push({t:p.rdvAt,l:'R'+(p.rdvN||1)+' '+(RDV_T[p.rdvType||'visio']||''),r:'prévu'});
+  (p.log||[]).filter(l=>l.k==='fathom').forEach(l=>st.push({t:l.t,l:'🎥 Fathom',u:l.url}));
+  if(p.stage==='signe')st.push({t:p.signedAt||'9999',l:'🤝 Signé',r:p.signedAmount?p.signedAmount+' €':''});
+  if(p.stage==='perdu')st.push({t:'9999',l:'🚫 Perdu',r:p.lostReason||''});
+  if(!st.length)return '';
+  st.sort((a,b)=>String(a.t).localeCompare(String(b.t)));
+  return `<div class="parcours sm" style="margin:6px 0;display:flex;flex-wrap:wrap;gap:4px;align-items:center"><b class="muted">Parcours</b> ${st.map(x=>{const inner=esc(x.l)+(x.t&&x.t<'9'?' · '+fd(x.t):'')+(x.r?' · '+esc(x.r):'');return `<span class="chip">${x.u?`<a href="${esc(x.u)}" target="_blank" rel="noopener">${inner}</a>`:inner}</span>`}).join('<span class="muted">→</span>')}</div>`}
 function timeline(p){
   const ev=callsOf(p.id).map(c=>({t:c.t,k:CH_L[c.channel||'appel'],r:(ALL_RES_L[c.result]||c.result)+(c.rdvAt?' · RDV le '+fdate(c.rdvAt):''),x:[c.obj,c.note&&'✍️ '+c.note,c.auto&&'🤖 '+(c.autoAt?'[résumé du '+fdt(c.autoAt)+'] ':'')+c.auto].filter(Boolean).join('\n'),a:c.audio,tr:c.transcript,ap:c.audioPath,af:c.audioFile}));
   (p.log||[]).forEach(l=>ev.push({t:l.t,k:LOG_L[l.k]||l.k,r:'',x:l.txt||'',u:l.url}));
@@ -2510,13 +2551,7 @@ document.addEventListener('click',async e=>{
     if(a==='fathom-link'){const u=(prompt('Colle le lien Fathom de la réunion (fathom.video/share/… ou /calls/…)')||'').trim();if(!u)return;body={url:u}}
     else{if(!p.email){toast('Ajoute d\'abord l\'e-mail du prospect, ou colle un lien Fathom.');return}body={email:p.email}}
     toast('Recherche dans Fathom…');
-    try{const cfg=window.AOS_CONFIG||{};const {data}=await window.__sb.auth.getSession();
-      const res=await fetch(cfg.url+'/functions/v1/fathom-sync',{method:'POST',headers:{Authorization:'Bearer '+data.session.access_token,apikey:cfg.key,'Content-Type':'application/json'},body:JSON.stringify(body)});
-      const j=await res.json().catch(()=>({}));
-      if(!res.ok){toast(j.message||('Erreur '+res.status));return}
-      const have=new Set((p.log||[]).map(l=>l.url).filter(Boolean));let n=0;
-      for(const m of j.items||[]){if(m.url&&have.has(m.url))continue;const l={t:m.created_at||new Date().toISOString(),k:'fathom',txt:(m.title?m.title+'\n':'')+(m.summary||'(pas de résumé)'),url:m.url||''};p.log=[...(p.log||[]),l];n++}
-      if(n)await DB.update('prospects',p.id,{log:p.log});
+    try{const n=await fathomPull(p,body);
       toast(n?n+' débrief(s) Fathom ajouté(s) à l\'historique.':(a==='fathom-link'?'Réunion introuvable avec ce lien (ou déjà ajoutée).':'Aucun nouveau débrief Fathom pour cet e-mail.'));render()
     }catch(e){toast('Échec : '+e.message)}return}
   if(a==='rq-go'){S.rq.step=b.dataset.s||'';rdvqCheck();return}
