@@ -45,7 +45,7 @@ const path = require('path'), fs = require('fs');
   const pr = await pg.evaluate(() => byId('P1'));
   ok(pr.stage === 'rdv' && pr.rdvType === 'visio' && pr.pts.objectif === 'plus de devis qualifiés', 'RDV visio enregistré avec points évoqués');
   const card = await pg.textContent('main'); 
-  ok(card.includes('RDV visio pris : Alpha') && card.includes('Bonjour Paul') && card.includes('garder leur marge') && !card.includes('Ça vous va'), 'message de confirmation sans question, avec les points');
+  ok(card.includes('RDV visio pris : Alpha') && card.includes('Bonjour Paul') && card.includes('Au programme : plus de devis qualifiés') && !card.includes('garder leur marge') && !card.includes('Ça vous va'), 'message de confirmation sans question, objectif seul (jamais les points sensibles)');
   
   ok(await pg.locator('a[href^="whatsapp://send?phone=3361234"]').count() >= 1 && await pg.locator('a[href^="sms:"]').count() >= 1 && await pg.locator('a[href^="https://mail.google.com"]').count() === 1, 'WhatsApp + SMS + Gmail sur mobile');
   // RDV tel (fixe) : stage contacte + nextDate

@@ -565,10 +565,10 @@ function rdvLine(p){if(!p||!p.rdvAt)return '';const d=new Date(p.rdvAt),past=!is
 const icsDate=d=>d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'T'+pad(d.getHours())+pad(d.getMinutes())+'00';
 function rdvWhen(p){const d=new Date(p.rdvAt);return d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})+' à '+pad(d.getHours())+'h'+pad(d.getMinutes())}
 const greetName=p=>{const n=String(p.dirigeant||'').trim();return n?' '+n:''};
-function ptsText(p){const k=p.pts||{};let t='';if(k.objectif){t='On y verra '+k.objectif;if(k.besoin)t+=' (à partir de '+k.besoin+')'}else if(k.besoin)t='On y reviendra sur '+k.besoin;if(t){if(k.sensible)t+=', en tenant compte de '+k.sensible;t+='. '}return t}
+function ptsText(p){const k=p.pts||{};if(!k.objectif)return '';const o=String(k.objectif).trim().replace(/[.\s]+$/,'');return 'Au programme : '+o.charAt(0).toLowerCase()+o.slice(1)+'. '}
 function rdvMsg(p,kind){
   const ty=p.rdvType||'visio',n=greetName(p),w=rdvWhen(p),d=new Date(p.rdvAt),h=pad(d.getHours())+'h'+pad(d.getMinutes());
-  const lien=p.rdvLink||'[lien Meet]',lieu=p.rdvPlace?' à '+p.rdvPlace:'';
+  const lien=(p.rdvLink&&!/fathom\.video/.test(p.rdvLink))?p.rdvLink:'[lien Meet]',lieu=p.rdvPlace?' à '+p.rdvPlace:'';
   const hi=`Bonjour${n}, ${SIGN}.`;
   if(kind==='conf'){
     if(ty==='tel')return `${hi} Comme convenu, je vous appelle ${w}. ${ptsText(p)}Répondez « OK » pour confirmer ce créneau.`;
@@ -2417,7 +2417,7 @@ function rdvqCheck(){
   else if(S.rq.step==='signe'){
     body=`<h2>🎉 ${esc(p.name)} a signé</h2>${inp('rq-amt','Montant total signé (€)','number',sc.pilotPrice)}<div class="rq-btns"><button class="btn primary big" data-act="rq-do" data-d="signe">Enregistrer la signature</button><button class="btn" data-act="rq-go" data-s="tenu">← Retour</button></div>`}
   else if(S.rq.step==='r2'){
-    body=`<h2>${n>=2?'RDV suivant':'R2'} avec ${esc(p.name)}</h2>${inp('rq-at','Date et heure','datetime-local')}<label class="f" for="rq-ty">Type</label><select id="rq-ty"><option value="visio">Visio</option><option value="physique">Physique</option></select>${inp('rq-pl','Lieu (si physique)','text','','Adresse')}${inp('rq-lk','Lien visio (si tu l\'as)','text','','https://meet.google.com/…')}<div class="rq-btns"><button class="btn primary big" data-act="rq-do" data-d="r2">Enregistrer le RDV</button><button class="btn" data-act="rq-go" data-s="tenu">← Retour</button></div>`}
+    body=`<h2>${n>=2?'RDV suivant':'R2'} avec ${esc(p.name)}</h2>${inp('rq-at','Date et heure','datetime-local')}<label class="f" for="rq-ty">Type</label><select id="rq-ty"><option value="">Choisir : visio ou physique</option><option value="visio">Visio</option><option value="physique">Physique</option></select>${inp('rq-pl','Lieu (si physique)','text','','Adresse')}${inp('rq-lk','Lien visio (si tu l\'as)','text','','https://meet.google.com/…')}<div class="rq-btns"><button class="btn primary big" data-act="rq-do" data-d="r2">Enregistrer le RDV</button><button class="btn" data-act="rq-go" data-s="tenu">← Retour</button></div>`}
   else if(S.rq.step==='rap'){
     body=`<h2>Rappeler ${esc(p.name)}</h2>${inp('rq-dt','Date du rappel','date',workday(3))}${inp('rq-tm','Heure (facultatif)','time','')}<div class="rq-btns"><button class="btn primary big" data-act="rq-do" data-d="rap">Programmer le rappel</button><button class="btn" data-act="rq-go" data-s="tenu">← Retour</button></div>`}
   else if(S.rq.step==='perdu'){
@@ -2437,7 +2437,7 @@ async function rqDo(d){
     const had=S.clients.some(c=>c.prospectId===p.id);
     if(!had&&await guard(()=>DB.set('clients',id,o)))S.clients.push({id,...o});
     return rqSave(p,e,{rdvShow:'tenu',stage:'signe',signedAmount:amt,signedAt:today()},`Signé à R${n} : ${amt} €`)}
-  if(d==='r2'){const at=v('rq-at'),ty=v('rq-ty')||'visio',pl=v('rq-pl');if(!at){toast('Choisis la date et l\'heure.');return}if(ty==='physique'&&!pl){toast('Indique le lieu.');return}
+  if(d==='r2'){const at=v('rq-at'),ty=v('rq-ty'),pl=v('rq-pl');if(!at){toast('Choisis la date et l\'heure.');return}if(!ty){toast('Choisis le type : visio ou physique.');return}if(ty==='physique'&&!pl){toast('Indique le lieu.');return}
     const ok=await rqSave(p,ent('tenu',{out:'r2'}),{rdvShow:'',rdvN:n+1,rdvAt:at,rdvType:ty,rdvPlace:ty==='physique'?pl:'',rdvLink:v('rq-lk'),rem24:false,rem2:false,stage:'rdv'},`R${n} tenu, R${n+1} ${RDV_T[ty]} prévu le ${fdt(at)}`);if(ok)S.lastRDV=p.id;return}
   if(d==='rap'){const dt=v('rq-dt');if(!dt){toast('Choisis la date du rappel.');return}
     return rqSave(p,ent('tenu',{out:'rap'}),{rdvShow:'tenu',stage:'contacte',nextDate:dt,nextTime:v('rq-tm')||''},`R${n} tenu, il réfléchit : rappel le ${fdate(dt)}`)}
