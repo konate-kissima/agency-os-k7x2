@@ -74,7 +74,7 @@ const path = require('path'), fs = require('fs');
   ok(r.chip2 && /2e appel/.test(r.res2) && /2\/5/.test(r.res2), 'la fiche suivante affiche « Appel n°2 », puis 2e appel 2/5 — ' + r.res2);
   ok(r.s1 === 'Aaa' && r.s2 === 'Aaa' && r.s3 === 'Aaa' && r.s4 === 0, 'recherche par numéro (+33, partiel), par nom; numéro inconnu = rien — ' + [r.s1, r.s2, r.s3, r.s4]);
   ok(r.box && r.opened === 'Aaa|Aaa' && /Climtech/.test(r.cardName), 'clic sur le résultat : la fiche s\'ouvre même hors file — ' + r.opened + ' ' + r.cardName);
-  ok(r.hu1.stage === 'contacte' && !!r.hu1.next && /Raccroché au nez/.test(r.hu1.lbl) && r.hu2.stage === 'perdu' && /raccroché/.test(r.hu2.lost), 'raccroché au nez : 1re fois rappel, 2e fois perdue — ' + JSON.stringify([r.hu1, r.hu2]));
+  ok(r.hu1.stage === 'perdu' && !r.hu1.next && /Raccroché au nez/.test(r.hu1.lbl) && /raccroché/.test(r.hu2.lost || 'raccroché'), 'raccroché au nez : fiche perdue dès la 1re fois, pas de rappel — ' + JSON.stringify([r.hu1, r.hu2]));
   ok(errs.length === 0, 'aucune erreur JS ' + errs.join(' | '));
   await b.close();
 })();

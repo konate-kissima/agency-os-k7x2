@@ -1,0 +1,46 @@
+const { chromium } = require('playwright');
+const path = require('path'), fs = require('fs');
+(async () => {
+  const b = await chromium.launch();
+  const pg = await (await b.newContext()).newPage();
+  const errs = [];
+  pg.on('pageerror', e => errs.push('pageerror: ' + e.message));
+  const tmp = fs.mkdtempSync('/tmp/aos-');
+  fs.copyFileSync(path.resolve(__dirname, '../index.html'), tmp + '/index.html');
+  fs.writeFileSync(tmp + '/config.js', 'window.AOS_CONFIG={url:"",key:""};');
+  await pg.goto('file://' + tmp + '/index.html'); await pg.waitForSelector('.chal'); await pg.evaluate(() => { S.chal = false; render() });
+  await pg.waitForSelector('nav.tabs');
+  const ok = (c, m) => { if (!c) { console.log('FAIL', m); process.exitCode = 1; } else console.log('ok  ', m); };
+  await pg.evaluate(() => { S.prospects = [{ id: 'R1', name: 'Plomberie Test', phone: '06 30 00 00 01', stage: 'a_contacter', city: 'Poissy' }]; S.tab = 'appels'; S.call.open = 'R1'; S.call.pid = 'R1'; S.call.step = 'ans'; S.call.panel = 'rdvt'; render() });
+  ok(await pg.locator('#cr').count() === 1, 'panneau RDV téléphonique ouvert');
+  ok(await pg.locator('[data-act=dtq]').count() === 12, '12 boutons de choix rapide (4 jours + 8 heures)');
+  ok(await pg.locator('#cr').getAttribute('step') === '900', 'pas de 15 minutes');
+  await pg.locator('[data-act=dtq][data-k=d]').nth(1).click();
+  let v = await pg.locator('#cr').inputValue();
+  const dem = await pg.evaluate(() => addDays(today(), 1));
+  ok(v === dem + 'T10:00', 'Demain : date du lendemain, heure ronde 10:00 par défaut (' + v + ')');
+  await pg.locator('[data-act=dtq][data-k=h][data-v="14:00"]').click();
+  v = await pg.locator('#cr').inputValue();
+  ok(v === dem + 'T14:00', '14 h : garde la date, met 14:00 (' + v + ')');
+  ok((await pg.locator('#cr-s').innerText()).includes('14h00'), 'résumé lisible sous le champ : ' + await pg.locator('#cr-s').innerText());
+  ok(await pg.evaluate(() => S.call.rdvAt) === dem + 'T14:00', 'valeur conservée dans l\'état (survit à un rafraîchissement)');
+  await pg.locator('[data-act=dtq][data-k=h][data-v="09:00"]').click();
+  await pg.locator('[data-act=dtq][data-k=d]').nth(3).click();
+  v = await pg.locator('#cr').inputValue();
+  ok(/T09:00$/.test(v) && new Date(v.slice(0, 10) + 'T12:00').getDay() === 1, 'Lundi + 9 h : un lundi à 09:00 (' + v + ')');
+  await pg.locator('button[data-act=callres][data-r=rdvt]').click();
+  await pg.waitForTimeout(300);
+  const saved = await pg.evaluate(() => (S.prospects[0] || {}).rdvAt);
+  ok(saved === v, 'RDV enregistré avec la date choisie (' + saved + ')');
+  // formulaire R2 après un RDV passé
+  await pg.evaluate(() => { S.prospects = [{ id: 'R2', name: 'Chauffage Test', phone: '06 30 00 00 02', stage: 'rdv', city: 'Poissy', rdvAt: '2026-11-10T10:00', rdvType: 'visio', rdvN: 1 }]; S.rq = { id: 'R2', step: 'r2' }; S.call.open = ''; S.call.pid = ''; render() });
+  const has = await pg.locator('#rq-at').count();
+  if (has) {
+    ok(await pg.locator('#rq-at').getAttribute('step') === '900', 'R2 : pas de 15 minutes');
+    await pg.locator('#dlg [data-act=dtq][data-k=d]').first().click();
+    await pg.locator('#dlg [data-act=dtq][data-k=h][data-v="16:00"]').click();
+    ok(/T16:00$/.test(await pg.locator('#rq-at').inputValue()), 'R2 : choix rapide fonctionne');
+  } else console.log('info : formulaire R2 non affiché dans ce montage, vérifié par test_rdv_queue');
+  ok(errs.length === 0, 'aucune erreur JS ' + errs.join('|'));
+  await b.close();
+})();

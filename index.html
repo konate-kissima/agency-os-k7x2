@@ -263,6 +263,9 @@ const today=()=>toISO(new Date());
 const stamp=t=>{const d=t?new Date(t):new Date(),z=n=>String(n).padStart(2,'0');return z(d.getDate())+'/'+z(d.getMonth()+1)+'/'+d.getFullYear()+' '+z(d.getHours())+':'+z(d.getMinutes())};
 const addDays=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return toISO(d)};
 const workday=n=>{let d=new Date();d.setHours(12);let k=0;while(k<n){d.setDate(d.getDate()+1);if(d.getDay()!==0)k++}return toISO(d)};
+const dtFmt=v=>{if(!v)return '';const d=new Date(v);if(isNaN(d))return '';return d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})+' à '+pad(d.getHours())+'h'+pad(d.getMinutes())};
+const dtChips=id=>{const t=today();let mon=addDays(t,1);while(new Date(mon+'T12:00:00').getDay()!==1)mon=addDays(mon,1);const days=[[t,"Aujourd'hui"],[addDays(t,1),'Demain'],[addDays(t,2),'Après-demain'],[mon,'Lundi']],hrs=['09:00','10:00','11:00','14:00','15:00','16:00','17:00','18:00'];return `<div class="chips2" style="margin:6px 0 2px">${days.map(([v,l])=>`<button type="button" class="btn chip2" data-act="dtq" data-id="${id}" data-k="d" data-v="${v}">${l}</button>`).join('')}</div><div class="chips2" style="margin:2px 0">${hrs.map(h=>`<button type="button" class="btn chip2" data-act="dtq" data-id="${id}" data-k="h" data-v="${h}">${+h.slice(0,2)} h</button>`).join('')}</div><div class="muted sm" id="${id}-s" style="margin:2px 0 6px">${esc(dtFmt((($('#'+id)||{}).value)||''))}</div>`};
+function dtQuick(id,k,v){const e=$('#'+id);if(!e)return;let [d,t]=String(e.value||'').split('T');if(!d)d=workday(1);if(!t)t='10:00';if(k==='d')d=v;else t=v;e.value=d+'T'+t;e.dispatchEvent(new Event('input',{bubbles:true}));const sp=$('#'+id+'-s');if(sp)sp.textContent=dtFmt(e.value)}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const normPhone=p=>{let s=String(p||'').replace(/[^\d+]/g,'');if(s.startsWith('+33'))s='0'+s.slice(3);else if(s.startsWith('0033'))s='0'+s.slice(4);return s};
 const fmtPhone=p=>{const s=normPhone(p);return /^0\d{9}$/.test(s)?s.replace(/(\d{2})(?=\d)/g,'$1 ').trim():String(p||'')};
@@ -274,7 +277,7 @@ let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.style.display
 
 /* ================= constantes métier ================= */
 const STAGES=[['a_contacter','À contacter'],['contacte','Contacté / à rappeler'],['rdv','RDV pris'],['rdv_fait','RDV fait'],['pilote','Pilote proposé'],['signe','Signé'],['perdu','Perdu'],['stop','Ne plus appeler']];
-const RES=[['rdvv','RDV visio','primary','Il accepte une visio : une fenêtre s\'ouvre pour la date, l\'heure et le lien.'],['rdvt','RDV téléphonique','primary','Rappel à heure fixe : une petite fenêtre te prévient 5 minutes avant. Objectif : finir en visio ou en physique.'],['rdvp','RDV physique','primary','Rendez-vous en face à face : une fenêtre s\'ouvre pour la date, l\'heure et le lieu.'],['rdv','RDV pris (ancien)','','Ancien bouton, conservé pour l\'historique.'],['rap','À rappeler','','Rappel téléphonique : une fenêtre s\'ouvre pour choisir la date et l\'heure.'],['ans','Sans suite','','Vraie discussion sans résultat (il réfléchit, mail à envoyer, pas décideur…). Relance par défaut dans 3 jours ouvrés.'],['nr','Pas répondu','','Ça sonne dans le vide, personne ne décroche ou occupé. Nouvel essai à un autre moment.'],['rep','Répondeur','','Messagerie vocale. Nouvel essai à un autre moment.'],['hu','Raccroché au nez','','Il décroche puis raccroche tout de suite. 1re fois : rappel dans 3 jours ouvrés. 2e fois : fiche perdue.'],['no','Pas intéressé','','Il refuse. Choisis l\'objection. Fiche classée perdue.'],['bad','Mauvais numéro','','Le numéro ne marche pas ou n\'est pas celui de l\'entreprise.'],['stop','Ne plus appeler','danger','Il demande à ne plus être appelé : fiche bloquée pour toujours.']];
+const RES=[['rdvv','RDV visio','primary','Il accepte une visio : une fenêtre s\'ouvre pour la date, l\'heure et le lien.'],['rdvt','RDV téléphonique','primary','Rappel à heure fixe : une petite fenêtre te prévient 5 minutes avant. Objectif : finir en visio ou en physique.'],['rdvp','RDV physique','primary','Rendez-vous en face à face : une fenêtre s\'ouvre pour la date, l\'heure et le lieu.'],['rdv','RDV pris (ancien)','','Ancien bouton, conservé pour l\'historique.'],['rap','À rappeler','','Rappel téléphonique : une fenêtre s\'ouvre pour choisir la date et l\'heure.'],['ans','Sans suite','','Vraie discussion sans résultat (il réfléchit, mail à envoyer, pas décideur…). Relance par défaut dans 3 jours ouvrés.'],['nr','Pas répondu','','Ça sonne dans le vide, personne ne décroche ou occupé. Nouvel essai à un autre moment.'],['rep','Répondeur','','Messagerie vocale. Nouvel essai à un autre moment.'],['hu','Raccroché au nez','','Il décroche puis raccroche tout de suite. Fiche perdue tout de suite, pas de rappel.'],['no','Pas intéressé','','Il refuse. Choisis l\'objection. Fiche classée perdue.'],['bad','Mauvais numéro','','Le numéro ne marche pas ou n\'est pas celui de l\'entreprise.'],['stop','Ne plus appeler','danger','Il demande à ne plus être appelé : fiche bloquée pour toujours.']];
 const RES_L=Object.fromEntries(RES.map(r=>[r[0],r[1]]));
 const RAPQ=[['1','Demain'],['3','Dans 3 jours'],['mon','Lundi'],['14','Dans 2 semaines'],['today','Plus tard aujourd\'hui']];
 const RES_BY=Object.fromEntries(RES.map(r=>[r[0],r]));
@@ -841,7 +844,8 @@ function appelsHTML(){
   const pnl=S.call.panel,isPop=pnl==='no'||pnl==='rap',pbox=isPop?'<div class="popbg" data-act="popbg"><div class="card pop" role="dialog" aria-modal="true">':'<div class="card" style="border:2px solid #b8892b;margin:8px 0">',pcancel='<button class="btn sm" data-act="callpanel" data-r="">Annuler</button>';
   const ptsFilled=!!(S.call.pt1||S.call.pt2||S.call.pt3);
   const pnlHTML=pnl==='rdvv'||pnl==='rdvt'||pnl==='rdvp'?`${pbox}<b>${pnl==='rdvp'?'RDV physique':pnl==='rdvt'?'RDV téléphonique':'RDV visio'}</b>
-   <div class="cfields"><div><label class="f" for="cr">Date et heure</label><input type="datetime-local" id="cr" value="${esc(S.call.rdvAt)}"></div>${pnl==='rdvp'?inp('cl','Lieu',S.call.place,'Adresse'):pnl==='rdvt'?'':inp('cv','Lien visio (facultatif)',S.call.link,'https://meet.google.com/…')}</div>
+   <div class="cfields"><div><label class="f" for="cr">Date et heure</label><input type="datetime-local" id="cr" step="900" value="${esc(S.call.rdvAt)}"></div>${pnl==='rdvp'?inp('cl','Lieu',S.call.place,'Adresse'):pnl==='rdvt'?'':inp('cv','Lien visio (facultatif)',S.call.link,'https://meet.google.com/…')}</div>
+   ${dtChips('cr')}
    <details class="sm" style="margin:6px 0"${ptsFilled?' open':''}><summary><b>Points évoqués</b> <span class="muted">${ptsFilled?'(repris du résumé de l\'appel, modifie si besoin)':'(facultatif, repris dans la confirmation)'}</span></summary><div class="cfields" style="grid-template-columns:1fr">${inp('pt1','Leur activité ou besoin',S.call.pt1,'ex. pompes à chaleur, rénovation')}${inp('pt2','Leur objectif',S.call.pt2,'ex. recevoir plus de demandes de devis qualifiées')}${inp('pt3','Point sensible',S.call.pt3,'ex. garder leur marge')}</div></details>
    <div class="row" style="gap:6px"><button class="btn primary" data-act="callres" data-r="${pnl}">Enregistrer le RDV</button>${pcancel}</div></div>`
    :pnl==='rap'?`${pbox}<b>À rappeler</b> <span class="muted sm">un clic programme le rappel (sans heure)</span>
@@ -922,7 +926,7 @@ async function callResult(r){
     const slots=['m','d','s'].filter(x=>x!==slotOf(call.hour));
     if(ctries>=MAX_TRIES&&!joined){patch=(p.cycle||1)<2?{...base,stage:'contacte',nextDate:addDays(today(),30),slots:[],cycle:2,cycleStart:new Date(now.getTime()+1).toISOString()}:{...base,stage:'perdu',lostReason:'Injoignable (2 cycles de '+MAX_TRIES+' tentatives)'}}
     else patch={...base,stage:'contacte',nextDate:workday(NOANS.includes((callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).sort((a,b)=>String(a.t).localeCompare(String(b.t))).pop()||{}).result)?REST_DAYS:r==='nr'?1:2),slots}}
-  else if(r==='hu'){const hus=callsOf(p.id).filter(c=>c.result==='hu').length+1;patch=hus>=2?{...base,stage:'perdu',lostReason:'A raccroché au nez (2 fois)'}:{...base,stage:'contacte',nextDate:workday(3),slots:['m','d','s'].filter(x=>x!==slotOf(call.hour))}}
+  else if(r==='hu'){patch={...base,stage:'perdu',lostReason:'A raccroché au nez'}}
   else if(r==='no')patch={...base,stage:'perdu',lostReason:call.obj||'Pas intéressé'};
   else if(r==='bad')patch={...base,phone:'',badPhone:true};
   else patch={...base,stage:'stop',optout:true};
@@ -2041,7 +2045,7 @@ function aideHTML(){return aideTabsHTML()+`<div class="card"><h2>Explication de 
 <tr><td><b>À rappeler</b> (4)</td><td>Il a répondu mais il est occupé et aucun RDV n'est fixé.</td><td>Un clic sur <b>Demain</b>, <b>Dans 3 jours</b>, <b>Lundi</b>, <b>Dans 2 semaines</b> ou <b>Plus tard aujourd'hui</b> programme le rappel (touches 1 à 5). <b>Aucune heure obligatoire</b> : sans heure, la fiche revient simplement ce jour-là. Pour une date précise ou une heure, ouvre « Autre date ou heure précise ».</td></tr>
 <tr><td><b>Sans suite</b> (5)</td><td>Vraie discussion sans résultat (il réfléchit, mail à envoyer…).</td><td>Relance dans 3 jours ouvrés par défaut.</td></tr>
 <tr><td><b>Pas intéressé</b> (6)</td><td>Il refuse.</td><td>Les objections s'affichent <b>dans une fenêtre pop-up au centre</b> (rien à scroller, Échap ou clic à côté pour fermer) en boutons : <b>un clic enregistre tout</b> (touches 1 à 9 et 0, X = aucune objection dite). Tu peux aussi écrire la tienne puis Entrée. Fiche classée perdue.</td></tr>
-<tr><td><b>Raccroché au nez</b> (7)</td><td>Il décroche puis raccroche aussitôt.</td><td>Compte comme décroché. 1re fois : rappel dans 3 jours ouvrés. 2e fois : fiche perdue.</td></tr>
+<tr><td><b>Raccroché au nez</b> (7)</td><td>Il décroche puis raccroche aussitôt.</td><td>Compte comme décroché. Fiche perdue tout de suite, pas de rappel.</td></tr>
 <tr><td><b>Ne plus appeler</b> (8)</td><td>Il demande à ne plus être contacté.</td><td>Fiche bloquée pour toujours.</td></tr></tbody></table>
 <p>Dès que le résultat est enregistré, <b>la fiche suivante s'ouvre toute seule</b> : tu n'as rien d'autre à faire. La transcription et le résumé de l'appel se font en arrière-plan et arrivent sur la fiche avec leur date et leur heure.</p>
 <p class="muted sm">Pas répondu : nouvel essai le lendemain ouvré à un autre moment de la journée, jusqu'à 5 essais, puis un second cycle un mois plus tard. Répondeur : nouvel essai dans 2 jours ouvrés. Mauvais numéro : le numéro est retiré de la fiche.</p></details>
@@ -2403,7 +2407,7 @@ function rdvqCheck(){
   if(S.rq.id!==p.id){S.rq={id:p.id,step:''}}
   const n=p.rdvN||1,ty=RDV_T[p.rdvType||'visio'],lab=`R${n} ${ty}`;
   const sc=settings();
-  const inp=(id,l,t,v,ph)=>`<label class="f" for="${id}">${l}</label><input id="${id}" type="${t||'text'}" style="width:100%" value="${esc(v||'')}" placeholder="${esc(ph||'')}">`;
+  const inp=(id,l,t,v,ph)=>`<label class="f" for="${id}">${l}</label><input id="${id}" type="${t||'text'}" style="width:100%"${t==='datetime-local'?' step="900"':''} value="${esc(v||'')}" placeholder="${esc(ph||'')}">`;
   let body='';
   if(S.rq.step===''){
     body=`<h2>Le ${lab} avec ${esc(p.name)} a-t-il eu lieu ?</h2><p class="muted sm">Prévu le ${esc(rdvWhen(p))}. Tu dois répondre pour continuer : c'est ce qui permet de suivre tes vraies moyennes.</p>
@@ -2411,13 +2415,13 @@ function rdvqCheck(){
   else if(S.rq.step==='absent'){
     body=`<h2>${esc(p.name)} ne s'est pas présenté</h2><p class="muted sm">Un rappel est programmé demain à 10 h pour le recontacter.</p><div class="rq-btns"><button class="btn primary big" data-act="rq-do" data-d="absent">Confirmer l'absence</button><button class="btn" data-act="rq-go" data-s="">← Retour</button></div>`}
   else if(S.rq.step==='decale'){
-    body=`<h2>Nouvelle date pour ${esc(p.name)}</h2>${inp('rq-at','Date et heure du nouveau RDV','datetime-local')}<div class="rq-btns"><button class="btn primary big" data-act="rq-do" data-d="decale">Enregistrer</button><button class="btn" data-act="rq-go" data-s="">← Retour</button></div>`}
+    body=`<h2>Nouvelle date pour ${esc(p.name)}</h2>${inp('rq-at','Date et heure du nouveau RDV','datetime-local')}${dtChips('rq-at')}<div class="rq-btns"><button class="btn primary big" data-act="rq-do" data-d="decale">Enregistrer</button><button class="btn" data-act="rq-go" data-s="">← Retour</button></div>`}
   else if(S.rq.step==='tenu'){
     body=`<h2>${lab} tenu avec ${esc(p.name)}. Et ensuite ?</h2><div class="rq-btns"><button class="btn primary big" data-act="rq-go" data-s="signe">🤝 Signé</button><button class="btn big" data-act="rq-go" data-s="r2">📅 ${n>=2?'RDV suivant':'R2'} prévu</button><button class="btn big" data-act="rq-go" data-s="rap">⏳ Il réfléchit (rappel)</button><button class="btn big" data-act="rq-go" data-s="perdu">🚫 Pas intéressé</button></div><p><button class="btn sm" data-act="rq-go" data-s="">← Retour</button></p>`}
   else if(S.rq.step==='signe'){
     body=`<h2>🎉 ${esc(p.name)} a signé</h2>${inp('rq-amt','Montant total signé (€)','number',sc.pilotPrice)}<div class="rq-btns"><button class="btn primary big" data-act="rq-do" data-d="signe">Enregistrer la signature</button><button class="btn" data-act="rq-go" data-s="tenu">← Retour</button></div>`}
   else if(S.rq.step==='r2'){
-    body=`<h2>${n>=2?'RDV suivant':'R2'} avec ${esc(p.name)}</h2>${inp('rq-at','Date et heure','datetime-local')}<label class="f" for="rq-ty">Type</label><select id="rq-ty"><option value="">Choisir : visio ou physique</option><option value="visio">Visio</option><option value="physique">Physique</option></select>${inp('rq-pl','Lieu (si physique)','text','','Adresse')}${inp('rq-lk','Lien visio (si tu l\'as)','text','','https://meet.google.com/…')}<div class="rq-btns"><button class="btn primary big" data-act="rq-do" data-d="r2">Enregistrer le RDV</button><button class="btn" data-act="rq-go" data-s="tenu">← Retour</button></div>`}
+    body=`<h2>${n>=2?'RDV suivant':'R2'} avec ${esc(p.name)}</h2>${inp('rq-at','Date et heure','datetime-local')}${dtChips('rq-at')}<label class="f" for="rq-ty">Type</label><select id="rq-ty"><option value="">Choisir : visio ou physique</option><option value="visio">Visio</option><option value="physique">Physique</option></select>${inp('rq-pl','Lieu (si physique)','text','','Adresse')}${inp('rq-lk','Lien visio (si tu l\'as)','text','','https://meet.google.com/…')}<div class="rq-btns"><button class="btn primary big" data-act="rq-do" data-d="r2">Enregistrer le RDV</button><button class="btn" data-act="rq-go" data-s="tenu">← Retour</button></div>`}
   else if(S.rq.step==='rap'){
     body=`<h2>Rappeler ${esc(p.name)}</h2>${inp('rq-dt','Date du rappel','date',workday(3))}${inp('rq-tm','Heure (facultatif)','time','')}<div class="rq-btns"><button class="btn primary big" data-act="rq-do" data-d="rap">Programmer le rappel</button><button class="btn" data-act="rq-go" data-s="tenu">← Retour</button></div>`}
   else if(S.rq.step==='perdu'){
@@ -2540,6 +2544,7 @@ document.addEventListener('click',async e=>{
   else if(a==='pay-del')delPay(cliById(b.dataset.id),+b.dataset.i);
   else if(a==='callres'){doCallRes(b.dataset.r)}
   else if(a==='objpick'){const o=b.dataset.o;S.call.obj=o;const e=$('#co');if(e)e.value=o==='—'?'':o;doCallRes('no')}
+  else if(a==='dtq'){dtQuick(b.dataset.id,b.dataset.k,b.dataset.v)}
   else if(a==='rapquick'){const k=b.dataset.k,t0=today();let d;if(k==='mon'){d=addDays(t0,1);while(new Date(d+'T12:00:00').getDay()!==1)d=addDays(d,1)}else if(k==='today')d=t0;else if(k==='14')d=addDays(t0,14);else d=workday(+k);
     S.call.date=d;S.call.time='';const e=$('#cd');if(e)e.value=d;const t=$('#ct');if(t)t.value='';doCallRes('rap')}
   else if(a==='outres')outResult(b.dataset.r);
@@ -2594,6 +2599,7 @@ document.addEventListener('change',e=>{
   else if(t.dataset&&t.dataset.act==='chk')toggleCheck(t.dataset.id,t.dataset.k,t.checked);
   else if(t.id==='csvf'&&t.files[0]){const r=new FileReader();r.onload=()=>importCSV(String(r.result));r.readAsText(t.files[0])}
 });
+document.addEventListener('change',e=>{const t=e.target;if(t&&t.type==='datetime-local'&&t.id){const sp=$('#'+t.id+'-s');if(sp)sp.textContent=dtFmt(t.value)}});
 document.addEventListener('input',e=>{
   const t=e.target;
   if(t.id==='waq'){S.call.waq=t.value;const r=$('#wares');if(r)r.innerHTML=waList(t.value);return}
