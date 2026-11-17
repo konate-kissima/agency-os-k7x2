@@ -261,6 +261,8 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 const pad=n=>String(n).padStart(2,'0');
 const toISO=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
 const today=()=>toISO(new Date());
+// jour (heure de Paris / de l'appareil) d'un horodatage : les appels sont stockés en UTC, un appel à 00h30 appartient au jour suivant
+const dayOf=t=>{const x=String(t||'');return /(Z|[+-]\d\d:?\d\d)$/.test(x)?toISO(new Date(x)):x.slice(0,10)};
 const stamp=t=>{const d=t?new Date(t):new Date(),z=n=>String(n).padStart(2,'0');return z(d.getDate())+'/'+z(d.getMonth()+1)+'/'+d.getFullYear()+' '+z(d.getHours())+':'+z(d.getMinutes())};
 const addDays=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return toISO(d)};
 const workday=n=>{let d=new Date();d.setHours(12);let k=0;while(k<n){d.setDate(d.getDate()+1);if(d.getDay()!==0)k++}return toISO(d)};
@@ -537,7 +539,7 @@ const saveP=(id,patch)=>guard(async()=>{await DB.update('prospects',id,patch);Ob
 const RAPPEL_CAP=45; // au-delà, les nouvelles fiches passent devant : les rappels ne mangent pas toute la journée
 const SLOT_L={m:'matin tôt (avant 11 h)',d:'midi / après-midi (11 h–17 h)',s:'fin de journée (après 17 h)'};
 const slotOf=h=>h<11?'m':h<17?'d':'s';
-function rappelsToday(){const t=today(),first={};S.calls.forEach(c=>{if(isCall(c)&&(first[c.prospectId]===undefined||c.t<first[c.prospectId]))first[c.prospectId]=c.t});return S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t&&c.t>first[c.prospectId]).length}
+function rappelsToday(){const t=today(),first={};S.calls.forEach(c=>{if(isCall(c)&&(first[c.prospectId]===undefined||c.t<first[c.prospectId]))first[c.prospectId]=c.t});return S.calls.filter(c=>isCall(c)&&dayOf(c.t)===t&&c.t>first[c.prospectId]).length}
 const mailWaiting=p=>!!p.mailSent&&!!p.mailDue&&p.mailDue>today()&&!p.mailReply;
 const mailBack=p=>!!p.mailReply&&!p.mailBounce;
 function callQueue(){
@@ -546,7 +548,8 @@ function callQueue(){
   const timed=p=>p.stage==='contacte'&&p.nextDate===t&&!!p.nextTime,notYet=p=>timed(p)&&p.nextTime>hm5,dueNow=p=>timed(p)&&p.nextTime<=hm5;
   // ordre : rappels du créneau en cours, autres rappels dus, nouvelles fiches (ou nouvelles d'abord une fois le quota de rappels atteint)
   const rank=p=>mailBack(p)?-2:dueNow(p)?-1:p.stage==='contacte'?(cap?1:(!p.slots||!p.slots.length||p.slots.includes(slot)?0:1)):(cap?0:2);
-  return S.prospects.filter(p=>!p.optout&&hasPhone(p.phone)&&!sk.includes(p.id)&&!mailWaiting(p)&&!resting(p)&&(p.stage==='a_contacter'||(p.stage==='contacte'&&(!p.nextDate||p.nextDate<=t))||(mailBack(p)&&p.stage!=='stop'))&&!notYet(p)
+  const dead=new Set(S.prospects.filter(q=>q.stage==='perdu'||q.stage==='stop'||q.optout).map(q=>phoneKey(q.phone)).filter(Boolean));
+  return S.prospects.filter(p=>!p.optout&&hasPhone(p.phone)&&!sk.includes(p.id)&&!mailWaiting(p)&&!(p.stage==='a_contacter'&&dead.has(phoneKey(p.phone)))&&!resting(p)&&(p.stage==='a_contacter'||(p.stage==='contacte'&&(!p.nextDate||p.nextDate<=t))||(mailBack(p)&&p.stage!=='stop'))&&!notYet(p)
     &&!(p.stage==='contacte'&&p.rdvAt&&!p.rdvShow&&(p.rdvType||'visio')!=='tel')
     &&(mob==='all'||(mob==='fixe'&&!isMobile(p.phone))||(mob==='mobile'&&isMobile(p.phone))))
    .sort((a,b)=>rank(a)-rank(b)||(+isMobile(b.phone)-+isMobile(a.phone))||(a.stage==='contacte'&&b.stage==='contacte'?String(a.nextDate||'').localeCompare(String(b.nextDate||'')):0)||(+b.score||0)-(+a.score||0)||(+b.reviews||0)-(+a.reviews||0)||String(a.name).localeCompare(String(b.name)));
@@ -558,7 +561,7 @@ const NOANS=['nr','rep'];
 // vrai si les 2 derniers appels de la fiche (dans la série en cours) n'ont pas eu de réponse
 const twoNoAnswer=p=>{const L=callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).sort((a,b)=>String(a.t).localeCompare(String(b.t)));return L.length>=2&&NOANS.includes(L[L.length-1].result)&&NOANS.includes(L[L.length-2].result)};
 const resting=p=>p.stage==='contacte'&&(p.lastResult==='nr'||p.lastResult==='rep')&&!p.nextTime&&!!p.lastCall&&String(p.lastCall).slice(0,10)>addDays(today(),-REST_DAYS)&&twoNoAnswer(p);
-function todayStats(){const t=today();const L=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t);return{n:L.length,j:L.filter(c=>JOINT.includes(c.result)).length,conv:L.filter(isAns).length,real:L.filter(c=>JOINT.includes(c.result)).length,r:L.filter(c=>isRdvCnt(c.result)).length}}
+function todayStats(){const t=today();const L=S.calls.filter(c=>isCall(c)&&dayOf(c.t)===t);return{n:L.length,j:L.filter(c=>JOINT.includes(c.result)).length,conv:L.filter(isAns).length,real:L.filter(c=>JOINT.includes(c.result)).length,r:L.filter(c=>isRdvCnt(c.result)).length}}
 function fillScript(txt,p){return String(txt||'').replace(/\{contact\}/g,p.dirigeant||'monsieur/madame').replace(/\{accroche\}/g,hookFor(p)).replace(/\{Valeur\}/g,valueFor(p)).replace(/\{Accroche\}/g,(()=>{let h=hookFor(p);if(/je n'ai pas trouvé de site/.test(h))h=p.city?`j'ai découvert ${p.name} à ${p.city}`:`j'ai découvert ${p.name}`;return h.charAt(0).toUpperCase()+h.slice(1)})()).replace(/\{avis\}/g,p.reviews||'?').replace(/\{note\}/g,p.rating||'?').replace(/\{nom\}/g,p.name||'').replace(/\{ville\}/g,p.city||'').replace(/\{jour\}/g,'demain')}
 
 const RDV_T={visio:'visio',tel:'téléphonique',physique:'physique'};
@@ -1038,7 +1041,7 @@ function socialLinksHTML(p){return (p.instagram?`<a href="${esc(socialUrl(p.inst
 function fillOut(txt,p){return fillScript(txt,p).replace(/\{nom_court\}/g,(p.name||'').split(/\s+/).slice(0,2).join(' '))}
 function outreachHTML(){
   const sc=settings(),Q=outQueue();
-  const t=today();const L=S.calls.filter(c=>!isCall(c)&&String(c.t).slice(0,10)===t);
+  const t=today();const L=S.calls.filter(c=>!isCall(c)&&dayOf(c.t)===t);
   const kp=`<div class="kpis"><div class="kpi"><b>${L.filter(c=>c.result==='sent').length} / ${OUT_GOAL}</b><span>messages / vidéos envoyés aujourd'hui (objectif)</span></div><div class="kpi"><b>${L.filter(c=>c.result==='reply').length}</b><span>réponses</span></div><div class="kpi"><b>${L.filter(c=>c.result==='rdv').length}</b><span>RDV</span></div><div class="kpi"><b>${Q.length}</b><span>à contacter</span></div></div>`;
   let cur=S.out.pid?byId(S.out.pid):null;
   if(!cur||!Q.some(x=>x.id===cur.id))cur=Q[0]||null;
@@ -1263,7 +1266,7 @@ const zoneOf=(v,g,o,hi=true)=>hi?(v>=g?'g':v>=o?'o':'r'):(v<=g?'g':v<=o?'o':'r')
 const cj=c=>isCall(c)?JOINT.includes(c.result):!!c.joint;
 function averagesHTML(LC,from,to){
   const n=LC.length,ans=LC.filter(isAns),dec=ans.length,real=ans.filter(c=>JOINT.includes(c.result)).length,rdv=ans.filter(c=>isRdvCnt(c.result)).length;
-  const days=new Set(LC.map(c=>String(c.t).slice(0,10))).size;
+  const days=new Set(LC.map(c=>dayOf(c.t))).size;
   const E=allRdvs().filter(e=>e.at&&e.type!=='tel'&&e.at.slice(0,10)>=from&&e.at.slice(0,10)<=to);
   const r1=E.filter(e=>(e.n||1)===1&&e.show==='tenu').length;
   const r2p=E.filter(e=>e.out==='r2').length,r2=E.filter(e=>(e.n||1)>=2&&e.show==='tenu').length;
@@ -1284,7 +1287,7 @@ function averagesHTML(LC,from,to){
 function targetsHTML(LC,from,to){
   const n=LC.length,ans=LC.filter(isAns),cv=ans.length;
   const hu=ans.filter(c=>c.result==='hu').length,rap=ans.filter(c=>c.result==='rap').length,rdvC=ans.filter(c=>isRdvCnt(c.result)).length;
-  const days=new Set(LC.map(c=>String(c.t).slice(0,10))).size||1;
+  const days=new Set(LC.map(c=>dayOf(c.t))).size||1;
   const pct=(a,b)=>b?Math.round(1000*a/b)/10:null;
   const st=todayStats(),g=goals().conv;
   const pastShow=allRdvs().filter(e=>e.at&&e.at.slice(0,10)>=from&&e.at.slice(0,10)<=to);
@@ -1310,9 +1313,9 @@ function targetsHTML(LC,from,to){
   <p class="muted sm">Les targets sont des ordres de grandeur de départ, à ajuster avec tes chiffres réels (peu de données la 1re semaine).</p></section>`}
 function chartsHTML(LC,j,rdv,from,to){
   const K='#5f6b2e',B='#b8892b',G='#e7e1cf',T='#4b4636',M='#8a846e';
-  const t00=today(),e0=to<t00?to:t00;let f0=from>'0000-00-00'?from:addDays(e0,-59);if(f0<addDays(e0,-59))f0=addDays(e0,-59);{const first=LC.map(c=>String(c.t).slice(0,10)).sort()[0];if(first&&first>f0)f0=first}if(f0>=e0)f0=addDays(e0,-1);
+  const t00=today(),e0=to<t00?to:t00;let f0=from>'0000-00-00'?from:addDays(e0,-59);if(f0<addDays(e0,-59))f0=addDays(e0,-59);{const first=LC.map(c=>dayOf(c.t)).sort()[0];if(first&&first>f0)f0=first}if(f0>=e0)f0=addDays(e0,-1);
   const DR=[];for(let d=f0;d<=e0;d=addDays(d,1))DR.push(d);
-  const days=[];for(const d of DR){const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);days.push({d,n:cs.length,a:cs.filter(isAns).length,r:cs.filter(c=>isRdvCnt(c.result)).length})}
+  const days=[];for(const d of DR){const cs=S.calls.filter(c=>isCall(c)&&dayOf(c.t)===d);days.push({d,n:cs.length,a:cs.filter(isAns).length,r:cs.filter(c=>isRdvCnt(c.result)).length})}
   const goal=100,mx=Math.max(goal,...days.map(x=>x.n))*1.1,W=640,H=250,pl=34,pb=34,pt=26,bw=(W-pl-8)/DR.length,y=v=>H-pb-(H-pb-pt)*v/mx;
   const ticks=[0,25,50,75,100].filter(t=>t<=mx);
   let c1=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Appels par jour sur 14 jours">`;
@@ -1331,14 +1334,14 @@ function chartsHTML(LC,j,rdv,from,to){
   // tuiles chiffres + variation vs période précédente
   const t0=today(),end=to<t0?to:t0,nd=from>'0000-00-00'?Math.max(1,Math.round((new Date(end+'T12:00:00')-new Date(from+'T12:00:00'))/864e5)+1):0;
   const pvf=nd?addDays(from,-nd):'',pvt=nd?addDays(from,-1):'';
-  const prev=nd?S.calls.filter(c=>{const d=String(c.t).slice(0,10);return d>=pvf&&d<=pvt}):[];
+  const prev=nd?S.calls.filter(c=>{const d=dayOf(c.t);return d>=pvf&&d<=pvt}):[];
   const pC=prev.filter(isCall),pA=pC.filter(isAns),pR=prev.filter(c=>isRdvCnt(c.result));
   const dl=(v,p)=>{if(!nd)return '';const d=v-p;return `<small style="color:${d>=0?'#3f8f3a':'#c0392b'};font-weight:700">${d>=0?'+':''}${d}</small> <small class="muted">vs période d'avant</small>`};
   const tile=(l,v,sub)=>`<div style="background:var(--surface2,#f4f1e8);border-radius:14px;padding:12px 16px"><div class="muted sm">${l}</div><div style="font-size:30px;font-weight:800;line-height:1.15;color:${T}">${v}</div><div>${sub}</div></div>`;
   const rate=LC.length?Math.round(100*j.length/LC.length):0;
   const tiles=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:12px">${tile('Appels',LC.length,dl(LC.length,pC.length))}${tile('Décrochés',j.length+' <span style="font-size:15px;color:'+K+'">'+rate+' %</span>',dl(j.length,pA.length))}${tile('RDV pris',rdv.length,dl(rdv.length,pR.length))}${tile('RDV par décroché',j.length?Math.round(1000*rdv.length/j.length)/10+' %':'—','<small class="muted">objectif 12 % et +</small>')}</div>`;
   // progression : cumul jour par jour, segments droits, un point par jour
-  const N=DR.length,cd=[];let ca=0,cj2=0,cr=0;for(const d of DR){const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);const rr=cs.filter(c=>isRdvCnt(c.result)).length;ca+=cs.length;cj2+=cs.filter(isAns).length;cr+=rr;cd.push({d,a:ca,j:cj2,r:cr,dr:rr})}
+  const N=DR.length,cd=[];let ca=0,cj2=0,cr=0;for(const d of DR){const cs=S.calls.filter(c=>isCall(c)&&dayOf(c.t)===d);const rr=cs.filter(c=>isRdvCnt(c.result)).length;ca+=cs.length;cj2+=cs.filter(isAns).length;cr+=rr;cd.push({d,a:ca,j:cj2,r:cr,dr:rr})}
   const CW=640,CH=270,cl=40,cb=44,ct=18,cmx=Math.max(10,ca)*1.12,cx=i=>cl+14+(CW-cl-66)*i/Math.max(1,N-1),cy=v=>CH-cb-(CH-cb-ct)*v/cmx;
   const line=k=>cd.map((x,i)=>(i?'L':'M')+cx(i)+','+cy(x[k])).join(' ');
   let cu=`<svg viewBox="0 0 ${CW} ${CH}" role="img" aria-label="Progression cumulée sur ${N} jours"><defs><linearGradient id="gA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${K}" stop-opacity=".22"/><stop offset="1" stop-color="${K}" stop-opacity=".02"/></linearGradient></defs>`;
@@ -1388,18 +1391,20 @@ function chartsHTML(LC,j,rdv,from,to){
   let c6=`<svg viewBox="0 0 640 ${rl2.length*32+6}" role="img" aria-label="Résultats des appels">`;
   rl2.forEach(([l,v],i)=>{const yy=4+i*32,w=Math.max(3,(640-330)*v/rm);c6+=`<text x="0" y="${yy+19}" font-size="12.5" fill="${T}">${esc(l.length>30?l.slice(0,29)+'…':l)}</text><rect x="230" y="${yy+3}" width="${w}" height="22" rx="5" fill="${/RDV|rdv/.test(l)?'#8f3b1f':/Pas intéress|Raccroch|Ne plus/.test(l)?'#a09878':K}"/><text x="${230+w+8}" y="${yy+19}" font-size="13" font-weight="800" fill="${T}">${v}<tspan font-weight="400" fill="${M}"> (${Math.round(100*v/Math.max(1,LC.length))}%)</tspan></text>`});c6+='</svg>';
   const chart6=`<section class="card chartcard"><h3>Ce qui se passe à chaque appel</h3>${rl2.length?c6:'<p class="muted sm">Pas encore de données.</p>'}</section>`;
-  // par jour de la semaine
-  const wd=[1,2,3,4,5,6,0].map(dn=>({l:['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][dn],n:0,a:0}));const wmap={1:0,2:1,3:2,4:3,5:4,6:5,0:6};
-  LC.forEach(c=>{const o=wd[wmap[new Date(c.t).getDay()]];o.n++;if(isAns(c))o.a++});
-  const wm=Math.max(1,...wd.map(x=>x.n));let c7=`<svg viewBox="0 0 640 230" role="img" aria-label="Par jour de la semaine">`;
-  wd.forEach((o,i)=>{const cx=44+i*86,h=(230-60)*o.n/wm,ha=(230-60)*o.a/wm;c7+=`<rect x="${cx-26}" y="${200-h}" width="52" height="${Math.max(1,h)}" rx="5" fill="${K}"/><rect x="${cx-26}" y="${200-ha}" width="52" height="${Math.max(0,ha)}" rx="5" fill="${B}"/><text x="${cx}" y="${194-h}" font-size="12" font-weight="800" fill="${T}" text-anchor="middle">${o.n||''}</text><text x="${cx}" y="218" font-size="12" fill="${M}" text-anchor="middle">${o.l}${o.n?' · '+Math.round(100*o.a/o.n)+'%':''}</text>`});c7+='</svg>';
-  const chart7=`<section class="card chartcard"><h3>Par jour de la semaine</h3><div class="lg"><span><i style="background:${K}"></i>Appels</span><span><i style="background:${B}"></i>Décrochés (taux sous le jour)</span></div>${LC.length?c7:'<p class="muted sm">Pas encore de données.</p>'}</section>`;
+  // par jour de la semaine : moyenne PAR JOUR (comparable d'un jour à l'autre), nombre de jours concernés, taux de décroché, RDV
+  const wd=[1,2,3,4,5,6,0].map(dn=>({l:['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][dn],n:0,a:0,r:0,days:new Set()}));const wmap={1:0,2:1,3:2,4:3,5:4,6:5,0:6};
+  LC.forEach(c=>{const o=wd[wmap[new Date(c.t).getDay()]];o.n++;o.days.add(dayOf(c.t));if(isAns(c))o.a++;if(isRdvCnt(c.result))o.r++});
+  wd.forEach(o=>{o.nd=o.days.size;o.avg=o.nd?o.n/o.nd:0;o.avgA=o.nd?o.a/o.nd:0});
+  const wm=Math.max(1,...wd.map(x=>x.avg));let c7=`<svg viewBox="0 0 640 235" role="img" aria-label="Moyenne d'appels par jour de la semaine">`;
+  wd.forEach((o,i)=>{const cx=44+i*86,h=(235-80)*o.avg/wm,ha=(235-80)*o.avgA/wm;c7+=`<rect x="${cx-26}" y="${190-h}" width="52" height="${Math.max(o.nd?1:0,h)}" rx="5" fill="${K}"><title>${o.l} : ${o.n} appels sur ${o.nd} jour${o.nd>1?'s':''} = ${Math.round(o.avg)} par jour</title></rect><rect x="${cx-26}" y="${190-ha}" width="52" height="${Math.max(0,ha)}" rx="5" fill="${B}"/><text x="${cx}" y="${184-h}" font-size="12.5" font-weight="800" fill="${T}" text-anchor="middle">${o.nd?Math.round(o.avg):''}</text><text x="${cx}" y="208" font-size="12.5" font-weight="700" fill="${T}" text-anchor="middle">${o.l}</text><text x="${cx}" y="223" font-size="11" fill="${M}" text-anchor="middle">${o.nd?o.nd+' jour'+(o.nd>1?'s':''):'aucun'}</text>`});c7+='</svg>';
+  const wt=wd.filter(o=>o.nd).map(o=>`<tr><td>${o.l}</td><td class="r">${o.nd}</td><td class="r">${o.n}</td><td class="r"><b>${Math.round(o.avg)}</b></td><td class="r">${o.a}</td><td class="r">${o.n?Math.round(100*o.a/o.n)+' %':'—'}${o.n<8?' <span class="muted sm">(peu d\'appels)</span>':''}</td><td class="r">${o.r}</td></tr>`).join('');
+  const chart7=`<section class="card chartcard"><h3>Par jour de la semaine <span class="muted sm">(moyenne par jour)</span></h3><p class="muted sm">Chaque barre = nombre moyen d'appels un jour comme celui-là (total divisé par le nombre de jours concernés). Partie dorée = moyenne de décrochés.</p>${LC.length?c7+`<div class="scroll-x"><table class="t"><thead><tr><th></th><th class="r">Jours</th><th class="r">Appels</th><th class="r">Moy. / jour</th><th class="r">Décrochés</th><th class="r">Taux</th><th class="r">RDV</th></tr></thead><tbody>${wt}</tbody></table></div>`:'<p class="muted sm">Pas encore de données.</p>'}</section>`;
   // objections
   const ob={};LC.forEach(c=>{if(c.obj)ob[c.obj]=(ob[c.obj]||0)+1});const ol=Object.entries(ob).sort((a,b)=>b[1]-a[1]).slice(0,7),om=Math.max(1,...ol.map(x=>x[1]));
   let o4=`<svg viewBox="0 0 640 ${ol.length*34+6}" role="img" aria-label="Objections">`;
   ol.forEach(([l,v],i)=>{const yy=4+i*34,w=Math.max(3,(640-300)*v/om);o4+=`<text x="0" y="${yy+19}" font-size="12.5" fill="${T}">${esc(l.length>34?l.slice(0,33)+'…':l)}</text><rect x="260" y="${yy+3}" width="${w}" height="22" rx="5" fill="${B}"/><text x="${260+w+8}" y="${yy+19}" font-size="13" font-weight="800" fill="${T}">${v}</text>`});o4+='</svg>';
   const chart4=`<section class="card chartcard"><h3>Objections les plus fréquentes</h3>${ol.length?o4:'<p class="muted sm">Aucune objection saisie sur la période.</p>'}</section>`;
-  const ddl=LC.filter(c=>typeof c.dead==='number'),dt0=today(),dtd=ddl.filter(c=>String(c.t).slice(0,10)===dt0);
+  const ddl=LC.filter(c=>typeof c.dead==='number'),dt0=today(),dtd=ddl.filter(c=>dayOf(c.t)===dt0);
   const avgD=a=>a.length?Math.round(a.reduce((x,c)=>x+c.dead,0)/a.length):null,fsD=v=>v==null?'—':v>=60?Math.floor(v/60)+' min '+String(v%60).padStart(2,'0')+' s':v+' s';
   const deadCard=`<section class="card chartcard"><h3>⏱ Temps mort entre deux appels</h3><p class="muted sm" style="margin:0 0 6px">Du moment où tu enregistres un résultat jusqu'à ce que tu lances l'appel suivant. Plus c'est bas, plus tu gardes ton rythme.</p><div class="row" style="gap:18px;flex-wrap:wrap"><div><div class="muted sm">Aujourd'hui</div><b style="font-size:26px">${fsD(avgD(dtd))}</b><div class="muted sm">${dtd.length} mesure${dtd.length>1?'s':''}</div></div><div><div class="muted sm">Sur la période</div><b style="font-size:26px">${fsD(avgD(ddl))}</b><div class="muted sm">${ddl.length} mesure${ddl.length>1?'s':''}</div></div></div></section>`;
   return tiles+`<div class="chgrid">${chart0}${chart1}</div><div class="chgrid">${chart5}${chart6}</div><div class="chgrid">${chart7}${chart3}</div><div class="chgrid">${chart2}${chart4}</div>${deadCard}`;
@@ -1416,7 +1421,7 @@ const fmtHM=sec=>{const m=Math.floor(sec/60);return Math.floor(m/60)+'h'+String(
 const workLabel=()=>fmtHM(S.act[today()]||0);
 function workSave(){try{localStorage.setItem('aos_work',JSON.stringify({on:WK.on,d:today()}))}catch(e){}}
 function workSet(on,auto,quiet){if(WK.on===on)return;WK.on=on;lastAct=Date.now();lastTick=Date.now();workSave();if(auto&&on)toast('Chrono démarré : tu es au travail.');if(S.loaded&&!quiet)render()}
-function workEnd(){const wasOn=WK.on;WK.on=false;workSave();actSave(true);const t=today(),cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===t),rd=cs.filter(c=>isRdvCnt(c.result)).length;
+function workEnd(){const wasOn=WK.on;WK.on=false;workSave();actSave(true);const t=today(),cs=S.calls.filter(c=>isCall(c)&&dayOf(c.t)===t),rd=cs.filter(c=>isRdvCnt(c.result)).length;
   toast('Journée terminée : '+workLabel()+' de travail, '+cs.length+' appel'+(cs.length>1?'s':'')+', '+rd+' RDV pris.');render()}
 function workWidget(){const sec=S.act[today()]||0;
   if(WK.on)return `<span class="chip" id="worktimer" title="Temps de travail aujourd'hui" style="background:#EAF3DE;color:#27500A;border-color:#97C459;font-weight:700">● ${workLabel()}</span><button type="button" class="btn sm" data-act="work-pause" title="Mets en pause : le temps ne compte plus">⏸ Pause</button><button type="button" class="btn sm" data-act="work-end" title="Arrête le chrono et affiche le bilan de la journée">⏹ Fin de journée</button>`;
@@ -1435,7 +1440,7 @@ const longDate=iso=>{const d=new Date(iso+'T12:00:00');return DAYS_L[d.getDay()]
 const inRg=(v,a,b)=>{const x=String(v||'').slice(0,10);return x>=a&&x<=b};
 const dayDiff=(f,t)=>Math.round((new Date(t+'T12:00:00')-new Date(f+'T12:00:00'))/864e5)+1;
 const payAll=()=>{const o=[];S.clients.forEach(c=>(c.payments||[]).forEach((p,i)=>o.push({c,i,d:p.d,amt:+p.amt||0,note:p.note||''})));return o};
-function debStreak(to){const set=new Set(S.calls.filter(isCall).map(c=>String(c.t).slice(0,10)));let d=to>today()?today():to,n=0,g=0;if(!set.has(d)&&d===today())d=addDays(d,-1);
+function debStreak(to){const set=new Set(S.calls.filter(isCall).map(c=>dayOf(c.t)));let d=to>today()?today():to,n=0,g=0;if(!set.has(d)&&d===today())d=addDays(d,-1);
   while(g++<400){const wd=new Date(d+'T12:00:00').getDay();if(set.has(d))n++;else if(wd!==0&&wd!==6)break;d=addDays(d,-1)}return n}
 function debriefData(from,to,noPrev){
   to=to||from;
@@ -1454,14 +1459,14 @@ function debriefData(from,to,noPrev){
   const bh=Object.entries(hh).filter(([,v])=>v.n>=5).sort((x,y)=>y[1].a/y[1].n-x[1].a/x[1].n)[0];
   let doors=0,terRdv=0;const ter={rdv:0,rappel:0,carte:0,refus:0,absent:0,planif:0,interesse:0};S.prospects.forEach(p=>(p.log||[]).forEach(l=>{if(l.k==='terrain'&&inRg(l.t,from,to)){doors++;const k=Object.keys(TERRAIN_L).find(k=>String(l.txt).indexOf(TERRAIN_L[k])===0);if(k){ter[k]++;if(k==='rdv')terRdv++}}}));
   const work=Object.keys(S.act).filter(d=>inRg(d,from,to)).reduce((a,d)=>a+(S.act[d]||0),0);
-  const dm={};L.forEach(c=>{const d=String(c.t).slice(0,10),r=(dm[d]=dm[d]||{n:0,dec:0,rdv:0});r.n++;if(isAns(c))r.dec++;if(isRdvCnt(c.result))r.rdv++});
+  const dm={};L.forEach(c=>{const d=dayOf(c.t),r=(dm[d]=dm[d]||{n:0,dec:0,rdv:0});r.n++;if(isAns(c))r.dec++;if(isRdvCnt(c.result))r.rdv++});
   const em={};pays.forEach(q=>{em[String(q.d).slice(0,10)]=(em[String(q.d).slice(0,10)]||0)+q.amt});
   const len0=dayDiff(from,to),wkB=len0>62,bk={};
   for(let i=0;i<len0;i++){const d=addDays(from,i),k=wkB?weekStart(d):d,r=(bk[k]=bk[k]||{d:k,n:0,dec:0,rdv:0,enc:0}),m=dm[d];if(m){r.n+=m.n;r.dec+=m.dec;r.rdv+=m.rdv}r.enc+=em[d]||0}
   const days=Object.values(bk),workDays=Object.keys(dm).length;
   const sign=S.clients.reduce((a,c)=>a+(+c.price||0),0),got=payAll().reduce((a,q)=>a+q.amt,0);
-  const byDay={};S.calls.filter(isCall).forEach(c=>{const d=String(c.t).slice(0,10);byDay[d]=(byDay[d]||0)+1});const monthBest=Math.max(0,...Object.entries(byDay).filter(([d])=>d.slice(0,7)===to.slice(0,7)).map(([,v])=>v));
-  let rec=null;if(from===to&&!noPrev){const by={};S.calls.filter(isCall).forEach(c=>{const d=String(c.t).slice(0,10);if(d!==from)by[d]=(by[d]||0)+1});const best=Math.max(0,...Object.values(by));rec={best,beaten:L.length>best&&best>0}}
+  const byDay={};S.calls.filter(isCall).forEach(c=>{const d=dayOf(c.t);byDay[d]=(byDay[d]||0)+1});const monthBest=Math.max(0,...Object.entries(byDay).filter(([d])=>d.slice(0,7)===to.slice(0,7)).map(([,v])=>v));
+  let rec=null;if(from===to&&!noPrev){const by={};S.calls.filter(isCall).forEach(c=>{const d=dayOf(c.t);if(d!==from)by[d]=(by[d]||0)+1});const best=Math.max(0,...Object.values(by));rec={best,beaten:L.length>best&&best>0}}
   const len=dayDiff(from,to),x={from,to,d:from,len,n:L.length,dec:ans.length,real:real.length,rdv,tel,prevus:tenus+abs+pend,tenus,abs,pend,r1,r2p,r2,sgN,sgR1,sgR2:sgN-sgR1,amt,enc,noPay,talk,talkN,work,workDays,bucket:wkB?'week':'day',monthBest,bestHour:bh?{h:+bh[0],rate:Math.round(100*bh[1].a/bh[1].n),n:bh[1].n}:null,doors,terRdv,ter,terMet:ter.rdv+ter.interesse+ter.refus+ter.rappel,days,cum:{sign,got,rest:Math.max(0,sign-got)},streak:debStreak(to),rec};
   const eTo=to>today()?today():to,pl=Math.max(1,dayDiff(from,eTo));x.plen=pl;
   x.prev=noPrev?null:debriefData(addDays(from,-pl),addDays(from,-1),true);
@@ -1525,7 +1530,7 @@ function terrainZonesHTML(){
   const [f,t]=debRange(),tb=(title,rows)=>`<div style="margin-top:10px"><b class="sm">${title}</b><div class="scroll-x"><table class="t"><thead><tr><th></th><th class="r">Vues</th><th class="r">Rencontrés</th><th class="r">RDV</th><th class="r">RDV / rencontrés</th><th class="r">Rencontre planifiée</th><th class="r">Absents</th><th class="r">Pas intéressés</th></tr></thead><tbody>${rows.map(([k,r])=>`<tr><td>${esc(k)}</td><td class="r">${r.v}</td><td class="r">${r.rdv+r.interesse+r.refus+r.rappel}</td><td class="r">${r.rdv}</td><td class="r"><b>${pct(r.rdv,r.rdv+r.interesse+r.refus+r.rappel)}</b>${r.v<30?` <span class="muted sm">(${r.v} vues : trop peu pour conclure)</span>`:''}</td><td class="r">${r.planif}</td><td class="r">${r.absent}</td><td class="r">${r.refus}</td></tr>`).join('')}</tbody></table></div></div>`;
   const z=terrainRows(f,t,terZone);if(!z.length)return '';
   return `<section class="card"><h3 style="margin:0">Terrain : par zone et par commerce <span class="muted sm">(période du débrief ci-dessus)</span></h3>${tb('Par zone (code postal)',z)}${tb('Par type de commerce',terrainRows(f,t,p=>p.metier||'Non précisé'))}<p class="muted sm" style="margin:8px 0 0">Règle : on ne compare pas deux zones avant 30 entreprises vues dans chacune. En dessous, c'est du bruit.</p></section>`}
-function debEarliest(){const m=[];S.calls.forEach(c=>m.push(String(c.t).slice(0,10)));allRdvs().forEach(e=>e.at&&m.push(String(e.at).slice(0,10)));S.prospects.forEach(p=>(p.log||[]).forEach(l=>l.k==='terrain'&&m.push(String(l.t).slice(0,10))));S.clients.forEach(c=>{if(c.signedAt)m.push(c.signedAt);(c.payments||[]).forEach(q=>m.push(q.d))});Object.keys(S.act).forEach(d=>S.act[d]>0&&m.push(d));const v=m.filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)).sort();return v[0]||today()}
+function debEarliest(){const m=[];S.calls.forEach(c=>m.push(dayOf(c.t)));allRdvs().forEach(e=>e.at&&m.push(String(e.at).slice(0,10)));S.prospects.forEach(p=>(p.log||[]).forEach(l=>l.k==='terrain'&&m.push(String(l.t).slice(0,10))));S.clients.forEach(c=>{if(c.signedAt)m.push(c.signedAt);(c.payments||[]).forEach(q=>m.push(q.d))});Object.keys(S.act).forEach(d=>S.act[d]>0&&m.push(d));const v=m.filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)).sort();return v[0]||today()}
 function debX(){const [f,t]=ovRange(),x=debriefData(f,t);if(!S.ov&&S.dbp==='a'){x.all=true;x.prev=null}return x}
 function debRange(){const p=S.dbp||'d',a=S.dbd||today();
   if(p==='a')return[debEarliest(),today()];
@@ -1615,7 +1620,7 @@ function statsHTML(){
   const days=S.st.days;let from,to='9999-99-99';
   if(days==='w')from=weekStart(today());else if(days==='m')from=today().slice(0,8)+'01';else if(days==='c'){from=S.st.from||'0000-00-00';to=S.st.to||'9999-99-99'}else from=days>0?addDays(today(),-(days-1)):'0000-00-00';
   const ln=S.st.line||'all',lineOk=c=>{if(ln==='all')return true;if(!isCall(c))return false;const p=byId(c.prospectId),m=p?isMobile(p.phone):false;return ln==='mobile'?m:!m};
-  const L=S.calls.filter(c=>{const d=String(c.t).slice(0,10);return d>=from&&d<=to&&lineOk(c)});
+  const L=S.calls.filter(c=>{const d=dayOf(c.t);return d>=from&&d<=to&&lineOk(c)});
   const LA=L,LC=L.filter(isCall);L.length;const j=LC.filter(isAns),rdv=LA.filter(c=>isRdvCnt(c.result));
   const pct=(a,b)=>b?Math.round(1000*a/b)/10+' %':'—';
   const done=S.prospects.filter(p=>['rdv_fait','pilote','signe'].includes(p.stage)).length;
@@ -1628,7 +1633,7 @@ function statsHTML(){
   const obj={};LC.filter(c=>c.obj).forEach(c=>{obj[c.obj]=(obj[c.obj]||0)+1});
   const objT=Object.entries(obj).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="r">${v}</td></tr>`).join('');
   const sc=settings();
-  const dayB=[];for(let i=13;i>=0;i--){const d=addDays(today(),-i);const cs=S.calls.filter(c=>isCall(c)&&String(c.t).slice(0,10)===d);dayB.push({d,n:cs.length,r:cs.filter(c=>isRdvRes(c.result)).length})}
+  const dayB=[];for(let i=13;i>=0;i--){const d=addDays(today(),-i);const cs=S.calls.filter(c=>isCall(c)&&dayOf(c.t)===d);dayB.push({d,n:cs.length,r:cs.filter(c=>isRdvRes(c.result)).length})}
   const mx=Math.max(1,...dayB.map(x=>x.n));
   const chart=`<section class="card"><h3>14 derniers jours (appels, RDV en doré)</h3><div class="bar">${dayB.map(x=>`<div title="${fdate(x.d)} : ${x.n} appels, ${x.r} RDV" style="height:${Math.max(2,Math.round(90*x.n/mx))}px"><span class="b2" style="display:block;position:absolute;bottom:0;left:0;right:0;background:var(--brass);height:${x.n?Math.round(100*x.r/x.n):0}%"></span></div>`).join('')}</div></section>`;
   const extra=`<details class="card" style="margin:12px 0"><summary><b>Stats supplémentaires</b> <span class="muted">canal, angle de script, ancienneté, secteur, avis Google, site, taille, département</span></summary>${grp(c=>CH_L[c.channel||'appel'],'Par canal (appels, DM, vidéos, emails)',30,L)}<div class="grid2">${grp(c=>(sc.scripts[c.angle]||{}).name||c.angle,'Appels : par angle de script')}${grp(c=>ageBucket(byId(c.prospectId)||{}),'Appels : par ancienneté de l\'entreprise',20)}</div><div class="grid2">${grp(c=>sectorOf(byId(c.prospectId)||{}),'Appels : par secteur d\'activité',20)}${grp(c=>reviewBucket(byId(c.prospectId)||{}),'Appels : par nombre d\'avis Google',20)}</div><div class="grid2">${grp(c=>(byId(c.prospectId)||{}).website?'Avec site':'Sans site','Appels : site internet',20)}${grp(c=>EFF_L[(byId(c.prospectId)||{}).effectif]||'Effectif inconnu','Appels : taille de l\'entreprise',20)}</div><div class="grid2">${grp(c=>c.dept,'Appels : par département')}<span></span></div><p class="muted sm">Règle : on ne compare pas deux groupes avant 30 conversations chacun. Un taux sur 10 conversations ne veut rien dire.</p></details>`;
@@ -1642,7 +1647,7 @@ const REC_M=[['n','Appels'],['j','Conversations'],['r','RDV'],['dm','Messages (D
 function periodAgg(){
   const A={D:{},W:{},M:{}};
   const add=(d,f)=>[['D',d],['W',weekStart(d)],['M',d.slice(0,7)]].forEach(([p,k])=>{const x=A[p][k]=A[p][k]||{n:0,j:0,r:0,dm:0,v:0,ct:0};x[f]++});
-  S.calls.forEach(c=>{const d=String(c.t).slice(0,10);if(isCall(c)){add(d,'n');if(isAns(c))add(d,'j')}else if(c.result==='sent')add(d,c.channel==='video'?'v':'dm');if(isRdvRes(c.result))add(d,'r')});
+  S.calls.forEach(c=>{const d=dayOf(c.t);if(isCall(c)){add(d,'n');if(isAns(c))add(d,'j')}else if(c.result==='sent')add(d,c.channel==='video'?'v':'dm');if(isRdvRes(c.result))add(d,'r')});
   S.content.forEach(c=>{if(c.d)add(String(c.d).slice(0,10),'ct')});
   return A;
 }
@@ -2245,7 +2250,7 @@ const DEF_GOALS={conv:[50,75],dm:[40,70],videos:[10,15],content:[1,2]};
 const DAILY_CHECKS=[['liste','Liste de demain préparée (au moins 100 fiches appelables)'],['relances','Relances et rappels du jour traités'],['debrief','Débrief 5 min : une note par conversation + l\'objection du jour'],['rdvconf','Rappel du matin fait pour chaque RDV du jour']];
 const goals=()=>({...DEF_GOALS,...(S.settings.goals||{})});
 function todayCounts(){
-  const t=today();const L=S.calls.filter(c=>String(c.t).slice(0,10)===t);
+  const t=today();const L=S.calls.filter(c=>dayOf(c.t)===t);
   const out=L.filter(c=>!isCall(c));
   return {calls:L.filter(isCall).length,dm:out.filter(c=>c.result==='sent'&&c.channel!=='video').length,videos:out.filter(c=>c.result==='sent'&&c.channel==='video').length,content:S.content.filter(c=>c.d===t).length,rdv:L.filter(c=>isRdvCnt(c.result)).length,conv:L.filter(c=>isCall(c)&&isAns(c)).length,real:L.filter(c=>isCall(c)&&JOINT.includes(c.result)).length}
 }

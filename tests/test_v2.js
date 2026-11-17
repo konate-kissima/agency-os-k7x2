@@ -41,7 +41,7 @@ const path = require('path'), fs = require('fs');
   await pg.evaluate(() => { S.call.pid = 'P1'; S.call.open = 'P1'; S.call.step = 'ans'; render() });
   await pg.click('[data-act=callpanel][data-r=rdvv]'); await pg.evaluate(() => document.querySelectorAll('.card details').forEach(d => d.open = true));
   await pg.fill('#pt1', 'pompes à chaleur'); await pg.fill('#pt2', 'plus de devis qualifiés'); await pg.fill('#pt3', 'garder leur marge');
-  await pg.fill('#cr', '2026-11-13T16:30'); await pg.click('[data-act=callres][data-r=rdvv]'); await pg.waitForTimeout(300);
+  await pg.fill('#cr', '2027-03-12T16:30'); await pg.click('[data-act=callres][data-r=rdvv]'); await pg.waitForTimeout(300);
   const pr = await pg.evaluate(() => byId('P1'));
   ok(pr.stage === 'rdv' && pr.rdvType === 'visio' && pr.pts.objectif === 'plus de devis qualifiés', 'RDV visio enregistré avec points évoqués');
   const card = await pg.textContent('main'); 
@@ -50,9 +50,9 @@ const path = require('path'), fs = require('fs');
   ok(await pg.locator('a[href^="whatsapp://send?phone=3361234"]').count() >= 1 && await pg.locator('a[href^="sms:"]').count() >= 1 && await pg.locator('a[href^="https://mail.google.com"]').count() === 1, 'WhatsApp + SMS + Gmail sur mobile');
   // RDV tel (fixe) : stage contacte + nextDate
   await pg.evaluate(() => { S.call.pid = 'P2'; S.call.open = 'P2'; S.call.step = 'ans'; render() });
-  await pg.click('[data-act=callpanel][data-r=rdvt]'); await pg.evaluate(() => { S.call.pt2 = 'plus de devis qualifiés'; render() }); await pg.fill('#cr', '2026-11-12T10:00'); await pg.click('[data-act=callres][data-r=rdvt]'); await pg.waitForTimeout(300);
+  await pg.click('[data-act=callpanel][data-r=rdvt]'); await pg.evaluate(() => { S.call.pt2 = 'plus de devis qualifiés'; render() }); await pg.fill('#cr', '2027-03-11T10:00'); await pg.click('[data-act=callres][data-r=rdvt]'); await pg.waitForTimeout(300);
   const p2 = await pg.evaluate(() => byId('P2'));
-  ok(p2.stage === 'contacte' && p2.rdvType === 'tel' && p2.nextDate === '2026-11-12' && p2.nextTime === '10:00', 'RDV téléphonique : rappel daté');
+  ok(p2.stage === 'contacte' && p2.rdvType === 'tel' && p2.nextDate === '2027-03-11' && p2.nextTime === '10:00', 'RDV téléphonique : rappel daté');
   ok((await pg.textContent('main')).includes('plus de devis qualifiés'), 'confirmation du RDV téléphonique avec le résumé de l\'appel');
   // conversation complète + message rédigé à partir de la conversation
   await pg.evaluate(() => { const p = byId('P2'); p.rdvMsgAI = 'Bonjour Paul, voici le message rédigé à partir de la conversation.'; p.rdvMsgFor = p.rdvAt; S.lastRDV = 'P2'; S.tab = 'appels'; render() });
@@ -64,7 +64,7 @@ const path = require('path'), fs = require('fs');
   // RDV physique exige lieu
   await pg.evaluate(() => { S.call.pid = 'P3'; S.call.open = 'P3'; S.call.step = 'ans'; render() });
   await pg.evaluate(() => { const a = document.getElementById('alarm'); if (a) a.remove() });
-  await pg.click('[data-act=callpanel][data-r=rdvp]'); await pg.fill('#cr', '2026-11-12T10:00'); await pg.click('[data-act=callres][data-r=rdvp]');
+  await pg.click('[data-act=callpanel][data-r=rdvp]'); await pg.fill('#cr', '2027-03-11T10:00'); await pg.click('[data-act=callres][data-r=rdvp]');
   ok(/lieu/.test(await pg.textContent('#toast')), 'RDV physique exige le lieu');
   // raccroché au nez = conversation
   await pg.click('[data-act=callpanel][data-r=""]'); await pg.click('[data-r=hu]'); await pg.waitForTimeout(300);
@@ -73,7 +73,7 @@ const path = require('path'), fs = require('fs');
   await pg.evaluate(() => { const p = byId('P1'); p.rdvAt = '2026-11-01T10:00'; p.rdvShow = ''; p.stage = 'rdv'; p.rdvType = 'visio'; p.rdvN = 1; alarmCheck() });
   ok(await pg.locator('#rdvq').count() === 1, 'pop-up obligatoire pour qualifier le RDV');
   await pg.click('#rdvq [data-act=rq-go][data-s=tenu]'); await pg.click('#rdvq [data-act=rq-go][data-s=r2]');
-  await pg.fill('#rq-at', '2026-11-20T10:00'); await pg.click('#rdvq [data-act=rq-do][data-d=r2]'); await pg.waitForTimeout(300);
+  await pg.fill('#rq-at', '2026-11-20T10:00'); await pg.selectOption('#rq-ty', 'visio'); await pg.click('#rdvq [data-act=rq-do][data-d=r2]'); await pg.waitForTimeout(300);
   ok(await pg.evaluate(() => byId('P1').rdvN === 2 && byId('P1').stage === 'rdv' && byId('P1').rdvs.length === 1 && byId('P1').rdvs[0].out === 'r2'), 'R1 tenu puis R2 prévu');
   ok(await pg.locator('#rdvq').count() === 0, 'pop-up fermé une fois répondu');
   await pg.evaluate(() => { byId('P1').rdvAt = '2026-11-02T10:00'; alarmCheck() });
