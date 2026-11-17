@@ -13,7 +13,7 @@ const r=await pg.evaluate(async()=>{
  S.prospects.push({id:'s2',name:'S2',stage:'contacte',rdvs:[{n:1,type:'physique',at:t+'T11:00:00',show:'absent',out:''}]});
  S.prospects.push({id:'s3',name:'S3',stage:'rdv',rdvAt:t+'T16:00:00',rdvType:'visio'});
  S.prospects.push({id:'s4',name:'S4',stage:'contacte',rdvs:[{n:1,type:'tel',at:t+'T12:00:00',show:'tenu',out:''}]});
- S.prospects.push({id:'t1',name:'T1',stage:'contacte',log:[{t:t+'T09:00:00.000Z',k:'terrain',txt:TERRAIN_L.rdv},{t:t+'T09:10:00.000Z',k:'terrain',txt:TERRAIN_L.refus}]});
+ S.prospects.push({id:'t1',name:'T1',stage:'contacte',address:'12 rue X, 75011 Paris',metier:'Coiffeur',log:[{t:t+'T09:00:00.000Z',k:'terrain',txt:TERRAIN_L.rdv},{t:t+'T09:10:00.000Z',k:'terrain',txt:TERRAIN_L.refus}]});
  if(!S.clients.length)S.clients.push({id:'c1',prospectId:'s1',name:'Client Un',price:1500,signedAt:t,status:'onboarding',checklist:{},metrics:[]})};
  const t=today();seed();S.tab='stats';render();
  const before=debriefData(t,t);
@@ -31,6 +31,8 @@ ok(r.x.doors===2&&r.x.terRdv===1&&r.x.ter.refus===1&&/50 %/.test(r.cardTxt),'ter
 ok(r.x.prev&&r.x.prev.n===1,'comparaison : veille = 1 appel');
 ok(/Encaissé/.test(r.txt)&&/Contracté/.test(r.txt)&&/%/.test(r.txt)&&/RDV tél non comptés/.test(r.txt)&&/Pour 1 client signé/.test(r.txt),'texte copiable complet');
 ok(/Encaissé/i.test(r.cardTxt)&&/Contracté/i.test(r.cardTxt),'carte : encaissé et contracté affichés');
+const tz=await pg.evaluate(()=>({z:terZone(byId('t1')),rows:terrainRows(today(),today(),terZone),html:/Par zone/.test(document.getElementById('app').innerText)}));
+ok(tz.z==='Paris 11e (75011)'&&tz.rows[0][1].v===2&&tz.rows[0][1].rdv===1&&tz.html,'terrain par zone : Paris 11e, 2 vues, 1 RDV, tableau affiché');
 // navigation
 await pg.click('[data-act="deb-day"][data-v="-1"]');
 let h=await pg.evaluate(()=>({d:S.dbd,n:debriefData(...debRange()).rdv,disabled:document.querySelector('[data-act="deb-day"][data-v="1"]').disabled}));
