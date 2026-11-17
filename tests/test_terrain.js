@@ -17,6 +17,15 @@ ok(r.n===2,'2 fiches créées (le « passé » ne crée rien) : '+r.n);
 ok(r.a&&r.a.stage==='contacte'&&r.a.dept==='75'&&r.a.source==='terrain'&&/repasser 16h/.test(r.a.notes)&&/Carte laissée/.test(r.a.notes),'fiche mise à jour au 2e résultat, notes cumulées');
 ok(r.b&&r.b.stage==='perdu','pas intéressé : fiche perdue');
 ok(!r.c,'fermé / passer : aucune fiche');
+const f=await pg.evaluate(async()=>{
+ const mk=(i,r,extra)=>terrainSave({id:'node/'+i,n:'Boutique '+i,cat:'garage',catL:'Garage',addr:'5 rue Z, 75011 Paris',cp:'75011',tel:'',lat:48.86,lng:2.38,r,note:'',dir:'',...extra});
+ await mk(10,'rdv',{when:'2026-11-25T14:30',type:'physique'});await mk(11,'planif',{when:'2026-11-24T10:00'});await mk(12,'interesse',{});await mk(13,'rdv',{when:'2026-11-26T09:00',type:'visio'});
+ const g=n=>S.prospects.find(p=>p.name==='Boutique '+n);return{a:g(10),b:g(11),c:g(12),d:g(13),log:g(10).log.map(l=>l.txt)}});
+ok(f.a.stage==='rdv'&&f.a.rdvAt==='2026-11-25T14:30'&&f.a.rdvType==='physique'&&/75011/.test(f.a.rdvPlace),'RDV pris sur place : fiche en RDV, date, type physique, lieu');
+ok(f.d.stage==='rdv'&&f.d.rdvType==='visio','RDV visio pris sur place');
+ok(f.b.stage==='contacte'&&f.b.nextDate==='2026-11-24'&&f.b.nextTime==='10:00','rencontre planifiée : retour le 24/11 à 10:00 dans le planning');
+ok(f.c.stage==='contacte'&&f.c.nextDate&&/Intéressé, pas de RDV/.test(f.c.notes),'intéressé sans RDV : à recontacter');
+ok(/^Rencontre|^RDV pris/.test(f.log[0]),'journal : le libellé commence par le résultat (stats)');
 await pg.evaluate(()=>{S.tab='appels';render()});
 ok(await pg.evaluate(()=>getComputedStyle(document.getElementById('terrainFrame')).display==='none'),'cadre caché hors onglet Terrain');
 ok(errs.length===0,'aucune erreur JS '+errs);await b.close()})();
