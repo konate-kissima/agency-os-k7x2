@@ -1017,7 +1017,7 @@ function mailDraft(p){
   const rdv=p.rdvAt&&new Date(p.rdvAt)>new Date()&&p.stage==='rdv'?`Comme convenu, on se retrouve ${rdvWhen(p)}${(p.rdvType||'visio')==='visio'?' en visio : '+((p.rdvLink&&!/fathom\.video/.test(p.rdvLink))?p.rdvLink:'[lien Meet]'):(p.rdvType==='tel'?' par téléphone':(p.rdvPlace?' à '+p.rdvPlace:''))}.`:`Si cela vous parle, le plus simple est d'en discuter 10 minutes : dites-moi quand vous êtes disponible, ou répondez simplement à ce mail.`;
   const body=`Bonjour${pre?' '+pre:''},
 
-Merci d'avoir pris mon appel. Pour rappel, je fais arriver chez des artisans des demandes de devis de particuliers grâce à la publicité sur Facebook et Instagram, et j'appelle moi-même chaque demande avant de vous la transmettre, pour ne garder que les projets sérieux.
+Merci d'avoir pris mon appel. Pour rappel, je fais arriver chez des artisans des demandes de devis de particuliers grâce à la publicité sur Facebook et Instagram, et chaque demande est traitée avant de vous être transmise, pour ne garder que les projets sérieux.
 
 ${rdv}
 
