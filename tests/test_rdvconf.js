@@ -15,3 +15,22 @@ await pg.locator('[data-act=rdvdone]').click();
 ok(await pg.locator('#rdvmsgbox').count()===0,'après "OK, fait" la carte disparaît');
 ok(await pg.evaluate(()=>S.prospects[0].rdvConfSent===true),'envoi marqué, ne revient pas');
 ok(errs.length===0,'aucune erreur JS '+errs);await b.close()})();
+// plusieurs RDV : aujourd'hui, demain, après-demain, tous visibles ; "demain" corrigé si le RDV est aujourd'hui
+(async()=>{const b=await chromium.launch();const pg=await(await b.newContext()).newPage();const errs=[];pg.on('pageerror',e=>errs.push(e.message));
+const tmp=fs.mkdtempSync('/tmp/aos-');fs.copyFileSync(path.resolve(__dirname,'../index.html'),tmp+'/index.html');fs.writeFileSync(tmp+'/config.js','window.AOS_CONFIG={url:"",key:""};');
+await pg.goto('file://'+tmp+'/index.html');await pg.waitForSelector('.chal');
+const ok=(c,m)=>{if(!c){console.log('FAIL',m);process.exitCode=1}else console.log('ok  ',m)};
+await pg.evaluate(()=>{S.chal=false;S.lastRDV='';const p2=x=>String(x).padStart(2,'0'),mk=(h,t)=>{const d=new Date(Date.now()+h*36e5);return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+'T'+t};
+const t1=new Date(Date.now()+1*36e5),at1=t1.getFullYear()+'-'+p2(t1.getMonth()+1)+'-'+p2(t1.getDate())+'T'+p2(t1.getHours())+':'+p2((t1.getMinutes()+30)%60);
+S.prospects=[
+{id:'M1',name:'Aujourdhui',phone:'06 11 11 11 11',stage:'rdv',rdvAt:at1,rdvType:'visio',rdvMsgFor:at1,rdvMsgAI:'Bonjour, on se retrouve demain en visio.',rdvMsgAt:new Date(Date.now()-86400000).toISOString()},
+{id:'M2',name:'Demain',phone:'06 22 22 22 22',stage:'rdv',rdvAt:mk(24,'14:00'),rdvType:'visio'},
+{id:'M3',name:'ApresDemain',phone:'06 33 33 33 33',stage:'rdv',rdvAt:mk(48,'10:00'),rdvType:'visio'}];S.calls=[];S.tab='appels';render()});
+ok(await pg.locator('.rdvmsgbox').count()===3,'les 3 RDV (aujourd\'hui, demain, après-demain) ont leur carte');
+const today=await pg.evaluate(()=>{const p=S.prospects[0];return String(p.rdvAt).slice(0,10)===today()});
+if(today)ok(/aujourd'hui en visio/.test(await pg.locator('.rdvmsgbox').first().inputValue()),'"demain" remplacé par "aujourd\'hui" pour un RDV du jour');
+await pg.locator('[data-act=rdvdone][data-id=M2]').click();
+ok(await pg.locator('.rdvmsgbox').count()===2&&await pg.locator('.rdvmsgbox[data-id=M2]').count()===0,'"OK, fait" ne retire que la carte concernée');
+await pg.fill('.rdvmsgbox[data-id=M3]','Texte modifié M3');
+ok((await pg.locator('#rdvbtns-M3 [data-act=copysms]').getAttribute('data-m')).includes('Texte modifié M3'),'boutons de la 3e carte mis à jour');
+ok(errs.length===0,'aucune erreur JS '+errs);await b.close()})();

@@ -623,24 +623,29 @@ function rdvGcal(p){
   const d=new Date(p.rdvAt),dur=ty==='physique'?60:30,e=new Date(d.getTime()+dur*60000),title=ty==='physique'?'Rendez-vous avec ':ty==='tel'?'Appel avec ':'Visio avec ';
   return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(title+p.name)+'&dates='+icsDate(d)+'/'+icsDate(e)+'&ctz=Europe/Paris&details='+encodeURIComponent(ty==='physique'?'Rendez-vous.':'Échange en visio.')+(ty==='physique'&&p.rdvPlace?'&location='+encodeURIComponent(p.rdvPlace):'')+(p.email?'&add='+encodeURIComponent(p.email):'')+'&authuser='+encodeURIComponent((settings().agendaEmail||AGENDA_EMAIL))}
 const ty0=p=>p.rdvType||'visio';
-function rdvPending(){const now=new Date();return (S.prospects||[]).filter(x=>x.stage==='rdv'&&x.rdvAt&&!x.rdvConfSent&&!x.optout&&(()=>{const d=new Date(x.rdvAt);return d>now&&d-now<72*36e5})()).sort((a,b)=>String(a.rdvAt).localeCompare(String(b.rdvAt)))[0]||null}
+function rdvPendingAll(){const now=new Date();return (S.prospects||[]).filter(x=>x.stage==='rdv'&&x.rdvAt&&!x.rdvConfSent&&!x.optout&&(()=>{const d=new Date(x.rdvAt);return d>now&&d-now<72*36e5})()).sort((a,b)=>String(a.rdvAt).localeCompare(String(b.rdvAt)))}
+function rdvAiText(p){const t=p.rdvMsgAI&&p.rdvMsgFor===p.rdvAt&&!/^(Message indisponible|La clé Groq|Transcription absente)/.test(p.rdvMsgAI)?p.rdvMsgAI:'';if(!t)return '';const ma=p.rdvMsgAt?dayOf(p.rdvMsgAt):'';return (ma&&ma<today()&&String(p.rdvAt).slice(0,10)===today())?t.replace(/\bdemain\b/gi,"aujourd'hui"):t}
 function rdvBrief(p){
   const n=String(p.dirigeant||'').trim().split(/\s+/)[0],ty=p.rdvType||'visio',w=rdvWhen(p);
   const lien=(p.rdvLink&&!/fathom\.video/.test(p.rdvLink))?p.rdvLink:'[lien Meet]';
-  const ai=p.rdvMsgAI&&p.rdvMsgFor===p.rdvAt?p.rdvMsgAI:'';
+  const ai=rdvAiText(p);
   const pts=ai?ai.split(/(?<=[.!?])\s+/).filter(x=>x&&!/^Bonjour|Konaté|On se retrouve|Comme convenu|Répondez|lien/i.test(x)).map(x=>'- '+x.trim()):[];
   const lieu=ty==='physique'?(p.rdvPlace?' à '+p.rdvPlace:''):ty==='tel'?' (par téléphone)':' en visio : '+lien;
   return `Bonjour${n?' '+n:''},\n\nMerci pour notre échange de ce jour. Voici le récapitulatif.\n\n`+(pts.length?`Ce dont nous avons parlé :\n${pts.join('\n')}\n\n`:'')+`Notre rendez-vous : ${w}${lieu}\nDurée : 15 à 20 minutes.\n\nAu programme :\n- comment nous générons des demandes de devis grâce à la publicité\n- comment nous les qualifions avant de vous les transmettre\n- ce que cela peut représenter pour votre activité\n\nSi l'horaire ne vous convient plus, répondez simplement à ce mail.\n\nCordialement,\n${SIGN}`}
 function briefBtn(p){if(!p.email)return '';const from=settings().mailFrom||'';const u='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(p.email)+'&su='+encodeURIComponent('Récapitulatif de notre échange et rendez-vous '+rdvWhen(p))+'&body='+encodeURIComponent(rdvBrief(p))+(from?'&authuser='+encodeURIComponent(from):'');return `<a class="btn" href="${u}" target="_blank" rel="noopener">E-mail avec le brief</a>`}
-function rdvBtns(p,msg){const g=rdvGcal(p);return `${g?`<a class="btn" href="${g}" target="_blank" rel="noopener">Ajouter à Google Agenda${ty0(p)==='visio'?' (avec Meet)':''}</a>`:''}${msgButtons(p,msg)}${briefBtn(p)}<button class="btn sm" data-act="rdvdone">OK, fait</button>`}
-function rdvCard(){
-  let p=S.lastRDV?byId(S.lastRDV):null;if(!p||!p.rdvAt){p=rdvPending();S.lastRDV=p?p.id:''}if(!p||!p.rdvAt)return '';
+function rdvBtns(p,msg,id){const g=rdvGcal(p);return `${g?`<a class="btn" href="${g}" target="_blank" rel="noopener">Ajouter à Google Agenda${ty0(p)==='visio'?' (avec Meet)':''}</a>`:''}${msgButtons(p,msg)}${briefBtn(p)}<button class="btn sm" data-act="rdvdone" data-id="${esc(id||p.id)}">OK, fait</button>`}
+function rdvCardOne(p,first){
   const ty=p.rdvType||'visio';
-  const ai=p.rdvMsgAI&&p.rdvMsgFor===p.rdvAt&&!/^(Message indisponible|La clé Groq|Transcription absente)/.test(p.rdvMsgAI)?p.rdvMsgAI:'';
+  const ai=rdvAiText(p);
   const msg=ai||rdvMsg(p,'conf');
   const busy=S.msgBusy===p.id;
-  const box=busy?'<p class="muted sm" style="margin:8px 0">⏳ Rédaction du message à partir de la conversation complète…</p>':`<div class="muted sm" style="margin-top:6px">${ai?'Rédigé à partir de la conversation. Relis et modifie si besoin :':'Message standard (aucune conversation enregistrée pour ce RDV). Tu peux le modifier :'}</div><textarea id="rdvmsgbox" rows="8" style="width:100%;margin:4px 0">${esc(msg)}</textarea>`;
-  return `<div class="card" style="border:2px solid var(--ok,#2a7)"><b>RDV ${RDV_T[ty]} pris : ${esc(p.name)}, ${esc(rdvWhen(p))}.</b> Envoie la confirmation :${box}<div class="row" id="rdvbtns" style="margin-top:8px;flex-wrap:wrap">${busy?'':rdvBtns(p,msg)}</div>${ty==='visio'&&!p.rdvLink?'<p class="muted sm" style="margin-top:6px">Dans Google Agenda, clique « Ajouter Google Meet », enregistre, puis remplace [lien Meet] dans le message.</p>':''}</div>`}
+  const sid=first?'rdvbtns':'rdvbtns-'+p.id;
+  const box=busy?'<p class="muted sm" style="margin:8px 0">⏳ Rédaction du message à partir de la conversation complète…</p>':`<div class="muted sm" style="margin-top:6px">${ai?'Rédigé à partir de la conversation. Relis et modifie si besoin :':'Message standard (aucune conversation enregistrée pour ce RDV). Tu peux le modifier :'}</div><textarea ${first?'id="rdvmsgbox" ':''}class="rdvmsgbox" data-id="${esc(p.id)}" rows="${first?8:5}" style="width:100%;margin:4px 0">${esc(msg)}</textarea>`;
+  return `<div class="card" style="border:2px solid var(--ok,#2a7)"><b>RDV ${RDV_T[ty]} pris : ${esc(p.name)}, ${esc(rdvWhen(p))}.</b> Envoie la confirmation :${box}<div class="row" id="${sid}" style="margin-top:8px;flex-wrap:wrap">${busy?'':rdvBtns(p,msg,p.id)}</div>${ty==='visio'&&!p.rdvLink?'<p class="muted sm" style="margin-top:6px">Dans Google Agenda, clique « Ajouter Google Meet », enregistre, puis remplace [lien Meet] dans le message.</p>':''}</div>`}
+function rdvCard(){
+  const L=[],seen={};const add=p=>{if(p&&p.rdvAt&&!seen[p.id]){seen[p.id]=1;L.push(p)}};
+  add(S.lastRDV?byId(S.lastRDV):null);rdvPendingAll().slice(0,8).forEach(add);
+  return L.map((p,i)=>rdvCardOne(p,i===0)).join('')}
 function remindDue(){const now=Date.now();return S.prospects.filter(p=>p.stage==='rdv'&&p.rdvAt&&(p.rdvType||'visio')!=='tel').map(p=>({p,h:(new Date(p.rdvAt)-now)/36e5})).map(x=>{if(x.h>2.5&&x.h<=30&&!x.p.rem24)return {...x,k:'r24'};if(x.h>-0.25&&x.h<=2.5&&!x.p.rem2)return {...x,k:'r2'};return null}).filter(Boolean)}
 function remindCard(){
   const r=S.remind,p=r?byId(r.id):null;if(!p||!p.rdvAt)return '';
@@ -2681,7 +2686,7 @@ document.addEventListener('click',async e=>{
   else if(a==='demo')loadDemo();
   else if(a==='goals-save')saveGoals();
   else if(a==='dedupe')cleanDupes();
-  else if(a==='rdvdone'){const pp=S.lastRDV&&byId(S.lastRDV);if(pp){logEv(pp,'msg','Confirmation du RDV préparée');pp.rdvConfSent=true;DB.update('prospects',pp.id,{rdvConfSent:true}).catch(()=>{})}S.lastRDV='';render()}
+  else if(a==='rdvdone'){const pp=byId(b.dataset.id||S.lastRDV);if(pp){logEv(pp,'msg','Confirmation du RDV préparée');pp.rdvConfSent=true;DB.update('prospects',pp.id,{rdvConfSent:true}).catch(()=>{})}if(!pp||S.lastRDV===pp.id)S.lastRDV='';render()}
   else if(a==='nrdone'){const p=byId(S.lastNR);if(p&&b.tagName==='A'){DB.update('prospects',p.id,{nrSent:(p.nrSent||0)+1});p.nrSent=(p.nrSent||0)+1}S.lastNR='';setTimeout(render,50)}
   else if(a==='osm')sourceOSM();
   else if(a==='gouv')sourceGouv();
@@ -2695,7 +2700,7 @@ document.addEventListener('click',async e=>{
   else if(a==='login'){const {data,error}=await DB.sb.auth.signInWithPassword({email:$('#lgm').value.trim(),password:$('#lgp').value});if(error){$('#lge').textContent='Connexion impossible : '+error.message;return}S.user=data.user;await start()}
 });
 document.addEventListener('change',e=>{
-  if(e.target.id==='rdvmsgbox'){const pp=S.lastRDV&&byId(S.lastRDV);if(pp)DB.update('prospects',pp.id,{rdvMsgAI:pp.rdvMsgAI,rdvMsgFor:pp.rdvMsgFor}).catch(()=>{});return}
+  if(e.target.classList&&e.target.classList.contains('rdvmsgbox')){const pp=byId(e.target.dataset.id);if(pp)DB.update('prospects',pp.id,{rdvMsgAI:pp.rdvMsgAI,rdvMsgFor:pp.rdvMsgFor,rdvMsgAt:pp.rdvMsgAt}).catch(()=>{});return}
   if(e.target.id==='adsm'){const t=e.target,p=byId(t.dataset.id);if(p){const v=t.value,at=v?new Date().toISOString():'';p.adsMeta=v;p.adsMetaAt=at;DB.update('prospects',p.id,{adsMeta:v,adsMetaAt:at}).then(()=>toast('Vérification enregistrée.')).catch(()=>toast('Enregistrement impossible, réessaie.'));const a=t.parentNode.querySelector('a');if(a)a.textContent=(v==='oui'?'Pub Meta : vue le '+fdate(at):v==='non'?'Pub Meta : aucune vue le '+fdate(at):'Pub Meta potentielle')+' ↗'}return}
   const t=e.target;
   if(t.id==='ci'){S.call.informed=t.checked;return}
@@ -2720,7 +2725,7 @@ document.addEventListener('input',e=>{
   const SCK={cl:'place',cv:'link',pt1:'pt1',pt2:'pt2',pt3:'pt3',cd:'date',ct:'time',cr:'rdvAt',co:'obj',ca2:'auto',cphone:'ephone',cphlab:'elab',cphone2:'aphone',cphlab2:'alab'};
   if(SCK[t.id]){S.call[SCK[t.id]]=t.value;return}
   if(t.id==='absmsgbox'){const pp=S.abs&&byId(S.abs);if(pp){S.absTxt=t.value;const bx=$('#absbtns');if(bx)bx.innerHTML=msgButtons(pp,t.value,'data-act="absdone"')+'<button class="btn sm" data-act="absdone">OK, fait / ignorer</button>'}return}
-  if(t.id==='rdvmsgbox'){const pp=S.lastRDV&&byId(S.lastRDV);if(pp){pp.rdvMsgAI=t.value;pp.rdvMsgFor=pp.rdvAt;const bx=$('#rdvbtns');if(bx)bx.innerHTML=rdvBtns(pp,t.value)}return}
+  if(t.classList&&t.classList.contains('rdvmsgbox')){const pp=byId(t.dataset.id);if(pp){pp.rdvMsgAI=t.value;pp.rdvMsgFor=pp.rdvAt;pp.rdvMsgAt=new Date().toISOString();const bx=document.getElementById(t===document.getElementById('rdvmsgbox')?'rdvbtns':'rdvbtns-'+pp.id);if(bx)bx.innerHTML=rdvBtns(pp,t.value,pp.id)}return}
   if(t.id==='cn')S.call.note=t.value;else if(t.id==='mt'||t.id==='ms'||t.id==='mb'){S.call.mail=S.call.mail||{};S.call.mail[{mt:'to',ms:'su',mb:'body'}[t.id]]=t.value}else if(t.id==='ca')S.call.audio=t.value;else if(t.id==='on')S.out.note=t.value;else if(t.id==='oh')S.out.handle=t.value;
   else if(t.id==='pq'){S.pf.q=t.value;render()}
   else if(t.id==='cq'){S.call.q=t.value;render()}
