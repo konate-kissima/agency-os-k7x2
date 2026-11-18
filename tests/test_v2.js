@@ -47,7 +47,7 @@ const path = require('path'), fs = require('fs');
   const card = await pg.textContent('main'); 
   ok(card.includes('RDV visio pris : Alpha') && card.includes('Bonjour Paul') && card.includes('Au programme : plus de devis qualifiés') && !card.includes('garder leur marge') && !card.includes('Ça vous va'), 'message de confirmation sans question, objectif seul (jamais les points sensibles)');
   
-  ok(await pg.locator('a[href^="whatsapp://send?phone=3361234"]').count() >= 1 && await pg.locator('a[href^="sms:"]').count() >= 1 && await pg.locator('a[href^="https://mail.google.com"]').count() === 1, 'WhatsApp + SMS + Gmail sur mobile');
+  ok(await pg.locator('a[href^="whatsapp://send?phone=3361234"]').count() >= 1 && await pg.locator('a[href^="sms:"]').count() >= 1 && await pg.locator('a[href^="https://mail.google.com"]').count() === 2, 'WhatsApp + SMS + Gmail sur mobile');
   // RDV tel (fixe) : stage contacte + nextDate
   await pg.evaluate(() => { S.call.pid = 'P2'; S.call.open = 'P2'; S.call.step = 'ans'; render() });
   await pg.click('[data-act=callpanel][data-r=rdvt]'); await pg.evaluate(() => { S.call.pt2 = 'plus de devis qualifiés'; render() }); await pg.fill('#cr', '2027-03-11T10:00'); await pg.click('[data-act=callres][data-r=rdvt]'); await pg.waitForTimeout(300);

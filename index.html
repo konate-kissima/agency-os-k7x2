@@ -623,9 +623,18 @@ function rdvGcal(p){
   const d=new Date(p.rdvAt),dur=ty==='physique'?60:30,e=new Date(d.getTime()+dur*60000),title=ty==='physique'?'Rendez-vous avec ':ty==='tel'?'Appel avec ':'Visio avec ';
   return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(title+p.name)+'&dates='+icsDate(d)+'/'+icsDate(e)+'&ctz=Europe/Paris&details='+encodeURIComponent(ty==='physique'?'Rendez-vous.':'Échange en visio.')+(ty==='physique'&&p.rdvPlace?'&location='+encodeURIComponent(p.rdvPlace):'')+(p.email?'&add='+encodeURIComponent(p.email):'')+'&authuser='+encodeURIComponent((settings().agendaEmail||AGENDA_EMAIL))}
 const ty0=p=>p.rdvType||'visio';
-function rdvBtns(p,msg){const g=rdvGcal(p);return `${g?`<a class="btn" href="${g}" target="_blank" rel="noopener">Ajouter à Google Agenda${ty0(p)==='visio'?' (avec Meet)':''}</a>`:''}${msgButtons(p,msg)}<button class="btn sm" data-act="rdvdone">OK, fait</button>`}
+function rdvPending(){const now=new Date();return (S.prospects||[]).filter(x=>x.stage==='rdv'&&x.rdvAt&&!x.rdvConfSent&&!x.optout&&(()=>{const d=new Date(x.rdvAt);return d>now&&d-now<72*36e5})()).sort((a,b)=>String(a.rdvAt).localeCompare(String(b.rdvAt)))[0]||null}
+function rdvBrief(p){
+  const n=String(p.dirigeant||'').trim().split(/\s+/)[0],ty=p.rdvType||'visio',w=rdvWhen(p);
+  const lien=(p.rdvLink&&!/fathom\.video/.test(p.rdvLink))?p.rdvLink:'[lien Meet]';
+  const ai=p.rdvMsgAI&&p.rdvMsgFor===p.rdvAt?p.rdvMsgAI:'';
+  const pts=ai?ai.split(/(?<=[.!?])\s+/).filter(x=>x&&!/^Bonjour|Konaté|On se retrouve|Comme convenu|Répondez|lien/i.test(x)).map(x=>'- '+x.trim()):[];
+  const lieu=ty==='physique'?(p.rdvPlace?' à '+p.rdvPlace:''):ty==='tel'?' (par téléphone)':' en visio : '+lien;
+  return `Bonjour${n?' '+n:''},\n\nMerci pour notre échange de ce jour. Voici le récapitulatif.\n\n`+(pts.length?`Ce dont nous avons parlé :\n${pts.join('\n')}\n\n`:'')+`Notre rendez-vous : ${w}${lieu}\nDurée : 15 à 20 minutes.\n\nAu programme :\n- comment nous générons des demandes de devis grâce à la publicité\n- comment nous les qualifions avant de vous les transmettre\n- ce que cela peut représenter pour votre activité\n\nSi l'horaire ne vous convient plus, répondez simplement à ce mail.\n\nCordialement,\n${SIGN}`}
+function briefBtn(p){if(!p.email)return '';const from=settings().mailFrom||'';const u='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(p.email)+'&su='+encodeURIComponent('Récapitulatif de notre échange et rendez-vous '+rdvWhen(p))+'&body='+encodeURIComponent(rdvBrief(p))+(from?'&authuser='+encodeURIComponent(from):'');return `<a class="btn" href="${u}" target="_blank" rel="noopener">E-mail avec le brief</a>`}
+function rdvBtns(p,msg){const g=rdvGcal(p);return `${g?`<a class="btn" href="${g}" target="_blank" rel="noopener">Ajouter à Google Agenda${ty0(p)==='visio'?' (avec Meet)':''}</a>`:''}${msgButtons(p,msg)}${briefBtn(p)}<button class="btn sm" data-act="rdvdone">OK, fait</button>`}
 function rdvCard(){
-  const p=S.lastRDV?byId(S.lastRDV):null;if(!p||!p.rdvAt)return '';
+  let p=S.lastRDV?byId(S.lastRDV):null;if(!p||!p.rdvAt){p=rdvPending();S.lastRDV=p?p.id:''}if(!p||!p.rdvAt)return '';
   const ty=p.rdvType||'visio';
   const ai=p.rdvMsgAI&&p.rdvMsgFor===p.rdvAt&&!/^(Message indisponible|La clé Groq|Transcription absente)/.test(p.rdvMsgAI)?p.rdvMsgAI:'';
   const msg=ai||rdvMsg(p,'conf');
@@ -927,7 +936,7 @@ async function callResult(r){
   const touches=(p.touches||0)+1;
   const base={touches,lastCall:call.t,lastResult:r,rdvType:'',notes:[p.notes||'',note?stamp()+' ✍️ '+note:'',auto?stamp()+' 🤖 Résumé auto (appel du '+stamp(call.t)+') : '+auto:''].filter(Boolean).join('\n')};
   let patch;
-  if(r==='rdv'||r==='rdvv'||r==='rdvp')patch={...base,stage:'rdv',rdvAt,rdvType:ty,rdvPlace:ty==='physique'?place:'',rdvLink:link,pts,rdvMsgAI:'',nextDate:'',rdvShow:'',rem24:false,rem2:false};
+  if(r==='rdv'||r==='rdvv'||r==='rdvp')patch={...base,stage:'rdv',rdvAt,rdvType:ty,rdvPlace:ty==='physique'?place:'',rdvLink:link,pts,rdvMsgAI:'',nextDate:'',rdvShow:'',rem24:false,rem2:false,rdvConfSent:false};
   else if(r==='rdvt')patch={...base,stage:'contacte',rdvAt,rdvType:'tel',pts,rdvMsgAI:'',nextDate:rdvAt.slice(0,10),rdvShow:''};
   else if(r==='rap'||r==='ans')patch={...base,stage:'contacte',nextDate:date};
   else if(r==='nr'||r==='rep'){const joined=callsOf(p.id).some(c=>c.joint);const ctries=callsOf(p.id).filter(c=>isCall(c)&&(!p.cycleStart||c.t>=p.cycleStart)).length+1;
@@ -2536,7 +2545,7 @@ async function rqDo(d){
   const n=p.rdvN||1,ent=(show,extra)=>({n,type:p.rdvType||'visio',at:p.rdvAt,show,...extra});
   if(d==='absent'){const ok=await rqSave(p,ent('absent'),{rdvShow:'absent',stage:'contacte',nextDate:workday(1),nextTime:'10:00',rdvType:''},`R${n} ${RDV_T[p.rdvType||'visio']} : absent`);if(ok)absOpen(p);return ok}
   if(d==='decale'){const at=v('rq-at');if(!at){toast('Choisis la nouvelle date et heure.');return}
-    const ok=await rqSave(p,ent('decale'),{rdvAt:at,rdvShow:'',rem24:false,rem2:false},`R${n} décalé au ${fdt(at)}`);if(ok)S.lastRDV=p.id;return}
+    const ok=await rqSave(p,ent('decale'),{rdvAt:at,rdvShow:'',rem24:false,rem2:false,rdvConfSent:false},`R${n} décalé au ${fdt(at)}`);if(ok)S.lastRDV=p.id;return}
   if(d==='signe'){const amt=+v('rq-amt')||0;
     const e=ent('tenu',{out:'signe',amount:amt});
     const id='k'+uid(),sc=settings();const o={prospectId:p.id,name:p.name,phone:p.phone||'',email:p.email||'',contact:'',price:amt||sc.pilotPrice,budgetDay:sc.budgetDay,signedAt:today(),status:'onboarding',checklist:{contrat:today()},metrics:[],notes:'',caseOk:false};
@@ -2544,7 +2553,7 @@ async function rqDo(d){
     if(!had&&await guard(()=>DB.set('clients',id,o)))S.clients.push({id,...o});
     return rqSave(p,e,{rdvShow:'tenu',stage:'signe',signedAmount:amt,signedAt:today()},`Signé à R${n} : ${amt} €`)}
   if(d==='r2'){const at=v('rq-at'),ty=v('rq-ty'),pl=v('rq-pl');if(!at){toast('Choisis la date et l\'heure.');return}if(!ty){toast('Choisis le type : visio ou physique.');return}if(ty==='physique'&&!pl){toast('Indique le lieu.');return}
-    const ok=await rqSave(p,ent('tenu',{out:'r2'}),{rdvShow:'',rdvN:n+1,rdvAt:at,rdvType:ty,rdvPlace:ty==='physique'?pl:'',rdvLink:v('rq-lk'),rem24:false,rem2:false,stage:'rdv'},`R${n} tenu, R${n+1} ${RDV_T[ty]} prévu le ${fdt(at)}`);if(ok)S.lastRDV=p.id;return}
+    const ok=await rqSave(p,ent('tenu',{out:'r2'}),{rdvShow:'',rdvN:n+1,rdvAt:at,rdvType:ty,rdvPlace:ty==='physique'?pl:'',rdvLink:v('rq-lk'),rem24:false,rem2:false,rdvConfSent:false,stage:'rdv'},`R${n} tenu, R${n+1} ${RDV_T[ty]} prévu le ${fdt(at)}`);if(ok)S.lastRDV=p.id;return}
   if(d==='rap'){const dt=v('rq-dt');if(!dt){toast('Choisis la date du rappel.');return}
     return rqSave(p,ent('tenu',{out:'rap'}),{rdvShow:'tenu',stage:'contacte',nextDate:dt,nextTime:v('rq-tm')||''},`R${n} tenu, il réfléchit : rappel le ${fdate(dt)}`)}
   if(d==='perdu'){const ob=v('rq-ob')||'Pas intéressé';return rqSave(p,ent('tenu',{out:'perdu',why:ob}),{rdvShow:'tenu',stage:'perdu',lostReason:ob},`R${n} tenu, perdu : ${ob}`)}
@@ -2672,7 +2681,7 @@ document.addEventListener('click',async e=>{
   else if(a==='demo')loadDemo();
   else if(a==='goals-save')saveGoals();
   else if(a==='dedupe')cleanDupes();
-  else if(a==='rdvdone'){const pp=S.lastRDV&&byId(S.lastRDV);if(pp)logEv(pp,'msg','Confirmation du RDV préparée');S.lastRDV='';render()}
+  else if(a==='rdvdone'){const pp=S.lastRDV&&byId(S.lastRDV);if(pp){logEv(pp,'msg','Confirmation du RDV préparée');pp.rdvConfSent=true;DB.update('prospects',pp.id,{rdvConfSent:true}).catch(()=>{})}S.lastRDV='';render()}
   else if(a==='nrdone'){const p=byId(S.lastNR);if(p&&b.tagName==='A'){DB.update('prospects',p.id,{nrSent:(p.nrSent||0)+1});p.nrSent=(p.nrSent||0)+1}S.lastNR='';setTimeout(render,50)}
   else if(a==='osm')sourceOSM();
   else if(a==='gouv')sourceGouv();

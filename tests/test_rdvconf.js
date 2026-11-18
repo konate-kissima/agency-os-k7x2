@@ -1,0 +1,16 @@
+const { chromium } = require('playwright');const path=require('path'),fs=require('fs');
+(async()=>{const b=await chromium.launch();const pg=await(await b.newContext()).newPage();const errs=[];pg.on('pageerror',e=>errs.push(e.message));
+const tmp=fs.mkdtempSync('/tmp/aos-');fs.copyFileSync(path.resolve(__dirname,'../index.html'),tmp+'/index.html');fs.writeFileSync(tmp+'/config.js','window.AOS_CONFIG={url:"",key:""};');
+await pg.goto('file://'+tmp+'/index.html');await pg.waitForSelector('.chal');
+const ok=(c,m)=>{if(!c){console.log('FAIL',m);process.exitCode=1}else console.log('ok  ',m)};
+await pg.evaluate(()=>{S.chal=false;S.lastRDV='';const d=new Date(Date.now()+20*36e5),p2=x=>String(x).padStart(2,'0');const at=d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+'T19:00';
+S.prospects=[{id:'A1',name:'Aura Cool',dirigeant:'Jack Gabriel',phone:'06 06 79 76 96',email:'c@auracool.fr',stage:'rdv',rdvAt:at,rdvType:'visio',rdvMsgFor:at,rdvMsgAI:'Bonjour Jack, Konaté Kissima. Vous avez indiqué signer 5 devis sur 10 envoyés, soit 50 %. On se retrouve en visio à 19h00. Répondez OK pour confirmer.'}];S.calls=[];S.tab='appels';render()});
+ok(await pg.locator('#rdvmsgbox').count()===1,'carte de confirmation visible sans passer par l\'appel');
+ok(await pg.locator('#rdvbtns a:has-text("WhatsApp")').count()===1,'bouton WhatsApp présent');
+const href=await pg.locator('a:has-text("E-mail avec le brief")').getAttribute('href');
+ok(/signer%205%20devis/.test(href)&&/Dur%C3%A9e/.test(href),'mail brief contient les points évoqués');
+ok(!/Konat%C3%A9%20Kissima\.%20Vous|R%C3%A9pondez/.test(decodeURIComponent(href).replace(/Cordialement[\s\S]*/,'').split('Ce dont')[1]||''),'brief sans phrases de salutation/confirmation');
+await pg.locator('[data-act=rdvdone]').click();
+ok(await pg.locator('#rdvmsgbox').count()===0,'après "OK, fait" la carte disparaît');
+ok(await pg.evaluate(()=>S.prospects[0].rdvConfSent===true),'envoi marqué, ne revient pas');
+ok(errs.length===0,'aucune erreur JS '+errs);await b.close()})();
