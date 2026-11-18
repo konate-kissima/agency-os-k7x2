@@ -645,6 +645,8 @@ function rdvBrief(p){
   return `Bonjour${n?' '+n:''},\n\nMerci pour notre échange de ce jour. Voici le récapitulatif.\n\n`+(pts.length?`Ce dont nous avons parlé :\n${pts.join('\n')}\n\n`:'')+`Notre rendez-vous : ${w}${lieu}\nDurée : 15 à 20 minutes.\n\nAu programme :\n- comment nous générons des demandes de devis grâce à la publicité\n- comment nous les qualifions avant de vous les transmettre\n- ce que cela peut représenter pour votre activité\n\nSi l'horaire ne vous convient plus, répondez simplement à ce mail.\n\nCordialement,\n${SIGN}`}
 function briefBtn(p){if(!p.email)return '';const from=settings().mailFrom||'';const u='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(p.email)+'&su='+encodeURIComponent('Récapitulatif de notre échange et rendez-vous '+rdvWhen(p))+'&body='+encodeURIComponent(rdvBrief(p))+(from?'&authuser='+encodeURIComponent(from):'');return `<a class="btn" href="${u}" target="_blank" rel="noopener">E-mail avec le brief</a>`}
 function rdvBtns(p,msg,id){const g=rdvGcal(p);return `${g?`<a class="btn" href="${g}" target="_blank" rel="noopener">Ajouter à Google Agenda${ty0(p)==='visio'?' (avec Meet)':''}</a>`:''}${msgButtons(p,msg)}${briefBtn(p)}<button class="btn sm" data-act="rdvdone" data-id="${esc(id||p.id)}">OK, fait</button>`}
+function rdvColGet(){try{return JSON.parse(localStorage.getItem('aos_rdv_col')||'[]')}catch(e){return []}}
+function rdvColSet(id,v){try{const L=rdvColGet().filter(x=>x!==id);if(v)L.push(id);localStorage.setItem('aos_rdv_col',JSON.stringify(L.slice(-50)))}catch(e){}}
 function rdvCardOne(p,first){
   const ty=p.rdvType||'visio';
   const ai=rdvAiText(p);
@@ -652,7 +654,10 @@ function rdvCardOne(p,first){
   const busy=S.msgBusy===p.id;
   const sid=first?'rdvbtns':'rdvbtns-'+p.id;
   const box=busy?'<p class="muted sm" style="margin:8px 0">⏳ Rédaction du message à partir de la conversation complète…</p>':`<div class="muted sm" style="margin-top:6px">${ai?'Rédigé à partir de la conversation. Relis et modifie si besoin :':'Message standard (aucune conversation enregistrée pour ce RDV). Tu peux le modifier :'}</div><textarea ${first?'id="rdvmsgbox" ':''}class="rdvmsgbox" data-id="${esc(p.id)}" rows="${first?8:5}" style="width:100%;margin:4px 0">${esc(msg)}</textarea>`;
-  return `<div class="card" style="border:2px solid var(--ok,#2a7)"><b>RDV ${RDV_T[ty]} pris : ${esc(p.name)}, ${esc(rdvWhen(p))}.</b> Envoie la confirmation :${box}<div class="row" id="${sid}" style="margin-top:8px;flex-wrap:wrap">${busy?'':rdvBtns(p,msg,p.id)}</div>${ty==='visio'&&!p.rdvLink?'<p class="muted sm" style="margin-top:6px">Dans Google Agenda, clique « Ajouter Google Meet », enregistre, puis remplace [lien Meet] dans le message.</p>':''}</div>`}
+  const col=rdvColGet().includes(p.id);
+  const tg=`<button type="button" class="btn sm" data-act="rdvtoggle" data-id="${esc(p.id)}" aria-expanded="${col?'false':'true'}" style="float:right">${col?'▸ Afficher':'▾ Réduire'}</button>`;
+  if(col)return `<div class="card" style="border:2px solid var(--ok,#2a7);padding:8px 12px">${tg}<b>RDV ${RDV_T[ty]} : ${esc(p.name)}, ${esc(rdvWhen(p))}.</b> <span class="muted sm">Confirmation pas encore envoyée</span></div>`;
+  return `<div class="card" style="border:2px solid var(--ok,#2a7)">${tg}<b>RDV ${RDV_T[ty]} pris : ${esc(p.name)}, ${esc(rdvWhen(p))}.</b> Envoie la confirmation :${box}<div class="row" id="${sid}" style="margin-top:8px;flex-wrap:wrap">${busy?'':rdvBtns(p,msg,p.id)}</div>${ty==='visio'&&!p.rdvLink?'<p class="muted sm" style="margin-top:6px">Dans Google Agenda, clique « Ajouter Google Meet », enregistre, puis remplace [lien Meet] dans le message.</p>':''}</div>`}
 function rdvCard(){
   const L=[],seen={};const add=p=>{if(p&&p.rdvAt&&!seen[p.id]){seen[p.id]=1;L.push(p)}};
   add(S.lastRDV?byId(S.lastRDV):null);rdvPendingAll().slice(0,8).forEach(add);
@@ -2697,6 +2702,7 @@ document.addEventListener('click',async e=>{
   else if(a==='demo')loadDemo();
   else if(a==='goals-save')saveGoals();
   else if(a==='dedupe')cleanDupes();
+  else if(a==='rdvtoggle'){const id=b.dataset.id;rdvColSet(id,!rdvColGet().includes(id));render()}
   else if(a==='rdvdone'){const pp=byId(b.dataset.id||S.lastRDV);if(pp){logEv(pp,'msg','Confirmation du RDV préparée');pp.rdvConfSent=true;DB.update('prospects',pp.id,{rdvConfSent:true}).catch(()=>{})}if(!pp||S.lastRDV===pp.id)S.lastRDV='';render()}
   else if(a==='nrdone'){const p=byId(S.lastNR);if(p&&b.tagName==='A'){DB.update('prospects',p.id,{nrSent:(p.nrSent||0)+1});p.nrSent=(p.nrSent||0)+1}S.lastNR='';setTimeout(render,50)}
   else if(a==='osm')sourceOSM();

@@ -55,3 +55,19 @@ ok(r.Dd.startsWith("On se retrouve aujourd'hui à 19h."),'« demain, date » dev
 ok(r.E==="Merci pour l'échange de ce matin. On se retrouve demain à 19h.",'écrit aujourd\'hui : inchangé');
 ok(/demain à 19h/.test(r.F)===false||true,'cas F sans erreur ('+r.F+')');
 ok(errs.length===0,'aucune erreur JS '+errs);await b.close()})();
+// réduire / afficher
+(async()=>{const b=await chromium.launch();const pg=await(await b.newContext()).newPage();const errs=[];pg.on('pageerror',e=>errs.push(e.message));
+const tmp=fs.mkdtempSync('/tmp/aos-');fs.copyFileSync(path.resolve(__dirname,'../index.html'),tmp+'/index.html');fs.writeFileSync(tmp+'/config.js','window.AOS_CONFIG={url:"",key:""};');
+await pg.goto('file://'+tmp+'/index.html');await pg.waitForSelector('.chal');
+const ok=(c,m)=>{if(!c){console.log('FAIL',m);process.exitCode=1}else console.log('ok  ',m)};
+await pg.evaluate(()=>{S.chal=false;S.lastRDV='';const d=new Date(Date.now()+20*36e5),p2=x=>String(x).padStart(2,'0');const at=d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+'T19:00';
+S.prospects=[{id:'R1',name:'Reduire',phone:'06 11 11 11 11',stage:'rdv',rdvAt:at,rdvType:'visio'}];S.calls=[];S.tab='appels';render()});
+ok(await pg.locator('.rdvmsgbox').count()===1,'carte ouverte au départ');
+await pg.locator('[data-act=rdvtoggle]').click();
+ok(await pg.locator('.rdvmsgbox').count()===0&&await pg.locator('[data-act=rdvtoggle]:has-text("Afficher")').count()===1,'« Réduire » replie la carte sans envoyer');
+ok(await pg.evaluate(()=>S.prospects[0].rdvConfSent!==true),'replier ne marque pas l\'envoi comme fait');
+await pg.evaluate(()=>render());
+ok(await pg.locator('.rdvmsgbox').count()===0,'reste réduite après un nouvel affichage');
+await pg.locator('[data-act=rdvtoggle]').click();
+ok(await pg.locator('.rdvmsgbox').count()===1,'« Afficher » la rouvre');
+ok(errs.length===0,'aucune erreur JS '+errs);await b.close()})();
