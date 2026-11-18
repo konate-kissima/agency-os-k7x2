@@ -4,7 +4,8 @@ const tmp=fs.mkdtempSync('/tmp/aos-');fs.copyFileSync(path.resolve(__dirname,'..
 await pg.goto('file://'+tmp+'/index.html');await pg.waitForSelector('.chal');
 const ok=(c,m)=>{if(!c){console.log('FAIL',m);process.exitCode=1}else console.log('ok  ',m)};
 await pg.evaluate(()=>{S.chal=false;S.lastRDV='';const d=new Date(Date.now()+20*36e5),p2=x=>String(x).padStart(2,'0');const at=d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+'T19:00';
-S.prospects=[{id:'A1',name:'Aura Cool',dirigeant:'Jack Gabriel',phone:'06 06 79 76 96',email:'c@auracool.fr',stage:'rdv',rdvAt:at,rdvType:'visio',rdvMsgFor:at,rdvMsgAI:'Bonjour Jack, Konaté Kissima. Vous avez indiqué signer 5 devis sur 10 envoyés, soit 50 %. On se retrouve en visio à 19h00. Répondez OK pour confirmer.'}];S.calls=[];S.tab='appels';render()});
+S.prospects=[{id:'A1',name:'Aura Cool',dirigeant:'Jack Gabriel',phone:'06 06 79 76 96',email:'c@auracool.fr',stage:'rdv',rdvAt:at,rdvType:'visio',rdvMsgFor:at,rdvMsgAI:'Bonjour Jack, Konaté Kissima. Vous avez indiqué signer 5 devis sur 10 envoyés, soit 50 %. On se retrouve en visio à 19h00. Répondez OK pour confirmer.'}];S.calls=[];S.tab='appels';localStorage.setItem('aos_alerts_hidden','1');S.prospects.push({id:'S1',name:'Vieux',phone:'06 11 11 11 11',stage:'contacte',rdvAt:'2026-11-01T10:00',rdvType:'visio'});render()});
+ok(await pg.locator('[data-act=alerts-toggle][aria-expanded=false]').count()===1,'bandeau d\'alertes replié');
 ok(await pg.locator('#rdvmsgbox').count()===1,'carte de confirmation visible sans passer par l\'appel');
 ok(await pg.locator('#rdvbtns a:has-text("WhatsApp")').count()===1,'bouton WhatsApp présent');
 const href=await pg.locator('a:has-text("E-mail avec le brief")').getAttribute('href');
