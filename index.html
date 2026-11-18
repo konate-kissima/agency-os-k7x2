@@ -624,7 +624,18 @@ function rdvGcal(p){
   return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(title+p.name)+'&dates='+icsDate(d)+'/'+icsDate(e)+'&ctz=Europe/Paris&details='+encodeURIComponent(ty==='physique'?'Rendez-vous.':'Échange en visio.')+(ty==='physique'&&p.rdvPlace?'&location='+encodeURIComponent(p.rdvPlace):'')+(p.email?'&add='+encodeURIComponent(p.email):'')+'&authuser='+encodeURIComponent((settings().agendaEmail||AGENDA_EMAIL))}
 const ty0=p=>p.rdvType||'visio';
 function rdvPendingAll(){const now=new Date();return (S.prospects||[]).filter(x=>x.stage==='rdv'&&x.rdvAt&&!x.rdvConfSent&&!x.optout&&(()=>{const d=new Date(x.rdvAt);return d>now&&d-now<72*36e5})()).sort((a,b)=>String(a.rdvAt).localeCompare(String(b.rdvAt)))}
-function rdvAiText(p){const t=p.rdvMsgAI&&p.rdvMsgFor===p.rdvAt&&!/^(Message indisponible|La clé Groq|Transcription absente)/.test(p.rdvMsgAI)?p.rdvMsgAI:'';if(!t)return '';const ma=p.rdvMsgAt?dayOf(p.rdvMsgAt):'';return (ma&&ma<today()&&String(p.rdvAt).slice(0,10)===today())?t.replace(/\bdemain\b/gi,"aujourd'hui"):t}
+function relLabel(rd){const T=today();if(rd===T)return "aujourd'hui";if(rd===addDays(T,1))return 'demain';return new Date(rd+'T12:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}
+// Adapte les mots relatifs d'un message rédigé un autre jour (demain, ce matin, ce soir...) au jour où il est envoyé
+function adaptRel(p,t){const w=dayOf(p.rdvMsgAt||p.lastCall||''),T=today(),rd=String(p.rdvAt||'').slice(0,10);if(!t||!w||!rd||w>=T&&rd===w)return t;
+  const DAYS='(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)',tail='(?:,? '+DAYS+' \\d{1,2} [a-zéûô]+)?';
+  let o=t;
+  if(w<T){
+    o=o.replace(new RegExp("\\b(après-demain|demain|aujourd'hui)"+tail,'gi'),(m,k)=>{const base=k.toLowerCase()==='demain'?addDays(w,1):k.toLowerCase()==='aujourd\'hui'?w:addDays(w,2);return base===rd?relLabel(rd):m});
+    const ago=w===addDays(T,-1)?'hier':'l\'autre jour';
+    o=o.replace(/\bde (?:ce matin|ce midi|cet après-midi|tout à l['’]heure)/gi,ago==='hier'?"d'hier":"de l'autre jour").replace(/\b(?:ce matin|ce midi|cet après-midi|tout à l['’]heure)\b/gi,ago==='hier'?'hier':"l'autre jour");
+    if(rd===w)o=o.replace(/\bce soir\b/gi,relLabel(rd))}
+  return o}
+function rdvAiText(p){const t=p.rdvMsgAI&&p.rdvMsgFor===p.rdvAt&&!/^(Message indisponible|La clé Groq|Transcription absente)/.test(p.rdvMsgAI)?p.rdvMsgAI:'';return t?adaptRel(p,t):''}
 function rdvBrief(p){
   const n=String(p.dirigeant||'').trim().split(/\s+/)[0],ty=p.rdvType||'visio',w=rdvWhen(p);
   const lien=(p.rdvLink&&!/fathom\.video/.test(p.rdvLink))?p.rdvLink:'[lien Meet]';

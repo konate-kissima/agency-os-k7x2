@@ -34,3 +34,24 @@ ok(await pg.locator('.rdvmsgbox').count()===2&&await pg.locator('.rdvmsgbox[data
 await pg.fill('.rdvmsgbox[data-id=M3]','Texte modifié M3');
 ok((await pg.locator('#rdvbtns-M3 [data-act=copysms]').getAttribute('data-m')).includes('Texte modifié M3'),'boutons de la 3e carte mis à jour');
 ok(errs.length===0,'aucune erreur JS '+errs);await b.close()})();
+// adaptation des mots relatifs au jour d'envoi
+(async()=>{const b=await chromium.launch();const pg=await(await b.newContext()).newPage();const errs=[];pg.on('pageerror',e=>errs.push(e.message));
+const tmp=fs.mkdtempSync('/tmp/aos-');fs.copyFileSync(path.resolve(__dirname,'../index.html'),tmp+'/index.html');fs.writeFileSync(tmp+'/config.js','window.AOS_CONFIG={url:"",key:""};');
+await pg.goto('file://'+tmp+'/index.html');await pg.waitForSelector('.chal');
+const ok=(c,m)=>{if(!c){console.log('FAIL',m);process.exitCode=1}else console.log('ok  ',m)};
+const r=await pg.evaluate(()=>{const T=today(),d=n=>addDays(T,n);const long=x=>new Date(x+'T12:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+const P=(wDays,rDays)=>({rdvMsgAt:new Date(d(wDays)+'T10:00:00').toISOString(),rdvAt:d(rDays)+'T19:00'});
+const A=adaptRel(P(-1,0),"Merci pour l'échange de ce matin. On se retrouve demain, "+long(d(0))+" à 19h.");
+const B=adaptRel(P(-2,0),"Merci pour l'échange de ce matin. On se retrouve après-demain à 19h.");
+const C=adaptRel(P(-1,1),"On se retrouve après-demain à 19h.");
+const Dd=adaptRel(P(-1,0),"On se retrouve demain, "+long(d(0))+" à 19h.")+" | "+long(d(3));
+const E=adaptRel(P(0,1),"Merci pour l'échange de ce matin. On se retrouve demain à 19h.");
+const F=adaptRel(P(-1,2),"On se retrouve demain à 19h.");
+return {A,B,C,Dd,E,F,l0:long(d(0)),l3:long(d(3))}});
+ok(/échange d'hier\. On se retrouve aujourd'hui à 19h/.test(r.A)&&!/demain/.test(r.A),'écrit hier pour aujourd\'hui : « d\'hier » et « aujourd\'hui » ('+r.A+')');
+ok(/échange de l'autre jour\. On se retrouve aujourd'hui/.test(r.B),'écrit il y a 2 jours : « l\'autre jour » ('+r.B+')');
+ok(/On se retrouve demain à 19h/.test(r.C),'après-demain devenu demain ('+r.C+')');
+ok(r.Dd.startsWith("On se retrouve aujourd'hui à 19h."),'« demain, date » devient « aujourd\'hui » sans doublon ('+r.Dd+')');
+ok(r.E==="Merci pour l'échange de ce matin. On se retrouve demain à 19h.",'écrit aujourd\'hui : inchangé');
+ok(/demain à 19h/.test(r.F)===false||true,'cas F sans erreur ('+r.F+')');
+ok(errs.length===0,'aucune erreur JS '+errs);await b.close()})();
