@@ -1,0 +1,12 @@
+const { chromium } = require('playwright');const path=require('path'),fs=require('fs');
+(async()=>{const b=await chromium.launch();const pg=await(await b.newContext()).newPage();const errs=[];pg.on('pageerror',e=>errs.push(e.message));
+const tmp=fs.mkdtempSync('/tmp/aos-');fs.copyFileSync(path.resolve(__dirname,'../index.html'),tmp+'/index.html');fs.writeFileSync(tmp+'/config.js','window.AOS_CONFIG={url:"",key:""};');
+await pg.goto('file://'+tmp+'/index.html');await pg.waitForSelector('.chal');
+const ok=(c,m)=>{if(!c){console.log('FAIL',m);process.exitCode=1}else console.log('ok  ',m)};
+await pg.evaluate(()=>{S.chal=false;S.prospects=[{id:'F1',name:'Fournier',dirigeant:'Mehdi Elgayla',phone:'06 11 22 33 44',email:'m@f.fr',stage:'contacte',lastResult:'rdvt'}];
+S.calls=[{id:'c1',channel:'appel',prospectId:'F1',t:new Date(Date.now()-3600e3).toISOString(),result:'rdvt',note:'ok'}];S.tab='appels';S.call.open='F1';S.call.pid='F1';S.call.panel='';S.call.step='';render()});
+ok(await pg.locator('[data-act=mailopen][data-id=F1]').count()===1,'bouton « Mail de suivi » visible sur une fiche dont l\'appel est terminé');
+await pg.locator('[data-act=mailopen][data-id=F1]').click();
+ok(await pg.locator('#mb').count()===1&&/Mehdi/.test(await pg.locator('#mb').inputValue()),'le mail s\'ouvre, adressé au prénom');
+ok(await pg.locator('[data-act=mailgmail]').count()===1,'bouton « Ouvrir dans Gmail » présent');
+ok(errs.length===0,'aucune erreur JS '+errs);await b.close()})();

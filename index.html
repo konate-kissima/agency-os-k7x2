@@ -914,6 +914,7 @@ function appelsHTML(){
    ${S.call.editNum===cur.id?`<div class="row" style="gap:6px;margin:6px 0;flex-wrap:wrap"><input id="cphone" type="tel" placeholder="Nouveau numéro" value="${esc(S.call.ephone!=null&&S.call.ephone!==''?S.call.ephone:(cur.phone||''))}" style="min-width:200px"><input id="cphlab" placeholder="Info sur ce numéro (ex : direct du gérant)" value="${esc(S.call.elab!=null&&S.call.elab!==''?S.call.elab:(cur.phoneLabel||''))}" style="min-width:240px;flex:1"><button class="btn primary sm" data-act="numsave">Enregistrer</button><button class="btn sm" data-act="numedit">Annuler</button></div>`:''}
    <div class="csec">Résultat de l'appel</div>
    ${resUI}
+   ${!showRes&&callsOf(cur.id).some(c=>(c.channel||'appel')==='appel'&&c.result!=='nr')?`<div class="row sm" style="margin:6px 0"><button class="btn" data-act="mailopen" data-id="${esc(cur.id)}" title="Rédige un mail à partir de la conversation, même si l'appel est terminé">✉️ Mail de suivi</button><span class="muted sm">${cur.mailSent?'déjà envoyé le '+esc(fdate(cur.mailSent)):'à envoyer après l\'appel'}</span></div>`:''}
    ${rdvLine(cur)}${lastH?`<div class="lastcall"><b>Dernier appel</b> · ${fdate(lastH.t)} · ${esc(ALL_RES_L[lastH.result]||lastH.result)}${lastH.note?'<div class="muted">'+esc(lastH.note)+'</div>':''}</div>`:''}
    <details class="sm chist"><summary><b>Historique</b> <span class="muted">· notes, enregistrement</span></summary>
     <div style="margin:6px 0">${timelineHTML(cur,12)}</div>
