@@ -133,7 +133,7 @@ const fs = require('fs');
   ok(content.includes('Dupont Plomberie') && content.includes('DM Instagram'), 'export CSV des appels');
 
   // persistance
-  await pg.reload(); await pg.waitForSelector('.chal'); await pg.evaluate(()=>{S.chal=false;render()}); await pg.click('[data-v=clients]');
+  await pg.evaluate(()=>localStorage.removeItem('aos_chal')); await pg.reload(); await pg.waitForSelector('.chal'); await pg.evaluate(()=>{S.chal=false;render()}); await pg.click('[data-v=clients]');
   ok(await pg.locator('h3:has-text("Dupont Plomberie")').count() === 1, 'persistance après rechargement');
 
   console.log(errs.length ? 'ERRORS:\n' + errs.join('\n') : 'aucune erreur JS');

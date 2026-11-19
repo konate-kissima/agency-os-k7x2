@@ -19,7 +19,8 @@ nav.tabs button{border:0;background:transparent;color:var(--muted);padding:8px 1
 nav.tabs button:hover{color:var(--ink);background:var(--surface2)}
 nav.tabs button[aria-selected=true]{background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--accent-ink);box-shadow:var(--glow)}
 main{padding:18px max(16px,env(safe-area-inset-left)) 40px max(16px,env(safe-area-inset-right));max-width:1180px;margin:0 auto}
-.chal{position:fixed;inset:0;z-index:60;background:rgba(5,9,6,.88);display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));overflow:auto}.chalbox{max-width:520px;width:100%;margin:0;border:2px solid var(--accent2)}
+.chal{position:fixed;inset:0;z-index:60;background:rgba(5,9,6,.88);display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));overflow:auto}.defig{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0}.defic{border:1px solid var(--line);border-radius:12px;padding:8px 12px}.defic.star{border-color:var(--accent2);background:color-mix(in srgb,var(--accent2) 10%,transparent)}.defic .big{font-size:2em;display:block;line-height:1.1;margin:2px 0 6px}.defil{display:grid;gap:4px}@media(max-width:640px){.defig{grid-template-columns:1fr}}
+.chalbox{max-width:520px;width:100%;margin:0;border:2px solid var(--accent2)}
 
 .numrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.numrow .callnum{background:none;border:0;padding:0;cursor:pointer;text-align:left}.numrow .callnum:active{transform:scale(.98)}.numact{display:flex;gap:6px}
 .callbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}.callbar #cq{flex:1 1 260px;min-width:0;padding:8px 12px}.callbar select{padding:7px 8px}
@@ -868,7 +869,7 @@ function appelsHTML(){
   const kp=`<span class="pill" title="Décroché = une personne qui a répondu (même si elle raccroche). Objectif non négociable : ${gc[0]} par jour."><i class="zdot" style="background:${ZONE_C[zc]}"></i><b>${st.conv}</b> / ${gc[0]} décrochés</span><span class="pill" title="Vraie conversation = il a décroché et vous avez réellement échangé (hors raccroché au nez)."><b>${st.real}</b> vraies conversations</span><span class="pill"><b>${st.r}</b> RDV</span><span class="pill muted"><b>${st.n}</b> appels passés</span><span class="pill"><b>${Q.length}</b> à appeler</span>${(n=>n?`<span class="pill muted" title="Appelées 2 fois sans réponse : elles reviennent dans ${REST_DAYS} jours, pour que tu appelles surtout des nouvelles fiches.">😴 ${n} au repos</span>`:'')(S.prospects.filter(p=>!p.optout&&hasPhone(p.phone)&&resting(p)).length)}<button class="btn sm${S.call.showRap?' primary':''}" data-act="rapl-toggle">À rappeler (${rapList().length})</button>`+trayBtns();
   const MOBO=[['all','Toutes (mobiles d\'abord)'],['mobile','Mobiles (06/07)'],['fixe','Fixes']];
   const filt=`<select data-act="mobsel" aria-label="Type de ligne" class="sm">${MOBO.map(([v,l])=>`<option value="${v}"${S.call.mob===v?' selected':''}>${l}</option>`).join('')}</select>`;
-  const bar=callSearchHTML(kp+filt);
+  const bar=defiHTML()+callSearchHTML(kp+filt);
   const above=rdvCard()+wrapAlerts(dueBanner(1)+staleRdvBanner()+mailCard()+mailWaitCard()+remindCard()+absCard()+nrCard())+(S.lastRes?`<div class="lastres">Dernier appel : ${S.lastRes}</div>`:'');
   if(!cur)return above+bar+trayPanels()+rapPanelHTML()+`<div class="card"><b>Plus personne à appeler pour l'instant.</b><div class="muted sm">Importe une liste (onglet Données) ou attends les rappels programmés.</div></div>`;
   const hist=callsOf(cur.id).slice(-4).reverse();
@@ -1471,7 +1472,7 @@ function workWidget(){const sec=S.act[today()]||0;
   return `<button type="button" class="btn sm primary" data-act="work-start" title="Lance le chrono de travail">▶ Démarrer</button>${sec>=60?`<span class="chip" id="worktimer" title="Temps de travail aujourd'hui (en pause)">⏸ ${workLabel()}</span>`:''}`}
 /* historique de la fiche d'appel : ouvert d'office s'il y en a un ; si tu le replies, il reste replié (mémorisé) jusqu'à ce que tu le rouvres */
 const histPref=()=>{try{return localStorage.getItem('aos_hist')!=='0'}catch(e){return true}};
-document.addEventListener('toggle',e=>{const t=e.target;if(t&&t.classList&&t.classList.contains('chist')){try{localStorage.setItem('aos_hist',t.open?'1':'0')}catch(_){}}},true);
+document.addEventListener('toggle',e=>{const t=e.target;if(!t||!t.classList)return;const k=t.classList.contains('chist')?'aos_hist':t.classList.contains('defi')?'aos_defi':'';if(k){try{localStorage.setItem(k,t.open?'1':'0')}catch(_){}}},true);
 let curDay=today();
 function actTick(){const n=Date.now(),dt=Math.min(10000,n-lastTick);lastTick=n;
   /* minuit passé : nouvelle journée, compteur à 0 (le temps d'hier reste dans le débrief d'hier), l'écran se remet à jour tout seul */
@@ -1697,7 +1698,7 @@ const REC_M=[['n','Appels'],['j','Conversations'],['r','RDV'],['dm','Messages (D
 function periodAgg(){
   const A={D:{},W:{},M:{}};
   const add=(d,f)=>[['D',d],['W',weekStart(d)],['M',d.slice(0,7)]].forEach(([p,k])=>{const x=A[p][k]=A[p][k]||{n:0,j:0,r:0,dm:0,v:0,ct:0};x[f]++});
-  S.calls.forEach(c=>{const d=dayOf(c.t);if(isCall(c)){add(d,'n');if(isAns(c))add(d,'j')}else if(c.result==='sent')add(d,c.channel==='video'?'v':'dm');if(isRdvRes(c.result))add(d,'r')});
+  S.calls.forEach(c=>{const d=dayOf(c.t);if(isCall(c)){add(d,'n');if(isAns(c))add(d,'j')}else if(c.result==='sent')add(d,c.channel==='video'?'v':'dm');if(isRdvCnt(c.result))add(d,'r')});
   S.content.forEach(c=>{if(c.d)add(String(c.d).slice(0,10),'ct')});
   return A;
 }
@@ -1727,19 +1728,59 @@ const EGO=[
   r=>`Ton futur toi te remercie de ${r+1} appels.`,
   r=>`${r+1}. Pas ${r}. Le record, on le dépasse.`
 ];
+/* ===== défis du jour : paliers, rythme en direct, taux de RDV, série ===== */
+function ladder(f){const A=periodAgg(),t=today(),cur=(A.D[t]||{})[f]||0,y=(A.D[addDays(t,-1)]||{})[f]||0;
+  const days=Object.keys(A.D).filter(k=>k<t&&new Date(k+'T12:00:00').getDay()!==0).sort().slice(-7);
+  const avg=days.length?Math.ceil(days.reduce((q,k)=>q+((A.D[k]||{})[f]||0),0)/days.length):0;
+  const rec=recInfo(A,'D',f).best;
+  const steps=[['hier',y],['moy',avg],['rec',rec]].filter(([,v])=>v>0).sort((a,b)=>a[1]-b[1]);
+  const next=steps.find(([,v])=>v>cur);
+  return {cur,y,avg,rec,next,top:rec>0&&cur>rec}}
+function ladderTxt(x){
+  if(!x.rec)return 'ta première référence à poser';
+  if(x.top)return '🏆 record battu';
+  if(!x.next)return x.cur===x.rec?'record égalé : encore 1 pour le battre':'';
+  const [k,v]=x.next;
+  return k==='rec'?`encore <b>${v-x.cur+1}</b> pour battre ton record (${v})`:k==='moy'?`encore <b>${v-x.cur}</b> pour atteindre ta moyenne (${v})`:`encore <b>${v-x.cur}</b> pour atteindre hier (${v})`}
+function realConv(cs){return cs.filter(c=>JOINT.includes(c.result)).length}
+function dayRate(d){const cs=S.calls.filter(c=>isCall(c)&&dayOf(c.t)===d);const real=realConv(cs),rdv=cs.filter(c=>isRdvCnt(c.result)).length;return {real,rdv,rate:real?rdv/real:0}}
+function rateInfo(){const t=today(),cur=dayRate(t);let best={rate:0,d:''};
+  new Set(S.calls.filter(isCall).map(c=>dayOf(c.t))).forEach(d=>{if(d===t)return;const r=dayRate(d);if(r.real>=5&&r.rate>best.rate)best={rate:r.rate,d}});
+  return {cur,best}}
+function paceInfo(){const t=today(),A=periodAgg();let bk='',bn=0;
+  Object.entries(A.D).forEach(([k,v])=>{if(k!==t&&(v.n||0)>bn){bn=v.n;bk=k}});
+  if(!bk)return null;const now=new Date(),m=now.getHours()*60+now.getMinutes();
+  const at=S.calls.filter(c=>{if(!isCall(c)||dayOf(c.t)!==bk)return false;const x=new Date(c.t);return x.getHours()*60+x.getMinutes()<=m}).length;
+  const cur=(A.D[t]||{}).n||0;return {bk,bn,at,cur,diff:cur-at,h:now.getHours()+'h'+String(now.getMinutes()).padStart(2,'0')}}
+function rdvStreak(){const set=new Set(S.calls.filter(c=>isCall(c)&&isRdvCnt(c.result)).map(c=>dayOf(c.t)));const t=today();let d=t,n=0,g=0;const todayIn=set.has(t);if(!todayIn)d=addDays(d,-1);
+  while(g++<400){const wd=new Date(d+'T12:00:00').getDay();if(set.has(d))n++;else if(wd!==0)break;d=addDays(d,-1)}return {n,todayIn}}
+const pctS=x=>Math.round(100*x)+' %';
+function defiLines(){
+  const L=[],pc=paceInfo(),ri=rateInfo(),sk=rdvStreak();
+  if(pc)L.push(`⏱ À ${pc.h} : <b>${pc.cur}</b> appels. Le ${esc(fdate(pc.bk))} à la même heure : ${pc.at} · ${pc.diff>=0?'<b>tu es devant</b> (+'+pc.diff+')':'il t\'en manque <b>'+(-pc.diff)+'</b> pour le rattraper'}`);
+  L.push(ri.cur.real?`🎯 Taux de RDV : <b>${pctS(ri.cur.rate)}</b> (${ri.cur.rdv} RDV sur ${ri.cur.real} vraies conversations)${ri.best.d?' · ton meilleur jour : '+pctS(ri.best.rate)+' ('+esc(fdate(ri.best.d))+')':''}`:`🎯 Taux de RDV : pas encore de vraie conversation aujourd'hui${ri.best.d?' · ton meilleur jour : '+pctS(ri.best.rate)+' ('+esc(fdate(ri.best.d))+')':''}`);
+  L.push(sk.n?`🔥 Série : <b>${sk.n} jour${sk.n>1?'s':''}</b> d'affilée avec au moins 1 RDV${sk.todayIn?'':' · prends-en 1 aujourd\'hui pour la prolonger'}`:`🔥 Série à zéro : un RDV aujourd'hui la relance`);
+  return L}
+const defiPref=()=>{try{return localStorage.getItem('aos_defi')!=='0'}catch(e){return true}};
+function defiHTML(){
+  const cols=[['r','RDV','🎯',true],['j','Conversations','💬'],['n','Appels','📞']].map(([f,l,ic,star])=>{const x=ladder(f),top=Math.max(x.rec,x.cur,1);
+    return `<div class="defic${star?' star':''}"><div class="sm muted">${ic} ${l}${star?' · le plus important':''}</div><b class="big">${x.cur}</b><div class="track"><i style="width:${Math.min(100,Math.round(100*x.cur/top))}%"></i></div><div class="sm">${ladderTxt(x)}</div></div>`}).join('');
+  return `<section class="card"><details class="defi"${defiPref()?' open':''}><summary><b>🔥 Mes défis du jour</b> <span class="muted sm">· RDV, conversations, appels</span></summary><div class="defig">${cols}</div><div class="sm defil">${defiLines().map(x=>`<div>${x}</div>`).join('')}</div><p class="muted sm" style="margin:6px 0 0">RDV = visio ou physique. Un RDV téléphonique est un rappel, il ne compte pas.</p></details></section>`}
 function challengeHTML(){
   const A=periodAgg(),t=today(),y=(A.D[addDays(t,-1)]||{}).n||0;
-  const d=recInfo(A,'D','n'),w=recInfo(A,'W','n'),m=recInfo(A,'M','n');
+  const d=recInfo(A,'D','n'),r=recInfo(A,'D','r'),lr=ladder('r');
   const seed=Math.floor(new Date()/864e5);
   const first=!d.best&&!d.cur;
   const head=first?`<p style="font-size:1.1em">Aucun record pour l'instant. Aujourd'hui, tu poses la première référence. Fais-la grande.</p>`
-    :`<p style="font-size:1.1em">Record d'appels sur une journée : <b style="font-size:1.6em">${Math.max(d.best,d.cur)}</b>${d.isRec?'':` (${fdate(d.bk)})`}</p><p>${d.isRec?'🏆 Tu l\'as battu aujourd\'hui. Repousse-le.':'Tu ne l\'as pas battu '+sinceTxt(d.since)+'.'} <b>Aujourd'hui : ${d.cur}</b>.</p>`;
-  const line=(l,r)=>r.best||r.cur?`<div class="row" style="justify-content:space-between"><span>${l}</span><span><b>${r.cur}</b> / ${Math.max(r.best,r.cur)} · ${r.isRec?'🏆 record battu':sinceTxt(r.since)}</span></div>`:'';
-  const others=REC_M.filter(([f])=>f!=='n').map(([f,l])=>{const r=recInfo(A,'D',f);return r.best||r.cur?`<div class="row" style="justify-content:space-between"><span>${l}</span><span><b>${r.cur}</b> / ${Math.max(r.best,r.cur)} · ${r.isRec?'🏆':sinceTxt(r.since)}</span></div>`:''}).join('');
-  const goal=Math.max(d.best,d.cur)+(d.isRec?1:1);
+    :`<p style="font-size:1.1em">Record de RDV sur une journée : <b style="font-size:1.6em">${Math.max(r.best,r.cur)}</b>${r.best&&!r.isRec?` (${esc(fdate(r.bk))})`:''}</p><p>${r.isRec?'🏆 Tu l\'as battu aujourd\'hui. Repousse-le.':'RDV aujourd\'hui : <b>'+r.cur+'</b> · '+ladderTxt(lr)+'.'} Record d'appels : <b>${Math.max(d.best,d.cur)}</b>${d.best&&!d.isRec?' ('+esc(fdate(d.bk))+')':''} · aujourd'hui <b>${d.cur}</b>.</p>`;
+  const line=(l,x)=>x.best||x.cur?`<div class="row" style="justify-content:space-between"><span>${l}</span><span><b>${x.cur}</b> / ${Math.max(x.best,x.cur)} · ${x.isRec?'🏆 record battu':sinceTxt(x.since)}</span></div>`:'';
+  const w=recInfo(A,'W','r'),m=recInfo(A,'M','r'),wn=recInfo(A,'W','n'),mn=recInfo(A,'M','n');
+  const others=['j','dm','v','ct'].map(f=>{const x=recInfo(A,'D',f);return x.best||x.cur?`<div class="row" style="justify-content:space-between"><span>${REC_M.find(q=>q[0]===f)[1]}</span><span><b>${x.cur}</b> / ${Math.max(x.best,x.cur)} · ${x.isRec?'🏆':sinceTxt(x.since)}</span></div>`:''}).join('');
+  const goal=lr.next?(lr.next[0]==='rec'?lr.next[1]+1:lr.next[1]):Math.max(r.best,r.cur)+1;
   return `<div class="chal" role="dialog" aria-modal="true"><div class="card chalbox"><h2>🔥 Ton record à battre</h2>${head}${first?'':`<p style="font-weight:600">${esc(EGO[seed%EGO.length](Math.max(d.best,d.cur),y))}</p>`}
-  <div class="sm" style="display:grid;gap:6px;margin:12px 0">${line('Appels · semaine',w)}${line('Appels · mois',m)}${others}</div>
-  <button class="btn primary" style="width:100%;font-size:1.15em;padding:14px" data-act="chal-ok">${first?'C\'est parti':'Je relève le défi : '+goal+' appels'}</button></div></div>`;
+  <div class="sm defil" style="margin:8px 0">${defiLines().map(x=>`<div>${x}</div>`).join('')}</div>
+  <div class="sm" style="display:grid;gap:6px;margin:12px 0">${line('RDV · semaine',w)}${line('RDV · mois',m)}${line('Appels · semaine',wn)}${line('Appels · mois',mn)}${others}</div>
+  <button class="btn primary" style="width:100%;font-size:1.15em;padding:14px" data-act="chal-ok">${first?'C\'est parti':'Je relève le défi : '+goal+' RDV'}</button></div></div>`;
 }
 function bilanHTML(){
   const n=todayCounts(),A=periodAgg(),t=today();
@@ -2680,7 +2721,7 @@ document.addEventListener('click',async e=>{
   if(a==='copynum'){const n=b.dataset.n||'';const done=()=>toast('Numéro copié : '+n+'. Colle-le dans ton application d\'appel.');try{navigator.clipboard.writeText(n).then(done,()=>{const t=document.createElement('textarea');t.value=n;document.body.appendChild(t);t.select();try{document.execCommand('copy')}catch(e){}t.remove();done()})}catch(e){done()}}
   else if(a==='callopen'){S.call.open=b.dataset.id;S.call.pid=b.dataset.id;S.call.q='';S.call.note='';S.call.auto='';S.call.obj='—';S.call.obj2='';S.call.audio='';S.call.rdvAt='';S.call.date='';S.call.time='';S.call.step='';S.call.panel='';S.call.transcript='';S.call.audioPath='';S.call.audioFile='';S.call.pt1='';S.call.pt2='';S.call.pt3='';S.call.place='';S.call.link='';S.call.dur=0;render();window.scrollTo(0,0)}
   else if(a==='callclose'){S.call.open='';S.call.pid='';render()}
-  else if(a==='chal-ok'){S.chal=false;S.tab='appels';render()}
+  else if(a==='chal-ok'){S.chal=false;try{localStorage.setItem('aos_chal',today())}catch(e){}S.tab='appels';render()}
   else if(a==='tab'){S.tab=b.dataset.v;render()}
   else if(a==='aide-tab'){S.aideTab=b.dataset.v;render()}
   else if(a==='deb-p'){const v=b.dataset.v,t=today();S.dbp={y:'d',d:'d',w:'w','7':'7','30':'30',a:'a',c:'c'}[v]||'d';S.dbd=v==='y'?addDays(t,-1):t;if(v==='c'){S.dbf=S.dbf||addDays(t,-6);S.dbt=S.dbt||t}render()}
@@ -3062,7 +3103,7 @@ async function start(){
     if(!S.settings||!Object.keys(S.settings).length){/* réglages par défaut en mémoire, écrits à la première sauvegarde */}
     ['prospects','calls','clients','content'].forEach(c=>DB.watch(c,refresh));DB.watch('settings',pl=>{const id=pl&&((pl.new&&pl.new.id)||(pl.old&&pl.old.id));if(id&&String(id).indexOf('active_')===0)return;refresh()});
   }catch(e){S.err=String(e.message||e);S.loaded=true}
-  S.chal=true;
+  try{S.chal=localStorage.getItem('aos_chal')!==today()}catch(e){S.chal=true}
   try{const x=localStorage.getItem('aos-leads');if(x)S.leads=JSON.parse(x)}catch(e){}
   render();
   purgeAudios().catch(()=>{});
