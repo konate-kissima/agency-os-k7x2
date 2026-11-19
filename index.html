@@ -916,7 +916,7 @@ function appelsHTML(){
    ${resUI}
    ${!showRes&&callsOf(cur.id).some(c=>(c.channel||'appel')==='appel'&&c.result!=='nr')?`<div class="row sm" style="margin:6px 0"><button class="btn" data-act="mailopen" data-id="${esc(cur.id)}" title="Rédige un mail à partir de la conversation, même si l'appel est terminé">✉️ Mail de suivi</button><span class="muted sm">${cur.mailSent?'déjà envoyé le '+esc(fdate(cur.mailSent)):'à envoyer après l\'appel'}</span></div>`:''}
    ${rdvLine(cur)}${lastH?`<div class="lastcall"><b>Dernier appel</b> · ${fdate(lastH.t)} · ${esc(ALL_RES_L[lastH.result]||lastH.result)}${lastH.note?'<div class="muted">'+esc(lastH.note)+'</div>':''}</div>`:''}
-   <details class="sm chist"><summary><b>Historique</b> <span class="muted">· notes, enregistrement</span></summary>
+   <details class="sm chist"${(callsOf(cur.id).length||(cur.log||[]).length||cur.notes)&&histPref()?' open':''}><summary><b>Historique</b> <span class="muted">· notes, enregistrement</span></summary>
     <div style="margin:6px 0">${timelineHTML(cur,12)}</div>
     ${fathomBlock(cur)}
     ${cur.notes?`<details class="sm" style="margin-top:6px"><summary class="muted">Texte brut des notes (copie de ce qui est ci-dessus)</summary><div class="sm muted" style="white-space:pre-wrap">${esc(cur.notes)}</div></details>`:''}
@@ -1469,6 +1469,9 @@ function workEnd(){const wasOn=WK.on;WK.on=false;workSave();actSave(true);const 
 function workWidget(){const sec=S.act[today()]||0;
   if(WK.on)return `<span class="chip" id="worktimer" title="Temps de travail aujourd'hui" style="background:#EAF3DE;color:#27500A;border-color:#97C459;font-weight:700">● ${workLabel()}</span><button type="button" class="btn sm" data-act="work-pause" title="Mets en pause : le temps ne compte plus">⏸ Pause</button><button type="button" class="btn sm" data-act="work-end" title="Arrête le chrono et affiche le bilan de la journée">⏹ Fin de journée</button>`;
   return `<button type="button" class="btn sm primary" data-act="work-start" title="Lance le chrono de travail">▶ Démarrer</button>${sec>=60?`<span class="chip" id="worktimer" title="Temps de travail aujourd'hui (en pause)">⏸ ${workLabel()}</span>`:''}`}
+/* historique de la fiche d'appel : ouvert d'office s'il y en a un ; si tu le replies, il reste replié (mémorisé) jusqu'à ce que tu le rouvres */
+const histPref=()=>{try{return localStorage.getItem('aos_hist')!=='0'}catch(e){return true}};
+document.addEventListener('toggle',e=>{const t=e.target;if(t&&t.classList&&t.classList.contains('chist')){try{localStorage.setItem('aos_hist',t.open?'1':'0')}catch(_){}}},true);
 let curDay=today();
 function actTick(){const n=Date.now(),dt=Math.min(10000,n-lastTick);lastTick=n;
   /* minuit passé : nouvelle journée, compteur à 0 (le temps d'hier reste dans le débrief d'hier), l'écran se remet à jour tout seul */
