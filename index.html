@@ -19,7 +19,7 @@ nav.tabs button{border:0;background:transparent;color:var(--muted);padding:8px 1
 nav.tabs button:hover{color:var(--ink);background:var(--surface2)}
 nav.tabs button[aria-selected=true]{background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--accent-ink);box-shadow:var(--glow)}
 main{padding:18px max(16px,env(safe-area-inset-left)) 40px max(16px,env(safe-area-inset-right));max-width:1180px;margin:0 auto}
-.chal{position:fixed;inset:0;z-index:60;background:rgba(5,9,6,.88);display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));overflow:auto}.defig{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0}.defic{border:1px solid var(--line);border-radius:12px;padding:8px 12px}.defic.star{border-color:var(--accent2);background:color-mix(in srgb,var(--accent2) 10%,transparent)}.defic .big{font-size:2em;display:block;line-height:1.1;margin:2px 0 6px}.defil{display:grid;gap:4px}@media(max-width:640px){.defig{grid-template-columns:1fr}}
+.chal{position:fixed;inset:0;z-index:60;background:rgba(5,9,6,.88);display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));overflow:auto}.defig{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0}.defic{border:1px solid var(--line);border-radius:12px;padding:8px 12px}.defic.star{border-color:var(--accent2);background:color-mix(in srgb,var(--accent2) 10%,transparent)}.defic .big{font-size:2em;display:block;line-height:1.1;margin:2px 0 6px}.defil{display:grid;gap:4px}.coach{border-left:4px solid var(--accent2);background:color-mix(in srgb,var(--accent2) 10%,transparent);border-radius:8px;padding:8px 12px;font-weight:600;display:grid;gap:4px;margin-bottom:8px}@media(max-width:640px){.defig{grid-template-columns:1fr}}
 .chalbox{max-width:520px;width:100%;margin:0;border:2px solid var(--accent2)}
 
 .numrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.numrow .callnum{background:none;border:0;padding:0;cursor:pointer;text-align:left}.numrow .callnum:active{transform:scale(.98)}.numact{display:flex;gap:6px}
@@ -1742,6 +1742,15 @@ function dayRate(d){const cs=S.calls.filter(c=>isCall(c)&&dayOf(c.t)===d);const 
 function rateInfo(){const t=today(),cur=dayRate(t);let best={rate:0,d:''};
   new Set(S.calls.filter(isCall).map(c=>dayOf(c.t))).forEach(d=>{if(d===t)return;const r=dayRate(d);if(r.real>=5&&r.rate>best.rate)best={rate:r.rate,d}});
   return {cur,best}}
+/* ===== rythme par heure : ta meilleure heure (jour + heure) = la référence ; efficacité = appels par heure travaillée ===== */
+function hourBuckets(){const B={};S.calls.filter(isCall).forEach(c=>{const x=new Date(c.t),k=dayOf(c.t)+'|'+x.getHours();const o=B[k]=B[k]||{n:0,j:0,r:0};o.n++;if(JOINT.includes(c.result))o.j++;if(isRdvCnt(c.result))o.r++});return B}
+function hourInfo(f){const B=hourBuckets(),now=new Date(),H=now.getHours(),ck=today()+'|'+H;let best=0,bk='';
+  Object.entries(B).forEach(([k,v])=>{if(k!==ck&&(v[f]||0)>best){best=v[f];bk=k}});
+  const cur=(B[ck]||{})[f]||0,mins=now.getMinutes();
+  return {f,cur,best,bd:bk.split('|')[0]||'',bh:bk?+bk.split('|')[1]:0,H,left:60-mins,proj:mins>=10?Math.round(cur*60/mins):null}}
+function effInfo(){const t=today(),perH=(d)=>{const sec=S.act[d]||0;if(sec<1800)return 0;return S.calls.filter(c=>isCall(c)&&dayOf(c.t)===d).length/(sec/3600)};
+  const cur=(S.act[t]||0)>=900?S.calls.filter(c=>isCall(c)&&dayOf(c.t)===t).length/((S.act[t]||1)/3600):0;
+  let best=0,bd='';Object.keys(S.act).forEach(d=>{if(d===t)return;const v=perH(d);if(v>best){best=v;bd=d}});return {cur,best,bd}}
 const PACE_F={n:['appels',c=>isCall(c)],j:['vraies conversations',c=>isCall(c)&&JOINT.includes(c.result)],r:['RDV placés',c=>isCall(c)&&isRdvCnt(c.result)]};
 function paceInfo(f='n'){const t=today(),A=periodAgg();let bk='',bn=0;
   Object.entries(A.D).forEach(([k,v])=>{if(k!==t&&(v[f]||0)>bn){bn=v[f];bk=k}});
@@ -1761,9 +1770,33 @@ const zdot=z=>z?`<i class="zdot" style="background:${ZONE_C[z]}"></i>`:'';
 function defiLines(){
   const L=[],ri=rateInfo(),sk=rdvStreak();
   ['r','j','n'].forEach(f=>{const pc=paceInfo(f);if(pc)L.push(`⏱ <b>${esc(pc.l)}</b> à ${pc.h} : <b>${pc.cur}</b> · ton meilleur jour (${esc(fdate(pc.bk))}) à la même heure : ${pc.at} · ${pc.diff>0?'<b>tu es devant</b> (+'+pc.diff+')':pc.diff===0?'<b>à égalité</b>, un de plus et tu passes devant':'il t\'en manque <b>'+(-pc.diff)+'</b> pour le rattraper'}`)});
+  const HL={n:'appels',j:'vraies conversations',r:'RDV'};
+  ['n','r'].forEach(f=>{const hi=hourInfo(f);if(hi.best)L.push(`🕐 <b>Cette heure</b> (${hi.H}h–${hi.H+1}h) · ${HL[f]} : <b>${hi.cur}</b>${hi.proj!==null?' (à ce rythme : '+hi.proj+')':''} · ta meilleure heure : <b>${hi.best}</b> (${esc(fdate(hi.bd))}, ${hi.bh}h) · ${hi.cur>hi.best?'<b>🏆 meilleure heure battue</b>':'encore <b>'+(hi.best-hi.cur+1)+'</b> pour la battre, il reste '+hi.left+' min'}`)});
+  const ef=effInfo();if(ef.cur)L.push(`⚙️ Efficacité : <b>${ef.cur.toFixed(1).replace('.',',')}</b> appels par heure travaillée${ef.best?' · ton meilleur jour : <b>'+ef.best.toFixed(1).replace('.',',')+'</b> ('+esc(fdate(ef.bd))+')'+(ef.cur>=ef.best?' · <b>tu es devant</b>':''):''}`);
   const bt=ri.best.d?` · ton meilleur jour : <b>${pctS(ri.best.rate)}</b> (${esc(fdate(ri.best.d))})`:'';
   L.push(ri.cur.real?`🎯 Taux de RDV : <b>${pctS(ri.cur.rate)}</b> (${ri.cur.rdv} RDV sur ${ri.cur.real} vraies conversations)${bt}${ri.best.d?(ri.cur.rate>=ri.best.rate?' · <b>au niveau de ton meilleur</b>':' · il te manque '+Math.max(1,Math.round(100*(ri.best.rate-ri.cur.rate)))+' points'):''}`:`🎯 Taux de RDV : pas encore de vraie conversation aujourd'hui${bt}`);
   L.push(sk.n?`🔥 Série : <b>${sk.n} jour${sk.n>1?'s':''}</b> d'affilée avec au moins ${MIN_RDV} RDV${sk.todayIn?'':' · encore '+(MIN_RDV-sk.todayN)+' aujourd\'hui pour la prolonger'}`:`🔥 Série à zéro : ${MIN_RDV} RDV aujourd'hui la relancent${sk.todayN?' ('+sk.todayN+' déjà)':''}`);
+  return L}
+/* ===== le coach : te dit où tu en es face au record, et combien de temps il reste ===== */
+const WORK_END_H=20;
+function hoursLeft(){const n=new Date(),e=new Date(n);e.setHours(WORK_END_H,0,0,0);return Math.max(0,(e-n)/36e5)}
+const fmtLeft=h=>{const m=Math.round(h*60);return m>=60?Math.floor(m/60)+'h'+String(m%60).padStart(2,'0'):m+' min'};
+function callsPerRdv(){const LC=S.calls.filter(isCall),r=LC.filter(c=>isRdvCnt(c.result)).length;return r>=5?Math.round(LC.length/r):0}
+function coachLines(){
+  const x=ladder('r'),sk=rdvStreak(),h=hoursLeft(),cp=callsPerRdv(),L=[],seed=Math.floor(Date.now()/36e5),left=fmtLeft(h);
+  if(!x.rec){L.push(h>0?`🎯 Aucun RDV de référence pour l'instant : pose le premier. Il reste ${left}.`:`Journée finie. Demain, tu poses ta première référence.`);return L}
+  const toEq=x.rec-x.cur,toBeat=toEq+1;
+  if(h<=0){L.push(x.top?`🏆 Journée finie : record battu avec ${x.cur} RDV. Remets ça demain.`:`Journée finie : ${x.cur} RDV sur ${x.rec}. Demain, on le bat.`);return L}
+  if(x.top)L.push(`🏆 Record battu : ${x.cur} RDV ! Chaque RDV de plus est un nouveau record. Il reste ${left}, pousse.`);
+  else if(toEq===0)L.push(`🔥 Record égalé (${x.rec} RDV) ! Plus qu'<b>1</b> pour le battre. Il reste ${left}.`);
+  else if(toEq===1)L.push(seed%2?`⚡ T'y es presque : <b>1</b> RDV pour égaler ton record, <b>2</b> pour le battre. Il reste ${left}.`:`⚡ Plus qu'<b>1</b> RDV pour égaler ton record (${x.rec}). Il reste ${left}, c'est maintenant.`);
+  else if(toEq===2)L.push(`💪 Plus que <b>2</b> RDV pour égaler ton record (${x.rec}). Il reste ${left} : c'est largement faisable.`);
+  else L.push(`🎯 Il te manque <b>${toBeat}</b> RDV pour battre ton record (${x.rec}). Il reste ${left}${cp?` : à ton rythme habituel (1 RDV pour ~${cp} appels), ça fait environ ${toBeat*cp} appels, soit ~${Math.ceil(toBeat*cp/h)} par heure`:''}.`);
+  {const hi=hourInfo('n');if(hi.best&&hi.cur<=hi.best&&h>0)L.push(`🕐 Cette heure : ${hi.cur} appels. Ta meilleure heure : ${hi.best}. Il reste ${hi.left} min : <b>${hi.best-hi.cur+1}</b> appels pour la battre.`)}
+  if(h<2&&!x.top)L.push(`⏰ Moins de 2 h avant la fin de ta journée : chaque appel compte maintenant.`);
+  if(sk.n>0&&!sk.todayIn)L.push(`🔥 Ta série de ${sk.n} jour${sk.n>1?'s':''} tient à <b>${MIN_RDV-sk.todayN}</b> RDV : ne la casse pas.`);
+  const st=todayStats(),sh=convShare(st.real,st.conv);
+  if(sh!==null&&sh<CONV_GREEN&&st.conv>=3)L.push(`💬 Tes vraies conversations : ${pctS(sh)} des décrochés. Pour passer au vert (${pctS(CONV_GREEN)}), garde la discussion ouverte, pose une question de plus avant de conclure.`);
   return L}
 const defiPref=()=>{try{return localStorage.getItem('aos_defi')!=='0'}catch(e){return true}};
 function defiHTML(){
@@ -1771,7 +1804,7 @@ function defiHTML(){
   const cols=[['r','RDV placés','🎯',true],['j','Vraies conversations','💬'],['n','Appels','📞']].map(([f,l,ic,star])=>{const x=ladder(f),top=Math.max(x.rec,x.cur,1);
     const extra=f==='r'?`<div class="sm" style="margin-top:4px">${zdot(rdvZone(x.cur))} ${rdvTierTxt(x.cur)}</div>`:f==='j'?`<div class="sm" style="margin-top:4px">${zdot(convZone(sh))} ${sh===null?'pas encore de décroché':'<b>'+pctS(sh)+'</b> des décrochés · vert à partir de '+pctS(CONV_GREEN)}</div>`:'';
     return `<div class="defic${star?' star':''}"><div class="sm muted">${ic} ${l}${star?' · le plus important':''}</div><b class="big">${x.cur}</b><div class="track"><i style="width:${Math.min(100,Math.round(100*x.cur/top))}%"></i></div><div class="sm">${ladderTxt(x)}</div>${extra}</div>`}).join('');
-  return `<section class="card"><details class="defi"${defiPref()?' open':''}><summary><b>🔥 Mes défis du jour</b> <span class="muted sm">· RDV, conversations, appels</span></summary><div class="defig">${cols}</div><div class="sm defil">${defiLines().map(x=>`<div>${x}</div>`).join('')}</div><p class="muted sm" style="margin:6px 0 0">RDV = visio ou physique. Un RDV téléphonique est un rappel, il ne compte pas. Rouge : aucun · orange : 1 · vert : 2 à 4 · 🔥 5 et plus.</p></details></section>`}
+  return `<section class="card"><div class="coach">${coachLines().map(x=>`<div>${x}</div>`).join('')}</div><details class="defi"${defiPref()?' open':''}><summary><b>🔥 Mes défis du jour</b> <span class="muted sm">· RDV, conversations, appels</span></summary><div class="defig">${cols}</div><div class="sm defil">${defiLines().map(x=>`<div>${x}</div>`).join('')}</div><p class="muted sm" style="margin:6px 0 0">RDV = visio ou physique. Un RDV téléphonique est un rappel, il ne compte pas. Rouge : aucun · orange : 1 · vert : 2 à 4 · 🔥 5 et plus.</p></details></section>`}
 function challengeHTML(){
   const A=periodAgg(),t=today(),y=(A.D[addDays(t,-1)]||{}).n||0;
   const d=recInfo(A,'D','n'),r=recInfo(A,'D','r'),lr=ladder('r');
@@ -1784,6 +1817,7 @@ function challengeHTML(){
   const others=['j','dm','v','ct'].map(f=>{const x=recInfo(A,'D',f);return x.best||x.cur?`<div class="row" style="justify-content:space-between"><span>${REC_M.find(q=>q[0]===f)[1]}</span><span><b>${x.cur}</b> / ${Math.max(x.best,x.cur)} · ${x.isRec?'🏆':sinceTxt(x.since)}</span></div>`:''}).join('');
   const goal=Math.max(r.best,r.cur)+1;
   return `<div class="chal" role="dialog" aria-modal="true"><div class="card chalbox"><h2>🔥 Ton record à battre</h2>${head}${first?'':`<p style="font-weight:600">${esc(EGO[seed%EGO.length](Math.max(d.best,d.cur),y))}</p>`}
+  <div class="coach" style="margin:8px 0">${coachLines().map(x=>`<div>${x}</div>`).join('')}</div>
   <div class="sm defil" style="margin:8px 0">${defiLines().map(x=>`<div>${x}</div>`).join('')}</div>
   <div class="sm" style="display:grid;gap:6px;margin:12px 0">${line('RDV · semaine',w)}${line('RDV · mois',m)}${line('Appels · semaine',wn)}${line('Appels · mois',mn)}${others}</div>
   <button class="btn primary" style="width:100%;font-size:1.15em;padding:14px" data-act="chal-ok">${first?'C\'est parti':'Je relève le défi : '+goal+' RDV'}</button></div></div>`;

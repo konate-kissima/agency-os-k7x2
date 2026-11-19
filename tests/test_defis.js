@@ -12,6 +12,7 @@ for(let i=0;i<7;i++)S.calls.push(mk(3,9+i%5,'ans'));for(let i=0;i<3;i++)S.calls.
 S.calls.push(mk(1,10,'rdvv'),mk(1,10,'rdvv'),mk(1,11,'rdvt'),mk(1,11,'rdvt'),mk(1,14,'ans'),mk(1,15,'no'),mk(1,16,'nr'));
 // aujourd'hui : 1 RDV réel + 1 tél + 2 appels
 S.calls.push(mk(0,0,'rdvv'),mk(0,0,'rdvv'),mk(0,0,'rdvt'),mk(0,0,'ans'),mk(0,0,'nr'));
+{const d=new Date();for(let i=0;i<2;i++)S.calls.push({id:'h'+i,t:d.toISOString(),result:'ans',channel:'appel',prospectId:'hh'+i,prospectName:'H'+i});S.act[today()]=3600;S.act[addDays(today(),-3)]=7200}
 S.prospects=[];render()});
 // popup
 let ch=await pg.locator('.chal').innerText();
@@ -34,6 +35,13 @@ ok(/encore <b>2<\/b> pour battre ton record \(3,/.test(r.txt),'comparaison toujo
 const lines=await pg.evaluate(()=>defiLines().join(' | '));
 ok(/RDV placés/.test(lines)&&/vraies conversations/.test(lines)&&/appels/.test(lines)&&/ton meilleur jour/.test(lines),'rythme de chaque indicateur contre son meilleur jour');
 ok(!/hier \(|ta moyenne/.test(await pg.locator('details.defi').innerText()),'plus de paliers intermédiaires (hier, moyenne)');
+const hr=await pg.evaluate(()=>({n:hourInfo('n'),r:hourInfo('r'),eff:effInfo(),l:defiLines().join(' | ')}));
+ok(hr.n.best>=4&&hr.r.best===3,'meilleure heure : appels et RDV (3 RDV en une heure le jour du record) '+JSON.stringify({n:hr.n.best,r:hr.r.best}));
+ok(hr.n.cur>=2,'heure en cours comptée '+hr.n.cur);
+ok(/Cette heure/.test(hr.l)&&/meilleure heure/.test(hr.l),'ligne « Cette heure » avec la meilleure heure');
+ok(hr.eff.cur>0&&hr.eff.best>0,'efficacité : appels par heure travaillée, aujourd\'hui et meilleur jour '+JSON.stringify(hr.eff));
+const co=await pg.evaluate(()=>coachLines().join(' | '));
+ok(/Il reste/.test(co)&&/presque|Plus qu|Plus que|manque/.test(co),'coach : message de motivation avec le temps restant : '+co.replace(/<[^>]+>/g,''));
 // zones de couleur : RDV 0 rouge, 1 orange, 2 vert, 5+ top ; conversations vert dès 60 % des décrochés
 const z=await pg.evaluate(()=>({a:rdvZone(0),b:rdvZone(1),c:rdvZone(2),d:rdvZone(4),e:convZone(.7),f:convZone(.5),g:convZone(.2),h:convZone(null),t5:/top/.test(rdvTierTxt(5)),t2:/objectif tenu/.test(rdvTierTxt(2))}));
 ok(z.a==='r'&&z.b==='o'&&z.c==='g'&&z.d==='g','RDV : 0 rouge, 1 orange, 2 et 4 vert '+JSON.stringify(z));
