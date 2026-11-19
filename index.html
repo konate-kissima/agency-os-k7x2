@@ -1469,7 +1469,11 @@ function workEnd(){const wasOn=WK.on;WK.on=false;workSave();actSave(true);const 
 function workWidget(){const sec=S.act[today()]||0;
   if(WK.on)return `<span class="chip" id="worktimer" title="Temps de travail aujourd'hui" style="background:#EAF3DE;color:#27500A;border-color:#97C459;font-weight:700">● ${workLabel()}</span><button type="button" class="btn sm" data-act="work-pause" title="Mets en pause : le temps ne compte plus">⏸ Pause</button><button type="button" class="btn sm" data-act="work-end" title="Arrête le chrono et affiche le bilan de la journée">⏹ Fin de journée</button>`;
   return `<button type="button" class="btn sm primary" data-act="work-start" title="Lance le chrono de travail">▶ Démarrer</button>${sec>=60?`<span class="chip" id="worktimer" title="Temps de travail aujourd'hui (en pause)">⏸ ${workLabel()}</span>`:''}`}
+let curDay=today();
 function actTick(){const n=Date.now(),dt=Math.min(10000,n-lastTick);lastTick=n;
+  /* minuit passé : nouvelle journée, compteur à 0 (le temps d'hier reste dans le débrief d'hier), l'écran se remet à jour tout seul */
+  if(today()!==curDay){const ae=document.activeElement,typing=ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)&&ae.type!=='button';
+    if(S.loaded&&!typing){actSave(true);curDay=today();workSave();render()}else if(!S.loaded)curDay=today()}
   const on=WK.on&&((document.visibilityState==='visible'&&n-lastAct<IDLE_MS)||(S.rec&&S.rec.on));
   const wt=document.getElementById('worktimer');if(wt&&WK.on)wt.textContent='● '+workLabel();
   if(on&&S.loaded){const d=today();S.act[d]=(S.act[d]||0)+dt/1000;actDirty.add(d)}
