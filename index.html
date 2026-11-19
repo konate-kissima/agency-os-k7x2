@@ -1729,29 +1729,25 @@ const EGO=[
   r=>`${r+1}. Pas ${r}. Le record, on le dépasse.`
 ];
 /* ===== défis du jour : paliers, rythme en direct, taux de RDV, série ===== */
-function ladder(f){const A=periodAgg(),t=today(),cur=(A.D[t]||{})[f]||0,y=(A.D[addDays(t,-1)]||{})[f]||0;
-  const days=Object.keys(A.D).filter(k=>k<t&&new Date(k+'T12:00:00').getDay()!==0).sort().slice(-7);
-  const avg=days.length?Math.ceil(days.reduce((q,k)=>q+((A.D[k]||{})[f]||0),0)/days.length):0;
-  const rec=recInfo(A,'D',f).best;
-  const steps=[['hier',y],['moy',avg],['rec',rec]].filter(([,v])=>v>0).sort((a,b)=>a[1]-b[1]);
-  const next=steps.find(([,v])=>v>cur);
-  return {cur,y,avg,rec,next,top:rec>0&&cur>rec}}
+function ladder(f){const A=periodAgg(),t=today(),cur=(A.D[t]||{})[f]||0,ri=recInfo(A,'D',f),rec=ri.best;
+  return {cur,rec,bk:ri.bk,top:rec>0&&cur>rec,eq:rec>0&&cur===rec}}
 function ladderTxt(x){
   if(!x.rec)return 'ta première référence à poser';
-  if(x.top)return '🏆 record battu';
-  if(!x.next)return x.cur===x.rec?'record égalé : encore 1 pour le battre':'';
-  const [k,v]=x.next;
-  return k==='rec'?`encore <b>${v-x.cur+1}</b> pour battre ton record (${v})`:k==='moy'?`encore <b>${v-x.cur}</b> pour atteindre ta moyenne (${v})`:`encore <b>${v-x.cur}</b> pour atteindre hier (${v})`}
+  const d=x.bk?' le '+esc(fdate(x.bk)):'';
+  if(x.top)return `🏆 record battu (ancien : ${x.rec}) · le nouveau record, c'est toi : repousse-le`;
+  if(x.eq)return `record égalé (${x.rec}) · encore <b>1</b> pour le battre`;
+  return `encore <b>${x.rec-x.cur+1}</b> pour battre ton record (${x.rec},${d})`}
 function realConv(cs){return cs.filter(c=>JOINT.includes(c.result)).length}
 function dayRate(d){const cs=S.calls.filter(c=>isCall(c)&&dayOf(c.t)===d);const real=realConv(cs),rdv=cs.filter(c=>isRdvCnt(c.result)).length;return {real,rdv,rate:real?rdv/real:0}}
 function rateInfo(){const t=today(),cur=dayRate(t);let best={rate:0,d:''};
   new Set(S.calls.filter(isCall).map(c=>dayOf(c.t))).forEach(d=>{if(d===t)return;const r=dayRate(d);if(r.real>=5&&r.rate>best.rate)best={rate:r.rate,d}});
   return {cur,best}}
-function paceInfo(){const t=today(),A=periodAgg();let bk='',bn=0;
-  Object.entries(A.D).forEach(([k,v])=>{if(k!==t&&(v.n||0)>bn){bn=v.n;bk=k}});
-  if(!bk)return null;const now=new Date(),m=now.getHours()*60+now.getMinutes();
-  const at=S.calls.filter(c=>{if(!isCall(c)||dayOf(c.t)!==bk)return false;const x=new Date(c.t);return x.getHours()*60+x.getMinutes()<=m}).length;
-  const cur=(A.D[t]||{}).n||0;return {bk,bn,at,cur,diff:cur-at,h:now.getHours()+'h'+String(now.getMinutes()).padStart(2,'0')}}
+const PACE_F={n:['appels',c=>isCall(c)],j:['vraies conversations',c=>isCall(c)&&JOINT.includes(c.result)],r:['RDV placés',c=>isCall(c)&&isRdvCnt(c.result)]};
+function paceInfo(f='n'){const t=today(),A=periodAgg();let bk='',bn=0;
+  Object.entries(A.D).forEach(([k,v])=>{if(k!==t&&(v[f]||0)>bn){bn=v[f];bk=k}});
+  if(!bk)return null;const now=new Date(),m=now.getHours()*60+now.getMinutes(),pred=PACE_F[f][1];
+  const at=S.calls.filter(c=>{if(!pred(c)||dayOf(c.t)!==bk)return false;const x=new Date(c.t);return x.getHours()*60+x.getMinutes()<=m}).length;
+  const cur=(A.D[t]||{})[f]||0;return {f,l:PACE_F[f][0],bk,bn,at,cur,diff:cur-at,h:now.getHours()+'h'+String(now.getMinutes()).padStart(2,'0')}}
 function rdvStreak(){const cnt={};S.calls.filter(c=>isCall(c)&&isRdvCnt(c.result)).forEach(c=>{const k=dayOf(c.t);cnt[k]=(cnt[k]||0)+1});const set={has:k=>(cnt[k]||0)>=MIN_RDV};const t=today();let d=t,n=0,g=0;const todayIn=set.has(t),todayN=cnt[t]||0;if(!todayIn)d=addDays(d,-1);
   while(g++<400){const wd=new Date(d+'T12:00:00').getDay();if(set.has(d))n++;else if(wd!==0)break;d=addDays(d,-1)}return {n,todayIn,todayN}}
 const pctS=x=>Math.round(100*x)+' %';
@@ -1763,9 +1759,10 @@ const convShare=(real,dec)=>dec?real/dec:null;
 const convZone=sh=>sh===null?'':zoneOf(sh,CONV_GREEN,CONV_ORANGE);
 const zdot=z=>z?`<i class="zdot" style="background:${ZONE_C[z]}"></i>`:'';
 function defiLines(){
-  const L=[],pc=paceInfo(),ri=rateInfo(),sk=rdvStreak();
-  if(pc)L.push(`⏱ À ${pc.h} : <b>${pc.cur}</b> appels. Le ${esc(fdate(pc.bk))} à la même heure : ${pc.at} · ${pc.diff>=0?'<b>tu es devant</b> (+'+pc.diff+')':'il t\'en manque <b>'+(-pc.diff)+'</b> pour le rattraper'}`);
-  L.push(ri.cur.real?`🎯 Taux de RDV : <b>${pctS(ri.cur.rate)}</b> (${ri.cur.rdv} RDV sur ${ri.cur.real} vraies conversations)${ri.best.d?' · ton meilleur jour : '+pctS(ri.best.rate)+' ('+esc(fdate(ri.best.d))+')':''}`:`🎯 Taux de RDV : pas encore de vraie conversation aujourd'hui${ri.best.d?' · ton meilleur jour : '+pctS(ri.best.rate)+' ('+esc(fdate(ri.best.d))+')':''}`);
+  const L=[],ri=rateInfo(),sk=rdvStreak();
+  ['r','j','n'].forEach(f=>{const pc=paceInfo(f);if(pc)L.push(`⏱ <b>${esc(pc.l)}</b> à ${pc.h} : <b>${pc.cur}</b> · ton meilleur jour (${esc(fdate(pc.bk))}) à la même heure : ${pc.at} · ${pc.diff>0?'<b>tu es devant</b> (+'+pc.diff+')':pc.diff===0?'<b>à égalité</b>, un de plus et tu passes devant':'il t\'en manque <b>'+(-pc.diff)+'</b> pour le rattraper'}`)});
+  const bt=ri.best.d?` · ton meilleur jour : <b>${pctS(ri.best.rate)}</b> (${esc(fdate(ri.best.d))})`:'';
+  L.push(ri.cur.real?`🎯 Taux de RDV : <b>${pctS(ri.cur.rate)}</b> (${ri.cur.rdv} RDV sur ${ri.cur.real} vraies conversations)${bt}${ri.best.d?(ri.cur.rate>=ri.best.rate?' · <b>au niveau de ton meilleur</b>':' · il te manque '+Math.max(1,Math.round(100*(ri.best.rate-ri.cur.rate)))+' points'):''}`:`🎯 Taux de RDV : pas encore de vraie conversation aujourd'hui${bt}`);
   L.push(sk.n?`🔥 Série : <b>${sk.n} jour${sk.n>1?'s':''}</b> d'affilée avec au moins ${MIN_RDV} RDV${sk.todayIn?'':' · encore '+(MIN_RDV-sk.todayN)+' aujourd\'hui pour la prolonger'}`:`🔥 Série à zéro : ${MIN_RDV} RDV aujourd'hui la relancent${sk.todayN?' ('+sk.todayN+' déjà)':''}`);
   return L}
 const defiPref=()=>{try{return localStorage.getItem('aos_defi')!=='0'}catch(e){return true}};
@@ -1785,7 +1782,7 @@ function challengeHTML(){
   const line=(l,x)=>x.best||x.cur?`<div class="row" style="justify-content:space-between"><span>${l}</span><span><b>${x.cur}</b> / ${Math.max(x.best,x.cur)} · ${x.isRec?'🏆 record battu':sinceTxt(x.since)}</span></div>`:'';
   const w=recInfo(A,'W','r'),m=recInfo(A,'M','r'),wn=recInfo(A,'W','n'),mn=recInfo(A,'M','n');
   const others=['j','dm','v','ct'].map(f=>{const x=recInfo(A,'D',f);return x.best||x.cur?`<div class="row" style="justify-content:space-between"><span>${REC_M.find(q=>q[0]===f)[1]}</span><span><b>${x.cur}</b> / ${Math.max(x.best,x.cur)} · ${x.isRec?'🏆':sinceTxt(x.since)}</span></div>`:''}).join('');
-  const goal=lr.next?(lr.next[0]==='rec'?lr.next[1]+1:lr.next[1]):Math.max(r.best,r.cur)+1;
+  const goal=Math.max(r.best,r.cur)+1;
   return `<div class="chal" role="dialog" aria-modal="true"><div class="card chalbox"><h2>🔥 Ton record à battre</h2>${head}${first?'':`<p style="font-weight:600">${esc(EGO[seed%EGO.length](Math.max(d.best,d.cur),y))}</p>`}
   <div class="sm defil" style="margin:8px 0">${defiLines().map(x=>`<div>${x}</div>`).join('')}</div>
   <div class="sm" style="display:grid;gap:6px;margin:12px 0">${line('RDV · semaine',w)}${line('RDV · mois',m)}${line('Appels · semaine',wn)}${line('Appels · mois',mn)}${others}</div>

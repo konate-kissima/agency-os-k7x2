@@ -25,11 +25,15 @@ await pg.waitForSelector('details.defi');
 const t=await pg.locator('details.defi').innerText();
 ok(/RDV placés/.test(t)&&/Vraies conversations/.test(t)&&/Appels/.test(t),'bandeau : 3 colonnes RDV placés, vraies conversations, appels');
 ok(/Série/.test(t)&&/Taux de RDV/.test(t),'bandeau : série et taux');
-const r=await pg.evaluate(()=>({rdv:ladder('r').cur,rec:ladder('r').rec,y:ladder('r').y,streak:rdvStreak().n,streakToday:rdvStreak().todayIn}));
+const r=await pg.evaluate(()=>({rdv:ladder('r').cur,rec:ladder('r').rec,y:2,streak:rdvStreak().n,streakToday:rdvStreak().todayIn,txt:ladderTxt(ladder('r'))}));
 ok(r.rdv===2&&r.rec===3&&r.y===2,'paliers RDV : aujourd\'hui 2, hier 2, record 3 '+JSON.stringify(r));
 ok(r.streak>=2&&r.streakToday===true,'série : jours d\'affilée avec au moins 2 RDV (aujourd\'hui + hier) '+JSON.stringify(r));
 const pc=await pg.evaluate(()=>paceInfo());
 ok(pc&&pc.bn===10&&pc.at<=10,'rythme : comparé au meilleur jour (10 appels) '+JSON.stringify(pc));
+ok(/encore <b>2<\/b> pour battre ton record \(3,/.test(r.txt),'comparaison toujours au record : '+r.txt);
+const lines=await pg.evaluate(()=>defiLines().join(' | '));
+ok(/RDV placés/.test(lines)&&/vraies conversations/.test(lines)&&/appels/.test(lines)&&/ton meilleur jour/.test(lines),'rythme de chaque indicateur contre son meilleur jour');
+ok(!/hier \(|ta moyenne/.test(await pg.locator('details.defi').innerText()),'plus de paliers intermédiaires (hier, moyenne)');
 // zones de couleur : RDV 0 rouge, 1 orange, 2 vert, 5+ top ; conversations vert dès 60 % des décrochés
 const z=await pg.evaluate(()=>({a:rdvZone(0),b:rdvZone(1),c:rdvZone(2),d:rdvZone(4),e:convZone(.7),f:convZone(.5),g:convZone(.2),h:convZone(null),t5:/top/.test(rdvTierTxt(5)),t2:/objectif tenu/.test(rdvTierTxt(2))}));
 ok(z.a==='r'&&z.b==='o'&&z.c==='g'&&z.d==='g','RDV : 0 rouge, 1 orange, 2 et 4 vert '+JSON.stringify(z));
