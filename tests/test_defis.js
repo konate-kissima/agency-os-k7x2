@@ -42,6 +42,9 @@ ok(/Cette heure/.test(hr.l)&&/meilleure heure/.test(hr.l),'ligne « Cette heure 
 ok(hr.eff.cur>0&&hr.eff.best>0,'efficacité : appels par heure travaillée, aujourd\'hui et meilleur jour '+JSON.stringify(hr.eff));
 const co=await pg.evaluate(()=>coachLines().join(' | '));
 ok(/Il reste/.test(co)&&/presque|Plus qu|Plus que|manque/.test(co),'coach : message de motivation avec le temps restant : '+co.replace(/<[^>]+>/g,''));
+ok(await pg.locator('.dv-row').count()>=5&&await pg.locator('.dv-track .dv-bar').count()>=5,'visuel : barres pour chaque comparaison');
+ok(await pg.locator('.dv-day').count()===7&&await pg.locator('.dv-day.today').count()===1,'visuel : série en 7 pastilles dont aujourd\'hui');
+ok(await pg.locator('.dv-mark').count()>=3,'visuel : repère « ton meilleur » sur les barres');
 // zones de couleur : RDV 0 rouge, 1 orange, 2 vert, 5+ top ; conversations vert dès 60 % des décrochés
 const z=await pg.evaluate(()=>({a:rdvZone(0),b:rdvZone(1),c:rdvZone(2),d:rdvZone(4),e:convZone(.7),f:convZone(.5),g:convZone(.2),h:convZone(null),t5:/top/.test(rdvTierTxt(5)),t2:/objectif tenu/.test(rdvTierTxt(2))}));
 ok(z.a==='r'&&z.b==='o'&&z.c==='g'&&z.d==='g','RDV : 0 rouge, 1 orange, 2 et 4 vert '+JSON.stringify(z));
