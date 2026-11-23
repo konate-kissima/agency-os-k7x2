@@ -2800,6 +2800,7 @@ document.addEventListener('click',async e=>{
   if(a==='gene-close'){geneClose();return}
   if(a==='gene-rec'){geneRec();return}
   if(a==='gene-save'){geneSave();return}
+  if(a==='gene-retry'){geneRetry();return}
   if(a==='work-start'){workSet(true);return}
   if(a==='work-pause'){workSet(false);toast('Pause : le chrono est arrêté.');return}
   if(a==='work-end'){workEnd();return}
@@ -2971,15 +2972,39 @@ function geneHTML(){
 <textarea id="genet" rows="4" placeholder="Qu'est-ce qui te gêne ?">${esc(g.text||'')}</textarea>
 <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button type="button" class="btn${g.rec?' primary':''}" data-act="gene-rec"${g.busy?' disabled':''}>${g.busy?'⏳ Transcription…':g.rec?'⏹ Arrêter':'🎙 Parler'}</button><button type="button" class="btn primary" data-act="gene-save"${g.busy||g.rec?' disabled':''}>Enregistrer</button></div>
 <p class="sm" id="genem" style="margin:6px 0 0">${esc(g.msg||'')}</p>
-<p class="sm muted" style="margin:4px 0 0">Aujourd'hui : ${L.length} enregistrée${L.length>1?'s':''}${n?' · '+n+' à traiter':''}.</p>`}
+<p class="sm muted" style="margin:4px 0 0">Aujourd'hui : ${L.length} enregistrée${L.length>1?'s':''}${n?' · '+n+' à traiter':''}.</p>${geneRecap()}`}
+function geneRecap(){
+  const all=(S.genes||[]).filter(x=>!x.done).sort((a,b)=>String(b.t).localeCompare(String(a.t)));
+  if(!all.length)return '';
+  const pend=all.filter(x=>x.audio&&!String(x.text||'').trim()).length;
+  return `<div style="margin-top:10px;border-top:1px solid var(--border,#8884);padding-top:8px"><b class="sm">À traiter (${all.length})</b>${pend?` <button type="button" class="btn sm" data-act="gene-retry"${S.gene.busy?' disabled':''}>Transcrire ${pend} vocal${pend>1?'aux':''}</button>`:''}${all.slice(0,12).map(x=>`<div class="sm" style="margin:5px 0"><span class="muted">${esc(stamp(x.t))}${x.pname||x.fiche?' · '+esc(x.pname||x.fiche):''}</span><br>${String(x.text||'').trim()?esc(String(x.text).slice(0,220)):(x.audio?'🎙 vocal pas encore transcrit':'—')}</div>`).join('')}${all.length>12?`<div class="sm muted">… et ${all.length-12} autres</div>`:''}</div>`}
+async function geneRetry(){
+  const g=S.gene;if(g.busy)return;
+  const todo=(S.genes||[]).filter(x=>x.audio&&!String(x.text||'').trim());
+  if(!todo.length||!window.__sb||DB.mode!=='cloud')return;
+  g.busy=true;g.msg='';geneRender();let done=0;const cfg=window.AOS_CONFIG||{};
+  for(const x of todo){
+    g.msg='Transcription '+(done+1)+' sur '+todo.length+'…';geneRender();
+    try{
+      const {data:bl,error}=await window.__sb.storage.from('appels').download(x.audio);if(error)throw error;
+      const {data}=await window.__sb.auth.getSession();const tok=data.session&&data.session.access_token;
+      const fd=new FormData();fd.append('file',bl,'gene.webm');
+      const res=await fetch(cfg.url+'/functions/v1/resume-appel',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:cfg.key},body:fd});
+      const j=await res.json().catch(()=>({}));
+      if(res.ok&&j.text&&j.text.trim()){await DB.update('settings',x.id,{text:j.text.trim()});x.text=j.text.trim();done++}
+    }catch(e){g.msg='Échec : '+(e.message||e)}
+  }
+  g.busy=false;g.msg=done+' vocal'+(done>1?'aux transcrits':' transcrit')+' sur '+todo.length+'.';geneRender()}
 function geneRender(){
   let el=document.getElementById('gene');
   if(!S.gene.open){if(el)el.remove();return}
   const ta=document.getElementById('genet');if(ta)S.gene.text=ta.value;
   if(!el){el=document.createElement('div');el.id='gene';el.setAttribute('role','dialog');el.setAttribute('aria-label','Ça me gêne');document.body.appendChild(el)}
+  el.style.maxHeight='78vh';el.style.overflowY='auto';
   el.innerHTML=geneHTML();
   if(!ta){const t=document.getElementById('genet');if(t)t.focus()}}
-function geneOpen(){S.gene.open=true;S.gene.msg='';geneRender()}
+function geneSetText(t){S.gene.text=t;const ta=document.getElementById('genet');if(ta)ta.value=t}
+function geneOpen(){S.gene.open=true;S.gene.msg='';geneRender();if((S.genes||[]).some(x=>x.audio&&!String(x.text||'').trim()))geneRetry()}
 function geneClose(){const g=S.gene;if(g.rec&&g.mr&&g.mr.state!=='inactive'){g.discard=true;g.mr.stop()}g.open=false;geneRender()}
 async function geneRec(){
   const g=S.gene;
@@ -3000,7 +3025,7 @@ async function geneSend(bl){
       const fd=new FormData();fd.append('file',bl,'gene.webm');
       const res=await fetch(cfg.url+'/functions/v1/resume-appel',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:cfg.key},body:fd});
       const j=await res.json().catch(()=>({}));
-      if(res.ok&&j.text&&j.text.trim()){const ta=document.getElementById('genet');const cur=ta?ta.value:g.text;g.text=(cur&&cur.trim()?cur.trim()+'\n':'')+j.text.trim();g.msg='Transcrit : relis, corrige si besoin, puis Enregistrer.'}
+      if(res.ok&&j.text&&j.text.trim()){const ta=document.getElementById('genet');const cur=ta?ta.value:g.text;geneSetText((cur&&cur.trim()?cur.trim()+'\n':'')+j.text.trim());g.msg='Transcrit : relis, corrige si besoin, puis Enregistrer.'}
       else g.msg=(j.message||'Audio trop court ou inaudible')+(g.audio?' (l\'audio est quand même gardé).':'.');
     }else g.msg='Le vocal marche seulement en version en ligne, une fois connecté. Tu peux écrire.';
   }catch(e){g.msg='Échec : '+(e.message||e)}
