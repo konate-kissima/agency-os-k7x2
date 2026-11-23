@@ -538,7 +538,7 @@ async function loadAll(){
   const [p,c,cl,st,ct]=await Promise.all(['prospects','calls','clients','settings','content'].map(x=>DB.list(x)));
   S.content=ct.sort((a,b)=>String(b.d).localeCompare(String(a.d)));S.prospects=p;S.calls=c.sort((a,b)=>String(a.t).localeCompare(String(b.t)));S.clients=cl;
   const m=st.find(x=>x.id==='main');S.settings=m?(({id,...r})=>r)(m):{};
-  st.filter(x=>String(x.id).indexOf('active_')===0).forEach(x=>{const d=String(x.id).slice(7);S.act[d]=Math.max(S.act[d]||0,+x.sec||0)});S.loaded=true;
+  st.filter(x=>String(x.id).indexOf('active_')===0).forEach(x=>{const d=String(x.id).slice(7);S.act[d]=Math.max(S.act[d]||0,+x.sec||0)});S.genes=st.filter(x=>String(x.id).indexOf('gene_')===0);S.loaded=true;
 }
 let rt;function refresh(){if(S.bulk){S.bulkDirty=1;return}clearTimeout(rt);rt=setTimeout(async()=>{try{await loadAll()}catch(e){S.err=String(e.message||e)}render()},150)}
 async function guard(fn){try{await fn();return true}catch(e){toast('Erreur : '+(e.message||e));return false}}
@@ -2550,7 +2550,7 @@ function render(){
   else if(S.err)body=`<div class="banner">Erreur de données : ${esc(S.err)}</div>`;
   else body={plan:planningHTML,auj:aujourdhuiHTML,appels:appelsHTML,outreach:outreachHTML,contenu:contenuHTML,pipeline:pipelineHTML,clients:clientsHTML,stats:statsHTML,scripts:scriptsHTML,donnees:donneesHTML,aide:aideHTML,terrain:terrainHTML}[S.tab]();
   document.querySelectorAll('.chal').forEach(x=>x.remove());
-  app.innerHTML=`<header class="top"><span class="brand"><i class="logo" aria-hidden="true">↗</i><span>AGENCY<b>OS</b></span></span><nav class="tabs" role="tablist">${TABS.map(([k,l])=>`<button role="tab" class="${TAB2.includes(k)?'tab2':''}" aria-selected="${S.tab===k}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</nav><span class="workbox" style="display:inline-flex;gap:6px;align-items:center;flex-wrap:nowrap">${workWidget()}</span>${DB.mode==='cloud'?'<button class="btn sm" data-act="logout">Déconnexion</button>':'<span class="chip">Mode local</span>'}</header><main>${body}</main>`;
+  app.innerHTML=`<header class="top"><span class="brand"><i class="logo" aria-hidden="true">↗</i><span>AGENCY<b>OS</b></span></span><nav class="tabs" role="tablist">${TABS.map(([k,l])=>`<button role="tab" class="${TAB2.includes(k)?'tab2':''}" aria-selected="${S.tab===k}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</nav><button type="button" class="btn sm" id="geneb" data-act="gene-open" title="Note écrite ou vocale : on la règle en fin de journée">🙁 Ça me gêne</button><span class="workbox" style="display:inline-flex;gap:6px;align-items:center;flex-wrap:nowrap">${workWidget()}</span>${DB.mode==='cloud'?'<button class="btn sm" data-act="logout">Déconnexion</button>':'<span class="chip">Mode local</span>'}</header><main>${body}</main>`;
   terrainShow();debAuto();
   if(S.chal&&S.loaded&&!S.err)document.body.insertAdjacentHTML('beforeend',challengeHTML());
   if(S.tab==='scripts'&&S.loaded){const m=$('main');m.insertAdjacentHTML('beforeend','<p><button class="btn sm" data-act="addangle">+ Nouvel angle de script</button></p>')}
@@ -2796,6 +2796,10 @@ document.addEventListener('click',async e=>{
     }catch(e){toast('Échec : '+e.message)}return}
   if(a==='rq-go'){S.rq.step=b.dataset.s||'';rdvqCheck();return}
   if(a==='rq-do'){rqDo(b.dataset.d);return}
+  if(a==='gene-open'){geneOpen();return}
+  if(a==='gene-close'){geneClose();return}
+  if(a==='gene-rec'){geneRec();return}
+  if(a==='gene-save'){geneSave();return}
   if(a==='work-start'){workSet(true);return}
   if(a==='work-pause'){workSet(false);toast('Pause : le chrono est arrêté.');return}
   if(a==='work-end'){workEnd();return}
@@ -2956,6 +2960,58 @@ document.addEventListener('keydown',e=>{
     else if(k==='p')el=document.querySelector('[data-act="callskip"]')}
   if(el){e.preventDefault();el.click()}
 });
+/* ================= « Ça me gêne » : note écrite ou vocale, relue et réglée en fin de journée ================= */
+S.gene={open:false,rec:false,busy:false,mr:null,chunks:[],audio:'',msg:'',text:''};
+S.genes=[];
+const genesToday=()=>(S.genes||[]).filter(g=>dayOf(g.t)===today());
+function geneHTML(){
+  const g=S.gene,L=genesToday(),n=L.filter(x=>!x.done).length;
+  return `<div style="display:flex;justify-content:space-between;align-items:center"><b>🙁 Ça me gêne</b><button type="button" class="btn sm" data-act="gene-close" aria-label="Fermer">✕</button></div>
+<p class="sm muted" style="margin:4px 0">Écris ou parle. C'est rangé avec la page où tu es, et on le règle en fin de journée.</p>
+<textarea id="genet" rows="4" placeholder="Qu'est-ce qui te gêne ?">${esc(g.text||'')}</textarea>
+<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button type="button" class="btn${g.rec?' primary':''}" data-act="gene-rec"${g.busy?' disabled':''}>${g.busy?'⏳ Transcription…':g.rec?'⏹ Arrêter':'🎙 Parler'}</button><button type="button" class="btn primary" data-act="gene-save"${g.busy||g.rec?' disabled':''}>Enregistrer</button></div>
+<p class="sm" id="genem" style="margin:6px 0 0">${esc(g.msg||'')}</p>
+<p class="sm muted" style="margin:4px 0 0">Aujourd'hui : ${L.length} enregistrée${L.length>1?'s':''}${n?' · '+n+' à traiter':''}.</p>`}
+function geneRender(){
+  let el=document.getElementById('gene');
+  if(!S.gene.open){if(el)el.remove();return}
+  const ta=document.getElementById('genet');if(ta)S.gene.text=ta.value;
+  if(!el){el=document.createElement('div');el.id='gene';el.setAttribute('role','dialog');el.setAttribute('aria-label','Ça me gêne');document.body.appendChild(el)}
+  el.innerHTML=geneHTML();
+  if(!ta){const t=document.getElementById('genet');if(t)t.focus()}}
+function geneOpen(){S.gene.open=true;S.gene.msg='';geneRender()}
+function geneClose(){const g=S.gene;if(g.rec&&g.mr&&g.mr.state!=='inactive'){g.discard=true;g.mr.stop()}g.open=false;geneRender()}
+async function geneRec(){
+  const g=S.gene;
+  if(g.rec&&g.mr&&g.mr.state!=='inactive'){g.mr.stop();return}
+  try{
+    const st=await navigator.mediaDevices.getUserMedia({audio:true});
+    const mr=new MediaRecorder(st);g.chunks=[];g.mr=mr;g.discard=false;
+    mr.ondataavailable=e=>{if(e.data.size)g.chunks.push(e.data)};
+    mr.onstop=()=>{st.getTracks().forEach(t=>t.stop());g.rec=false;if(g.discard){g.discard=false;g.chunks=[];geneRender();return}geneSend(new Blob(g.chunks,{type:mr.mimeType||'audio/webm'}))};
+    mr.start(1000);g.rec=true;g.msg='Je t\'écoute… clique sur Arrêter quand tu as fini.';geneRender();
+  }catch(e){g.msg='Micro refusé : autorise-le dans Chrome (cadenas de la barre d\'adresse).';geneRender()}}
+async function geneSend(bl){
+  const g=S.gene;g.busy=true;g.msg='Transcription en cours…';geneRender();
+  try{
+    if(DB.mode==='cloud'&&window.__sb&&S.user){
+      try{const path=await uploadAudio(bl,'gene','gene.webm');if(path)g.audio=path}catch(e){}
+      const cfg=window.AOS_CONFIG||{};const {data}=await window.__sb.auth.getSession();const tok=data.session&&data.session.access_token;
+      const fd=new FormData();fd.append('file',bl,'gene.webm');
+      const res=await fetch(cfg.url+'/functions/v1/resume-appel',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:cfg.key},body:fd});
+      const j=await res.json().catch(()=>({}));
+      if(res.ok&&j.text&&j.text.trim()){const ta=document.getElementById('genet');const cur=ta?ta.value:g.text;g.text=(cur&&cur.trim()?cur.trim()+'\n':'')+j.text.trim();g.msg='Transcrit : relis, corrige si besoin, puis Enregistrer.'}
+      else g.msg=(j.message||'Audio trop court ou inaudible')+(g.audio?' (l\'audio est quand même gardé).':'.');
+    }else g.msg='Le vocal marche seulement en version en ligne, une fois connecté. Tu peux écrire.';
+  }catch(e){g.msg='Échec : '+(e.message||e)}
+  g.busy=false;geneRender()}
+async function geneSave(){
+  const g=S.gene,ta=document.getElementById('genet');g.text=ta?ta.value:g.text;
+  const text=String(g.text||'').trim();
+  if(!text&&!g.audio){toast('Écris ou dis quelque chose avant d\'enregistrer.');return}
+  const p=S.tab==='appels'&&S.call.pid?byId(S.call.pid):null;
+  const id='gene_'+Date.now(),doc={text,t:new Date().toISOString(),tab:S.tab,...(p?{pid:p.id,pname:p.name}:{}),...(g.audio?{audio:g.audio}:{}),done:false};
+  if(await guard(()=>DB.set('settings',id,doc))){(S.genes=S.genes||[]).push({id,...doc});g.text='';g.audio='';g.msg='Enregistré ✔ On le règle en fin de journée.';toast('Gêne enregistrée.');geneRender()}}
 /* ================= fiche de RDV (fenêtre partageable, sans menu) ================= */
 S.rdvOnly=(()=>{const m=String(location.hash||'').match(/^#rdv=(.+)$/);try{return m?decodeURIComponent(m[1]):''}catch(e){return ''}})();
 const RDVO={n:15,jours:90,f1:1500,f2:1500,min:30,prol:30,garantie:'rembourse'};

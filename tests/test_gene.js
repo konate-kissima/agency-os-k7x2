@@ -1,0 +1,24 @@
+const { chromium } = require('playwright');
+const path = require('path'), fs = require('fs');
+(async () => {
+  const b = await chromium.launch(); const pg = await (await b.newContext()).newPage();
+  const errs = []; pg.on('pageerror', e => errs.push(e.message));
+  const tmp = fs.mkdtempSync('/tmp/aos-'); fs.copyFileSync(path.resolve(__dirname, '../index.html'), tmp + '/index.html');
+  fs.writeFileSync(tmp + '/config.js', 'window.AOS_CONFIG={url:"",key:""};');
+  await pg.goto('file://' + tmp + '/index.html'); await pg.waitForSelector('.chal'); await pg.evaluate(() => { S.chal = false; render() });
+  const ok = (c, m) => { if (!c) { console.log('FAIL', m); process.exitCode = 1 } else console.log('ok  ', m) };
+  ok(await pg.locator('#geneb').count() === 1, 'bouton « Ça me gêne » dans l\'en-tête');
+  await pg.click('#geneb');
+  ok(await pg.locator('#gene textarea').count() === 1 && await pg.locator('#gene [data-act="gene-rec"]').count() === 1, 'panneau : zone de texte + bouton micro');
+  await pg.fill('#genet', 'Le bouton Passer est trop petit');
+  await pg.evaluate(() => { S.tab = 'stats'; render() });
+  ok(await pg.inputValue('#genet') === 'Le bouton Passer est trop petit', 'le texte reste quand la page change');
+  await pg.click('[data-act="gene-save"]'); await pg.waitForTimeout(300);
+  const g = await pg.evaluate(async () => { const l = await DB.list('settings'); return l.filter(x => x.id.startsWith('gene_')) });
+  ok(g.length === 1 && g[0].text === 'Le bouton Passer est trop petit' && g[0].tab === 'stats' && g[0].done === false, 'note enregistrée avec la page et l\'état à traiter ' + JSON.stringify(g));
+  ok((await pg.innerText('#gene')).includes('1 enregistrée'), 'compteur du jour affiché');
+  await pg.click('[data-act="gene-close"]');
+  ok(await pg.locator('#gene').count() === 0, 'panneau fermé');
+  ok(errs.length === 0, 'aucune erreur JS ' + errs.join('|'));
+  await b.close();
+})();

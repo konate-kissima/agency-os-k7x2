@@ -27,7 +27,7 @@ const path = require('path'), fs = require('fs');
   await pg.keyboard.press('a'); await pg.waitForTimeout(150);
   await pg.keyboard.press('6'); await pg.keyboard.press('1'); await pg.waitForTimeout(700);
   ok(await pg.evaluate(() => byId('f3').stage === 'perdu'), 'touches 6 puis 1 : pas intéressé + objection');
-  ok(await pg.locator('#geneb').count() === 0, 'bouton « Ça me gêne » retiré de l\'en-tête');
+  ok(await pg.locator('#geneb').count() === 1, 'bouton « Ça me gêne » présent dans l\'en-tête');
   await pg.evaluate(() => { S.tab = 'stats'; render() }); ok((await pg.innerText('body')).includes('Temps mort'), 'stats : temps mort');
   ok(errs.length === 0, 'aucune erreur JS ' + errs.join('|'));
   await b.close();
