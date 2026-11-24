@@ -32,6 +32,11 @@ const path = require('path'), fs = require('fs');
   });
   const t = await pg.innerText('#presence');
   ok(t.includes('75 %') && t.includes('3 sur 4') && /Mail \+ appel joint\s*2\s*2\s*100 %/.test(t), 'stats : taux de présence global et par rappels faits ' + t.replace(/\s+/g, ' ').slice(0, 220));
+  // volet latéral : fermé par défaut, s'ouvre et se réduit
+  await pg.evaluate(() => { const d = new Date(Date.now() + 5 * 36e5), z = n => String(n).padStart(2, '0'); S.prospects = [{ id: 'v', name: 'V', stage: 'rdv', phone: '06 12 34 56 78', rdvType: 'visio', rdvAt: d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + 'T' + z(d.getHours()) + ':' + z(d.getMinutes()) }]; S.presOpen = false; S.tab = 'appels'; render() });
+  const cls = async () => pg.evaluate(() => document.querySelector('#presd') && document.querySelector('#presd').className);
+  const showCallsNow = await pg.evaluate(() => showCallDue().length);
+  if (showCallsNow) { ok((await cls()) === '', 'volet fermé par défaut'); await pg.click('#presd-tab'); ok((await cls()) === 'on', 'volet ouvert au clic'); await pg.click('#presd [data-act=pres-toggle]'); ok((await cls()) === '', 'volet réduit'); } else console.log('skip volet (hors fenêtre horaire)');
   ok(errs.length === 0, 'aucune erreur JS ' + errs.join('|'));
   await b.close();
 })();

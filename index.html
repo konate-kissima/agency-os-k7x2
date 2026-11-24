@@ -710,6 +710,12 @@ function presenceHTML(){
   const row=([l,L])=>{const t=L.filter(e=>e.show==='tenu').length;return `<tr><td>${l}</td><td class="r">${L.length}</td><td class="r">${t}</td><td class="r"><b>${pc(t,L.length)}</b>${L.length&&L.length<10?` <span class="muted sm">(${L.length} RDV : trop peu pour conclure)</span>`:''}</td></tr>`};
   const up=S.prospects.filter(p=>p.stage==='rdv'&&p.rdvAt&&(p.rdvType||'visio')!=='tel'&&new Date(p.rdvAt)>new Date()).length;
   return `<section class="card" id="presence"><h3>🎯 Taux de présence aux RDV</h3><p class="sm"><b style="font-size:22px">${pc(tn,tot)}</b> ${tot?`des RDV ont eu lieu (${tn} sur ${tot})`:'· aucun RDV terminé pour l\'instant'}${up?` · ${up} à venir`:''}</p><div class="scroll-x"><table class="t"><thead><tr><th>Rappels faits</th><th class="r">RDV</th><th class="r">Présents</th><th class="r">Présence</th></tr></thead><tbody>${G.map(row).join('')}</tbody></table></div><p class="muted sm">Ce chiffre dit si tes rappels (mail + appel) servent à quelque chose. Les mails et appels sont comptés à partir de maintenant.</p></section>`}
+// Volet latéral (glisse depuis la droite) : appels de présence + rappels par mail. Fermé par défaut, réductible.
+function presDrawer(){
+  const body=showCallCard()+remindCard(),n=showCallDue().length+(S.remind&&byId(S.remind.id)?1:0);
+  if(!n)return '';
+  const open=!!S.presOpen;
+  return `<style>#presd{position:fixed;top:0;right:0;height:100vh;width:min(420px,92vw);background:var(--surface,#fff);box-shadow:-8px 0 30px rgba(0,0,0,.18);z-index:900;transform:translateX(100%);transition:transform .28s ease;overflow-y:auto;padding:14px}#presd.on{transform:none}#presd-tab{position:fixed;top:42%;right:0;z-index:899;border:0;border-radius:10px 0 0 10px;background:#b8892b;color:#fff;font-weight:700;padding:12px 10px;cursor:pointer;box-shadow:-3px 3px 12px rgba(0,0,0,.2);writing-mode:vertical-rl}#presd-tab.hid{display:none}</style><button type="button" id="presd-tab" class="${open?'hid':''}" data-act="pres-toggle">📞 Rappels à faire (${n})</button><aside id="presd" class="${open?'on':''}"><div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px"><b>📞 Rappels de présence (${n})</b><button type="button" class="btn sm" data-act="pres-toggle">Réduire ✕</button></div>${body}</aside>`}
 function remindCard(){
   const r=S.remind,p=r?byId(r.id):null;if(!p||!p.rdvAt)return '';
   const msg=rdvMsg(p,r.k);const lab=(REM_K[r.k]||REM_K.r2).L;
@@ -916,7 +922,7 @@ function appelsHTML(){
   const MOBO=[['all','Toutes (mobiles d\'abord)'],['mobile','Mobiles (06/07)'],['fixe','Fixes']];
   const filt=`<select data-act="mobsel" aria-label="Type de ligne" class="sm">${MOBO.map(([v,l])=>`<option value="${v}"${S.call.mob===v?' selected':''}>${l}</option>`).join('')}</select>`;
   const bar=defiHTML()+callSearchHTML(kp+filt);
-  const above=rdvCard()+showCallCard()+wrapAlerts(dueBanner(1)+staleRdvBanner()+mailCard()+mailWaitCard()+remindCard()+absCard()+nrCard())+(S.lastRes?`<div class="lastres">Dernier appel : ${S.lastRes}</div>`:'');
+  const above=presDrawer()+rdvCard()+wrapAlerts(dueBanner(1)+staleRdvBanner()+mailCard()+mailWaitCard()+absCard()+nrCard())+(S.lastRes?`<div class="lastres">Dernier appel : ${S.lastRes}</div>`:'');
   if(!cur)return above+bar+trayPanels()+rapPanelHTML()+`<div class="card"><b>Plus personne à appeler pour l'instant.</b><div class="muted sm">Importe une liste (onglet Données) ou attends les rappels programmés.</div></div>`;
   const hist=callsOf(cur.id).slice(-4).reverse();
   const mob=isMobile(cur.phone);
@@ -2857,6 +2863,7 @@ document.addEventListener('click',async e=>{
   if(a==='playlocal'){const base=b.dataset.f;try{const dir=await recDirGet(true);if(!dir)throw 0;let f=null;for(const e of ['mp3','webm']){try{f=await (await dir.getFileHandle(base+'.'+e)).getFile();break}catch(_){}}if(!f)throw 0;b.outerHTML='<audio controls autoplay src="'+URL.createObjectURL(f)+'" style="vertical-align:middle;max-width:100%"></audio>'}catch(e){toast('Fichier introuvable dans le dossier choisi : « '+base+' ». Il est sur un autre ordinateur, déplacé, ou le dossier n\'est pas autorisé.')}return}
   if(a==='rec-keep'){recAskHide();clearTimeout(S.rec.askT);clearTimeout(S.rec.timer);S.rec.timer=setTimeout(recAsk,30*60000);return}
   if(a==='rec-end'){recAskHide();clearTimeout(S.rec.askT);if(S.rec.mr&&S.rec.mr.state!=='inactive')S.rec.mr.stop();return}
+  if(a==='pres-toggle'){S.presOpen=!S.presOpen;const d=$('#presd'),t=$('#presd-tab');if(d)d.classList.toggle('on',S.presOpen);if(t)t.classList.toggle('hid',S.presOpen);return}
   if(a==='callnext'){callNext();return}
   if(a==='showcall'){const p=byId(b.dataset.id),r=b.dataset.r;if(p){const patch={showCallFor:p.rdvAt,showCall:{t:new Date().toISOString(),res:r}};Object.assign(p,patch);DB.update('prospects',p.id,patch).catch(()=>{});logEv(p,'msg','Appel de présence : '+(r==='ok'?'joint, il confirme':r==='nr'?'pas joint (message laissé)':'ignoré'))}render();return}
   if(a==='rec-stop'){if(S.rec.mr&&S.rec.mr.state!=='inactive')S.rec.mr.stop();return}
