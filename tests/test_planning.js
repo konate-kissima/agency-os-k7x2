@@ -23,7 +23,7 @@ const path = require('path'), fs = require('fs');
   await pg.click('[data-act="plan-nav"][data-n="0"]');
   ok(await pg.$('.pg .pg-ev[data-id="zz1|rdv"]') !== null && await pg.$('.pg-now') !== null, 'grille horaire : bloc RDV et trait de l\'heure');
   await pg.click('[data-act="plan-ev"][data-id="zz1|rdv"]'); ok((await pg.innerText('body')).includes('Lien de visio'), 'clic sur le bloc : détail');
-  await pg.click('[data-act="rem-open"][data-id="zz1"]'); ok((await pg.innerText('body')).includes('rappel 2 h avant'), 'clic : message de rappel ouvert');
+  await pg.click('[data-act="rem-open"][data-id="zz1"]'); ok(/rappel (1|3) h avant|rappel de la veille/.test(await pg.innerText('body')), 'clic : message de rappel ouvert');
   ok(errs.length === 0, 'aucune erreur JS ' + errs.join('|'));
   await b.close();
 })();
