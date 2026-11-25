@@ -614,11 +614,18 @@ function rdvMsg(p,kind){
   return `${hi} Petit rappel : notre visio ${jour} à ${h} : ${lien}. ${fin}`}
 function absWhen(p){const d=new Date(p.rdvAt);if(isNaN(d))return 'récemment';const t=today(),ds=String(p.rdvAt).slice(0,10),h=pad(d.getHours())+'h'+pad(d.getMinutes());
   if(ds===t)return (d.getHours()<12?'ce matin':'cet après-midi')+' à '+h;if(ds===addDays(t,-1))return 'hier à '+h;return rdvWhen(p)}
+// Premier créneau libre d'un jour (aucun RDV ni rappel dans l'heure autour), parmi des heures préférées
+function freeSlot(day,prefs){
+  const busy=[];(S.prospects||[]).forEach(q=>{if(q.optout||q.stage==='perdu'||q.stage==='stop')return;
+    if(q.rdvAt&&String(q.rdvAt).slice(0,10)===day&&q.rdvShow!=='tenu'&&q.rdvShow!=='absent')busy.push(String(q.rdvAt).slice(11,16));
+    if(q.stage==='contacte'&&q.nextDate===day&&q.nextTime)busy.push(q.nextTime)});
+  const m=t=>+t.slice(0,2)*60+ +t.slice(3,5);
+  return prefs.find(t=>busy.every(b=>Math.abs(m(b)-m(t))>=45))||prefs[0]}
 function absMsg(p){
   const e=(p.rdvs||[]).slice(-1)[0]||{},ty=e.type||'visio',n=greetName(p);
   const obj=ty==='physique'?'notre rendez-vous':ty==='tel'?'notre appel':'notre visio';
-  const s1=workday(1),s2=workday(2),dl=x=>new Date(x+'T12:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-  return `Bonjour${n}, ${SIGN}. Nous devions nous retrouver ${absWhen(p)} pour ${obj} et je n'ai pas pu vous joindre. Aucun souci, ça arrive ! Si vous êtes toujours partant, je peux vous proposer ${dl(s1)} à 10h ou ${dl(s2)} à 14h. Dites-moi ce qui vous arrange, ou proposez-moi un autre créneau.`}
+  const s1=workday(1),s2=workday(2),dl=x=>new Date(x+'T12:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}),f1=freeSlot(s1,['10:00','14:00','11:00','16:00']),f2=freeSlot(s2,['14:00','10:00','15:00','11:00']);
+  return `Bonjour${n}, ${SIGN}. Nous devions nous retrouver ${absWhen(p)} pour ${obj} et je n'ai pas pu vous joindre. Aucun souci, ça arrive ! Si vous êtes toujours partant, je peux vous proposer ${dl(s1)} à ${f1.replace(':','h')} ou ${dl(s2)} à ${f2.replace(':','h')}. Dites-moi ce qui vous arrange, ou proposez-moi un autre créneau.`}
 function absOpen(p){S.abs=p.id;S.absTxt='';S.tab='appels';render();window.scrollTo(0,0)}
 function absCard(){
   const p=S.abs?byId(S.abs):null;if(!p)return '';
@@ -754,8 +761,15 @@ function presenceHTML(){
   const up=S.prospects.filter(p=>p.stage==='rdv'&&p.rdvAt&&(p.rdvType||'visio')!=='tel'&&new Date(p.rdvAt)>new Date()).length;
   return `<section class="card" id="presence"><h3>🎯 Taux de présence aux RDV</h3><p class="sm"><b style="font-size:22px">${pc(tn,tot)}</b> ${tot?`des RDV ont eu lieu (${tn} sur ${tot})`:'· aucun RDV terminé pour l\'instant'}${up?` · ${up} à venir`:''}</p><div class="scroll-x"><table class="t"><thead><tr><th>Rappels faits</th><th class="r">RDV</th><th class="r">Présents</th><th class="r">Présence</th></tr></thead><tbody>${G.map(row).join('')}</tbody></table></div><p class="muted sm">Ce chiffre dit si tes rappels (mail + appel) servent à quelque chose. Les mails et appels sont comptés à partir de maintenant.</p></section>`}
 // Volet latéral (glisse depuis la droite) : appels de présence + rappels par mail. Fermé par défaut, réductible.
+
+function presNrMsg(p){const n=greetName(p),ty=p.rdvType||'visio',obj=ty==='physique'?'notre rendez-vous':ty==='tel'?'notre appel':'notre visio';
+  return `Bonjour${n}, ${SIGN}. J'ai essayé de vous joindre pour confirmer ${obj} ${rdvWhen(p)}. Je maintiens ce créneau : répondez « OK » pour confirmer, ou dites-moi si un autre horaire vous arrange.`}
+function presNrCard(){
+  const p=S.presNr?byId(S.presNr):null;if(!p)return '';
+  const msg=S.presNrTxt||presNrMsg(p);
+  return `<div class="card" style="border:2px solid var(--ok,#2a7)"><b>Pas joint : ${esc(p.name)}</b> <span class="muted sm">RDV ${rdvTimeBtn(p)}</span><div class="muted sm" style="margin:4px 0">Envoie-lui ce message pour qu'il ait une alerte. Si le créneau ne tient plus, clique sur l'heure pour la changer.</div><textarea id="presnrbox" rows="5" style="width:100%;margin:6px 0">${esc(msg)}</textarea><div class="row" id="presnrbtns" style="flex-wrap:wrap">${msgButtons(p,msg,'data-act="presnr-done"')}<button class="btn sm" data-act="presnr-done">OK, fait / ignorer</button></div></div>`}
 function presDrawer(){
-  const body=showCallCard()+remindCard(),n=showCallDue().length+(S.remind&&byId(S.remind.id)?1:0);
+  const body=showCallCard()+presNrCard()+remindCard(),n=showCallDue().length+(S.remind&&byId(S.remind.id)?1:0)+(S.presNr&&byId(S.presNr)?1:0);
   if(!n)return '';
   const open=!!S.presOpen;
   return `<style>#presd{position:fixed;top:0;right:0;height:100vh;width:min(420px,92vw);background:var(--surface,#fff);box-shadow:-8px 0 30px rgba(0,0,0,.18);z-index:900;transform:translateX(100%);transition:transform .28s ease;overflow-y:auto;padding:14px}#presd.on{transform:none}#presd-tab{position:fixed;top:42%;right:0;z-index:899;border:0;border-radius:10px 0 0 10px;background:#b8892b;color:#fff;font-weight:700;padding:12px 10px;cursor:pointer;box-shadow:-3px 3px 12px rgba(0,0,0,.2);writing-mode:vertical-rl}#presd-tab.hid{display:none}</style><button type="button" id="presd-tab" class="${open?'hid':''}" data-act="pres-toggle">📞 Rappels à faire (${n})</button><aside id="presd" class="${open?'on':''}"><div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px"><b>📞 Rappels de présence (${n})</b><button type="button" class="btn sm" data-act="pres-toggle">Réduire ✕</button></div>${body}</aside>`}
@@ -2913,7 +2927,8 @@ document.addEventListener('click',async e=>{
   if(a==='rec-end'){recAskHide();clearTimeout(S.rec.askT);if(S.rec.mr&&S.rec.mr.state!=='inactive')S.rec.mr.stop();return}
   if(a==='pres-toggle'){S.presOpen=!S.presOpen;const d=$('#presd'),t=$('#presd-tab');if(d)d.classList.toggle('on',S.presOpen);if(t)t.classList.toggle('hid',S.presOpen);return}
   if(a==='callnext'){callNext();return}
-  if(a==='showcall'){const p=byId(b.dataset.id),r=b.dataset.r;if(p){const patch={showCallFor:p.rdvAt,showCall:{t:new Date().toISOString(),res:r}};Object.assign(p,patch);DB.update('prospects',p.id,patch).catch(()=>{});logEv(p,'msg','Appel de présence : '+(r==='ok'?'joint, il confirme':r==='nr'?'pas joint (message laissé)':'ignoré'))}render();return}
+  if(a==='showcall'){const p=byId(b.dataset.id),r=b.dataset.r;if(p){const patch={showCallFor:p.rdvAt,showCall:{t:new Date().toISOString(),res:r}};Object.assign(p,patch);DB.update('prospects',p.id,patch).catch(()=>{});logEv(p,'msg','Appel de présence : '+(r==='ok'?'joint, il confirme':r==='nr'?'pas joint (message laissé)':'ignoré'));if(r==='nr'){S.presNr=p.id;S.presNrTxt='';S.presOpen=true}}render();return}
+  if(a==='presnr-done'){const p=S.presNr&&byId(S.presNr);if(p)logEv(p,'msg','Message envoyé : pas joint, créneau à confirmer');S.presNr='';S.presNrTxt='';render();return}
   if(a==='rec-stop'){if(S.rec.mr&&S.rec.mr.state!=='inactive')S.rec.mr.stop();return}
   if(a==='numedit'){const p=byId(S.call.pid);S.call.editNum=S.call.editNum===(p&&p.id)?'':(p?p.id:'');S.call.ephone='';S.call.elab='';render();return}
   if(a==='numsave'){const p=byId(S.call.pid),v=(($('#cphone')||{}).value||'').trim();if(!p)return;if(normPhone(v).replace(/\D/g,'').length<9){toast('Numéro trop court.');return}
@@ -3037,6 +3052,7 @@ document.addEventListener('input',e=>{
   if(t.id==='waq'){S.call.waq=t.value;const r=$('#wares');if(r)r.innerHTML=waList(t.value);return}
   const SCK={cl:'place',cv:'link',pt1:'pt1',pt2:'pt2',pt3:'pt3',cd:'date',ct:'time',cr:'rdvAt',co:'obj',ca2:'auto',cphone:'ephone',cphlab:'elab',cphone2:'aphone',cphlab2:'alab'};
   if(SCK[t.id]){S.call[SCK[t.id]]=t.value;return}
+  if(t.id==='presnrbox'){const pp=S.presNr&&byId(S.presNr);if(pp){S.presNrTxt=t.value;const bx=$('#presnrbtns');if(bx)bx.innerHTML=msgButtons(pp,t.value,'data-act="presnr-done"')+'<button class="btn sm" data-act="presnr-done">OK, fait / ignorer</button>'}return}
   if(t.id==='absmsgbox'){const pp=S.abs&&byId(S.abs);if(pp){S.absTxt=t.value;const bx=$('#absbtns');if(bx)bx.innerHTML=msgButtons(pp,t.value,'data-act="absdone"')+'<button class="btn sm" data-act="absdone">OK, fait / ignorer</button>'}return}
   if(t.classList&&t.classList.contains('rdvmsgbox')){const pp=byId(t.dataset.id);if(pp){pp.rdvMsgAI=t.value;pp.rdvMsgFor=pp.rdvAt;pp.rdvMsgAt=new Date().toISOString();const bx=document.getElementById(t===document.getElementById('rdvmsgbox')?'rdvbtns':'rdvbtns-'+pp.id);if(bx)bx.innerHTML=rdvBtns(pp,t.value,pp.id)}return}
   if(t.id==='cn')S.call.note=t.value;else if(t.id==='mt'||t.id==='ms'||t.id==='mb'){S.call.mail=S.call.mail||{};S.call.mail[{mt:'to',ms:'su',mb:'body'}[t.id]]=t.value;S.call.mailEdited=true}else if(t.id==='ca')S.call.audio=t.value;else if(t.id==='on')S.out.note=t.value;else if(t.id==='oh')S.out.handle=t.value;
@@ -3141,7 +3157,7 @@ async function geneSave(){
   if(!text&&!g.audio){toast('Écris ou dis quelque chose avant d\'enregistrer.');return}
   const p=S.tab==='appels'&&S.call.pid?byId(S.call.pid):null;
   const id='gene_'+Date.now(),doc={text,t:new Date().toISOString(),tab:S.tab,...(p?{pid:p.id,pname:p.name}:{}),...(g.audio?{audio:g.audio}:{}),done:false};
-  if(await guard(()=>DB.set('settings',id,doc))){(S.genes=S.genes||[]).push({id,...doc});g.text='';g.audio='';g.msg='Enregistré ✔ On le règle en fin de journée.';toast('Gêne enregistrée.');geneRender()}}
+  if(await guard(()=>DB.set('settings',id,doc))){(S.genes=S.genes||[]).push({id,...doc});g.text='';g.audio='';{const ta=document.getElementById('genet');if(ta)ta.value=''}g.msg='Enregistré ✔ On le règle en fin de journée.';toast('Gêne enregistrée.');geneRender()}}
 /* ================= fiche de RDV (fenêtre partageable, sans menu) ================= */
 S.rdvOnly=(()=>{const m=String(location.hash||'').match(/^#rdv=(.+)$/);try{return m?decodeURIComponent(m[1]):''}catch(e){return ''}})();
 const RDVO={n:15,jours:90,f1:1500,f2:1500,min:30,prol:30,garantie:'rembourse'};
