@@ -623,7 +623,7 @@ function absOpen(p){S.abs=p.id;S.absTxt='';S.tab='appels';render();window.scroll
 function absCard(){
   const p=S.abs?byId(S.abs):null;if(!p)return '';
   const msg=S.absTxt||absMsg(p);
-  return `<div class="card" style="border:2px solid var(--ok,#2a7)"><b>Absent : ${esc(p.name)} (RDV prévu ${esc(rdvWhen(p))}).</b> Envoie-lui ce message pour rebooker un créneau :<textarea id="absmsgbox" rows="6" style="width:100%;margin:6px 0">${esc(msg)}</textarea><div class="row" id="absbtns" style="flex-wrap:wrap">${msgButtons(p,msg,'data-act="absdone"')}<button class="btn sm" data-act="absdone">OK, fait / ignorer</button></div><p class="muted sm" style="margin-top:6px">Un rappel est déjà prévu ${p.nextDate?'le '+esc(fdate(p.nextDate))+(p.nextTime?' à '+esc(p.nextTime.replace(':','h')):''):'demain à 10 h'} pour le recontacter.</p></div>`}
+  return `<div class="card" style="border:2px solid var(--ok,#2a7)"><b>Absent : ${esc(p.name)} (RDV prévu ${rdvTimeBtn(p)}).</b> Envoie-lui ce message pour rebooker un créneau :<textarea id="absmsgbox" rows="6" style="width:100%;margin:6px 0">${esc(msg)}</textarea><div class="row" id="absbtns" style="flex-wrap:wrap">${msgButtons(p,msg,'data-act="absdone"')}<button class="btn sm" data-act="absdone">OK, fait / ignorer</button></div><p class="muted sm" style="margin-top:6px">Un rappel est déjà prévu ${p.nextDate?'le '+esc(fdate(p.nextDate))+(p.nextTime?' à '+esc(p.nextTime.replace(':','h')):''):'demain à 10 h'} pour le recontacter.</p></div>`}
 function msgButtons(p,msg,after,mail){
   const ph=normPhone(p.phone),e=encodeURIComponent(msg),mob=isMobile(p.phone);
   const wa=mob?'whatsapp://send?phone='+(ph.startsWith('0')?'33'+ph.slice(1):ph.replace('+',''))+'&text='+e:'';
@@ -673,6 +673,49 @@ function briefBtn(p){if(!p.email)return '';const from=settings().mailFrom||'';co
 function rdvBtns(p,msg,id){const g=rdvGcal(p);return `${g?`<a class="btn" href="${g}" target="_blank" rel="noopener">Ajouter à Google Agenda${ty0(p)==='visio'?' (avec Meet)':''}</a>`:''}${msgButtons(p,msg,'',rdvMail(p,'conf'))}${briefBtn(p)}<button class="btn sm" data-act="rdvdone" data-id="${esc(id||p.id)}">OK, fait</button>`}
 function rdvColGet(){try{return JSON.parse(localStorage.getItem('aos_rdv_col')||'[]')}catch(e){return []}}
 function rdvColSet(id,v){try{const L=rdvColGet().filter(x=>x!==id);if(v)L.push(id);localStorage.setItem('aos_rdv_col',JSON.stringify(L.slice(-50)))}catch(e){}}
+
+/* ===== Changer la date/heure d'un RDV : un clic sur l'heure, et tout se met à jour (rappels, confirmation, appel de présence, planning) ===== */
+const rdvTimeBtn=p=>`<button type="button" class="rdvtime" data-act="rdv-redate" data-id="${esc(p.id)}" title="Changer la date et l'heure du RDV" style="background:none;border:0;border-bottom:1px dashed currentColor;padding:0;font:inherit;font-weight:700;color:inherit;cursor:pointer">${esc(rdvWhen(p))} ✎</button>`;
+function redateHTML(p){
+  const cur=String(p.rdvAt||'').slice(0,16),d0=cur.slice(0,10)||today();
+  const same=(S.prospects||[]).filter(x=>x.id!==p.id&&x.rdvAt&&String(x.rdvAt).slice(0,10)===d0&&x.stage!=='perdu'&&x.stage!=='stop').sort((a,b)=>String(a.rdvAt).localeCompare(String(b.rdvAt)));
+  const busy=same.length?`<p class="muted sm" style="margin:6px 0">Déjà prévu ce jour-là : ${same.map(x=>esc(String(x.rdvAt).slice(11,16).replace(':','h')+' '+x.name)).join(' · ')}</p>`:'<p class="muted sm" style="margin:6px 0">Rien d\'autre de prévu ce jour-là.</p>';
+  return `<div style="display:flex;justify-content:space-between;align-items:center"><b>🗓 Changer le RDV : ${esc(p.name)}</b><button type="button" class="btn sm" data-act="redate-close" aria-label="Fermer">✕</button></div>
+<p class="muted sm" style="margin:4px 0">Actuellement : ${esc(rdvWhen(p))}</p>
+<input type="datetime-local" id="redatev" step="900" value="${esc(cur)}" style="width:100%">
+<div class="row" style="gap:6px;flex-wrap:wrap;margin:6px 0"><button type="button" class="btn sm" data-act="redate-quick" data-n="0">Aujourd'hui</button><button type="button" class="btn sm" data-act="redate-quick" data-n="1">Demain</button><button type="button" class="btn sm" data-act="redate-quick" data-n="2">Après-demain</button></div>
+<div id="redatebusy">${busy}</div>
+<p class="muted sm" style="margin:4px 0">Les rappels, la confirmation et l'appel de présence sont recalculés pour la nouvelle heure.</p>
+<div class="row" style="gap:6px"><button type="button" class="btn primary" data-act="redate-save">Enregistrer la nouvelle heure</button><button type="button" class="btn" data-act="redate-close">Annuler</button></div>`}
+function redateRender(){
+  let el=document.getElementById('redate');
+  const p=S.redate&&byId(S.redate);
+  if(!p){if(el)el.remove();return}
+  if(!el){el=document.createElement('div');el.id='redate';el.setAttribute('role','dialog');el.setAttribute('aria-label','Changer le RDV');
+    el.style.cssText='position:fixed;left:50%;top:18vh;transform:translateX(-50%);z-index:60;width:min(380px,calc(100vw - 24px));background:var(--surface,#fff);border:2px solid var(--accent2,#b8892b);border-radius:12px;padding:14px;box-shadow:0 8px 28px rgba(0,0,0,.3)';
+    document.body.appendChild(el)}
+  el.innerHTML=redateHTML(p)}
+function redateOpen(id){S.redate=id;redateRender();const i=document.getElementById('redatev');if(i)i.focus()}
+function redateClose(){S.redate='';redateRender()}
+// Calcul du nouvel état d'un RDV déplacé (pur : testable)
+function redatePatch(p,val){
+  const old=p.rdvAt||'';
+  const patch={rdvAt:val,rem24:false,rem3:false,rem1:false,rem2:false,rdvConfSent:false,showCallFor:'',rdvMsgAI:'',rdvMsgFor:''};
+  if(p.rdvShow!=='tenu'){patch.rdvShow='';patch.stage='rdv';patch.nextDate='';patch.nextTime='';if(!p.rdvType)patch.rdvType='visio'}
+  const rs=(p.rdvs||[]).slice();
+  if(rs.length&&p.rdvShow!=='tenu'&&(rs[rs.length-1].show==='absent'||!rs[rs.length-1].show))rs[rs.length-1]={...rs[rs.length-1],at:val,show:''};
+  if(rs.length)patch.rdvs=rs;
+  return{patch,old}}
+async function redateSave(){
+  const p=S.redate&&byId(S.redate),v=(document.getElementById('redatev')||{}).value;
+  if(!p)return;if(!v){toast('Choisis une date et une heure.');return}
+  if(v===String(p.rdvAt||'').slice(0,16)){redateClose();return}
+  const {patch,old}=redatePatch(p,v);
+  const ok=await guard(()=>DB.update('prospects',p.id,patch));if(!ok)return;
+  Object.assign(p,patch);
+  logEv(p,'rdv','RDV déplacé'+(old?' : de '+fdt(old)+' à '+fdt(v):' au '+fdt(v)));
+  S.lastRDV=p.id;S.abs=S.abs===p.id?'':S.abs;
+  redateClose();toast('RDV déplacé : confirmation à renvoyer.');render()}
 function rdvCardOne(p,first){
   const ty=p.rdvType||'visio';
   const ai=rdvAiText(p);
@@ -682,8 +725,8 @@ function rdvCardOne(p,first){
   const box=busy?'<p class="muted sm" style="margin:8px 0">⏳ Rédaction du message à partir de la conversation complète…</p>':`<div class="muted sm" style="margin-top:6px">${ai?'Rédigé à partir de la conversation. Relis et modifie si besoin :':'Message standard (aucune conversation enregistrée pour ce RDV). Tu peux le modifier :'}</div><textarea ${first?'id="rdvmsgbox" ':''}class="rdvmsgbox" data-id="${esc(p.id)}" rows="${first?8:5}" style="width:100%;margin:4px 0">${esc(msg)}</textarea>`;
   const col=rdvColGet().includes(p.id);
   const tg=`<button type="button" class="btn sm" data-act="rdvtoggle" data-id="${esc(p.id)}" aria-expanded="${col?'false':'true'}" style="float:right">${col?'▸ Afficher':'▾ Réduire'}</button>`;
-  if(col)return `<div class="card" style="border:2px solid var(--ok,#2a7);padding:8px 12px">${tg}<b>RDV ${RDV_T[ty]} : ${esc(p.name)}, ${esc(rdvWhen(p))}.</b> <span class="muted sm">Confirmation pas encore envoyée</span></div>`;
-  return `<div class="card" style="border:2px solid var(--ok,#2a7)">${tg}<b>RDV ${RDV_T[ty]} pris : ${esc(p.name)}, ${esc(rdvWhen(p))}.</b> Envoie la confirmation :${box}<div class="row" id="${sid}" style="margin-top:8px;flex-wrap:wrap">${busy?'':rdvBtns(p,msg,p.id)}</div>${ty==='visio'&&!p.rdvLink?'<p class="muted sm" style="margin-top:6px">Dans Google Agenda, clique « Ajouter Google Meet », enregistre, puis remplace [lien Meet] dans le message.</p>':''}</div>`}
+  if(col)return `<div class="card" style="border:2px solid var(--ok,#2a7);padding:8px 12px">${tg}<b>RDV ${RDV_T[ty]} : ${esc(p.name)}, ${rdvTimeBtn(p)}.</b> <span class="muted sm">Confirmation pas encore envoyée</span></div>`;
+  return `<div class="card" style="border:2px solid var(--ok,#2a7)">${tg}<b>RDV ${RDV_T[ty]} pris : ${esc(p.name)}, ${rdvTimeBtn(p)}.</b> Envoie la confirmation :${box}<div class="row" id="${sid}" style="margin-top:8px;flex-wrap:wrap">${busy?'':rdvBtns(p,msg,p.id)}</div>${ty==='visio'&&!p.rdvLink?'<p class="muted sm" style="margin-top:6px">Dans Google Agenda, clique « Ajouter Google Meet », enregistre, puis remplace [lien Meet] dans le message.</p>':''}</div>`}
 function rdvCard(){
   const L=[],seen={};const add=p=>{if(p&&p.rdvAt&&!seen[p.id]){seen[p.id]=1;L.push(p)}};
   add(S.lastRDV?byId(S.lastRDV):null);rdvPendingAll().slice(0,8).forEach(add);
@@ -698,7 +741,7 @@ function showCallInfo(p){
   return{veille,from:veille?new Date(prev+'T16:30'):new Date(ds+'T08:30')}}
 function showCallDue(){const now=Date.now();return S.prospects.filter(p=>p.stage==='rdv'&&p.rdvAt&&(p.rdvType||'visio')!=='tel'&&!p.optout&&hasPhone(p.phone)&&p.showCallFor!==p.rdvAt).map(p=>({p,i:showCallInfo(p)})).filter(x=>x.i&&now>=x.i.from.getTime()&&now<new Date(x.p.rdvAt).getTime()-20*60000).sort((x,y)=>new Date(x.p.rdvAt)-new Date(y.p.rdvAt))}
 function showCallCard(){
-  return showCallDue().map(({p,i})=>`<div class="card" style="border:2px solid #b8892b"><b>📞 Appel de présence : ${esc(p.name)}</b> <span class="muted sm">RDV ${esc(RDV_T[p.rdvType||'visio'])} ${esc(rdvWhen(p))}</span><div class="sm" style="margin:4px 0">Appelle pour confirmer qu'il sera là${i.veille&&String(p.rdvAt).slice(0,10)>today()?' (RDV avant midi : on appelle la veille)':''} · ${esc(fmtPhone(p.phone))}</div><div class="row" style="flex-wrap:wrap;gap:6px"><a class="btn primary" href="tel:${esc(normPhone(p.phone))}">📞 Appeler</a><button class="btn" data-act="showcall" data-id="${esc(p.id)}" data-r="ok">✅ Joint : il confirme</button><button class="btn" data-act="showcall" data-id="${esc(p.id)}" data-r="nr">📵 Pas joint (message laissé)</button><button class="btn sm" data-act="showcall" data-id="${esc(p.id)}" data-r="skip">Ignorer</button></div></div>`).join('')}
+  return showCallDue().map(({p,i})=>`<div class="card" style="border:2px solid #b8892b"><b>📞 Appel de présence : ${esc(p.name)}</b> <span class="muted sm">RDV ${esc(RDV_T[p.rdvType||'visio'])} ${rdvTimeBtn(p)}</span><div class="sm" style="margin:4px 0">Appelle pour confirmer qu'il sera là${i.veille&&String(p.rdvAt).slice(0,10)>today()?' (RDV avant midi : on appelle la veille)':''} · ${esc(fmtPhone(p.phone))}</div><div class="row" style="flex-wrap:wrap;gap:6px"><a class="btn primary" href="tel:${esc(normPhone(p.phone))}">📞 Appeler</a><button class="btn" data-act="showcall" data-id="${esc(p.id)}" data-r="ok">✅ Joint : il confirme</button><button class="btn" data-act="showcall" data-id="${esc(p.id)}" data-r="nr">📵 Pas joint (message laissé)</button><button class="btn sm" data-act="showcall" data-id="${esc(p.id)}" data-r="skip">Ignorer</button></div></div>`).join('')}
 const remSnap=p=>({mail:!!(p.rem24||p.rem3||p.rem1||p.rem2),call:(p.showCallFor===p.rdvAt&&p.showCall)?(p.showCall.res==='ok'?1:p.showCall.res==='nr'?2:0):0});
 // Taux de présence aux RDV, selon les rappels faits (mail et appel)
 function presenceHTML(){
@@ -754,7 +797,8 @@ function planRow(e,showDate){
   const hh=(new Date(e.d+'T'+e.t)-Date.now())/36e5;
   const remBtn=(e.kind==='rdv'&&e.type!=='tel'&&hh>-0.25)?`<button class="btn sm primary" data-act="rem-open" data-id="${esc(p.id)}" data-k="${remKindAt(hh)}">Message de rappel${p[REM_K[remKindAt(hh)].f]?' ✓':''}</button>`:'';
   const absBtn=(e.kind==='rdv'&&e.st==='absent')?`<button class="btn sm primary" data-act="abs-open" data-id="${esc(p.id)}">Message d'absence</button>`:'';
-  const btn=remBtn+absBtn+(e.kind==='rap'?`<button class="btn sm primary" data-act="al-open" data-id="${esc(p.id)}">Appeler</button>`:`<button class="btn sm" data-act="rdvopen" data-id="${esc(p.id)}">Fiche de RDV</button><button class="btn sm" data-act="open" data-id="${esc(p.id)}">Fiche</button>`);
+  const redBtn=e.kind!=='rap'?`<button class="btn sm" data-act="rdv-redate" data-id="${esc(p.id)}">🗓 Changer l'heure</button>`:'';
+  const btn=remBtn+absBtn+redBtn+(e.kind==='rap'?`<button class="btn sm primary" data-act="al-open" data-id="${esc(p.id)}">Appeler</button>`:`<button class="btn sm" data-act="rdvopen" data-id="${esc(p.id)}">Fiche de RDV</button><button class="btn sm" data-act="open" data-id="${esc(p.id)}">Fiche</button>`);
   const dt=showDate?`<span class="muted sm">${esc(new Date(e.d+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}))}</span> `:'';
   return `<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:10px 0;gap:8px;flex-wrap:wrap"><span>${dt}<b style="font-size:1.1em">${esc(e.t.replace(':','h'))}</b> · ${ic} ${lab}${esc(ty)} · <b>${esc(p.name)}</b> ${stt}${late}<br>${p.dirigeant?'<span class="muted sm">'+esc(p.dirigeant)+'</span> · ':''}${tel} ${place}</span><span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${link}${btn}</span></div>`}
 const PLAN_H=52,PLAN_DUR={rdv:30,tel:20,rap:15};
@@ -2850,6 +2894,10 @@ document.addEventListener('click',async e=>{
     }catch(e){toast('Échec : '+e.message)}return}
   if(a==='rq-go'){S.rq.step=b.dataset.s||'';rdvqCheck();return}
   if(a==='rq-do'){rqDo(b.dataset.d);return}
+  if(a==='rdv-redate'){redateOpen(b.dataset.id);return}
+  if(a==='redate-close'){redateClose();return}
+  if(a==='redate-save'){await redateSave();return}
+  if(a==='redate-quick'){const i=document.getElementById('redatev'),p=S.redate&&byId(S.redate);if(i){const t=String(i.value||'').slice(11,16)||String((p&&p.rdvAt)||'').slice(11,16)||'10:00';i.value=addDays(today(),+b.dataset.n)+'T'+t;const bx=document.getElementById('redatebusy');if(bx&&p){const d0=i.value.slice(0,10),same=(S.prospects||[]).filter(x=>x.id!==p.id&&x.rdvAt&&String(x.rdvAt).slice(0,10)===d0&&x.stage!=='perdu'&&x.stage!=='stop');bx.innerHTML='<p class="muted sm" style="margin:6px 0">'+(same.length?'Déjà prévu ce jour-là : '+same.map(x=>esc(String(x.rdvAt).slice(11,16).replace(':','h')+' '+x.name)).join(' · '):'Rien d\'autre de prévu ce jour-là.')+'</p>'}}return}
   if(a==='gene-open'){geneOpen();return}
   if(a==='gene-close'){geneClose();return}
   if(a==='gene-rec'){geneRec();return}
