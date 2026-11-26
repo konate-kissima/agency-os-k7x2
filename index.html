@@ -464,7 +464,7 @@ SI IL EST OCCUPÉ
 RDV
 « Je repasse ou on s'appelle : {jour} à 17h30, ça vous va ? »`}
 };
-const DEF_SETTINGS={mailFrom:'kissima.closing@gmail.com',meetLink:'https://meet.google.com/yaa-rnwr-igk',angle:'P',pilotPrice:3000,normalPrice:4000,budgetDay:30,minMonths:3,recordText:'Cet appel peut être enregistré pour ma formation. Dites-le-moi si vous préférez que non.',scripts:DEF_SCRIPTS};
+const DEF_SETTINGS={mailFrom:'kissima.closing@gmail.com',meetLink:'https://meet.google.com/yaa-rnwr-igk',videoUrl:'https://konate-kissima.github.io/agency-os-k7x2/video/',angle:'P',pilotPrice:3000,normalPrice:4000,budgetDay:30,minMonths:3,recordText:'Cet appel peut être enregistré pour ma formation. Dites-le-moi si vous préférez que non.',scripts:DEF_SCRIPTS};
 const CHECK=[['contrat','Contrat signé + 1er paiement'],['page','Page Facebook du client prête'],['bm','Accès partenaire au Business Manager / compte pub du client'],['pay','Moyen de paiement du client sur le compte pub'],['form','Formulaire de leads (3 questions de qualification)'],['crea','Créatives (3 variantes) validées par le client'],['alerte','Alerte lead (SMS/WhatsApp au client) + rappel du lead en moins de 5 min'],['launch','Campagne lancée (date = début des 14 jours sans toucher)'],['j14','Revue à J+14'],['cas','Accord écrit pour le cas d\'étude']];
 const OUT_CH=[['dm_insta','DM Instagram'],['dm_fb','DM Facebook'],['dm_lin','DM LinkedIn'],['video','Vidéo personnalisée (Loom, 45 s)'],['email','Email']];
 const OUT_RES=[['sent','Envoyé','primary'],['reply','A répondu',''],['rdv','RDV pris','primary'],['no','Pas intéressé',''],['stop','Ne plus contacter','danger']];
@@ -586,6 +586,7 @@ function rdvWhen(p){const d=new Date(p.rdvAt);return d.toLocaleDateString('fr-FR
 const greetName=p=>{const n=String(p.dirigeant||'').trim();return n?' '+n:''};
 function ptsText(p){const k=p.pts||{};if(!k.objectif)return '';const o=String(k.objectif).trim().replace(/[.\s]+$/,'');return 'Au programme : '+o.charAt(0).toLowerCase()+o.slice(1)+'. '}
 const firstName=p=>String(p.dirigeant||'').trim().split(/\s+/)[0]||'';
+function withVideo(p,t){const u=(settings().videoUrl||'').trim();if(!u||(p.rdvType||'visio')!=='visio'||!t||t.includes(u))return t;return String(t).replace(/\s+$/,'')+`\n\nUne petite vidéo d'1 minute qui explique comment va se dérouler notre visio (à regarder quand vous avez un moment) : ${u}`}
 // Mails de présence (style chaleureux) : confirmation, veille, 3 h avant, 1 h avant
 function rdvMail(p,kind){
   const ty=p.rdvType||'visio',fn=firstName(p),d=new Date(p.rdvAt),h=pad(d.getHours())+'h'+pad(d.getMinutes());
@@ -596,8 +597,8 @@ function rdvMail(p,kind){
   const pts=ptsText(p).trim();
   if(kind==='conf'){
     const su=`Notre ${noun} du ${jourL} à ${h}`,ai=rdvAiText(p);
-    if(ai)return{su,body:ai};
-    return{su,body:`${hello}\n\nMerci pour notre échange, c'était un vrai plaisir. Je vous confirme notre ${noun} ${jourL} à ${h}.\n${pts?pts+'\n':''}${where}\n\nSi le planning change, répondez simplement à ce mail : on décale sans souci.\n\nÀ très vite,\n${sign}`}}
+    if(ai)return{su,body:withVideo(p,ai)};
+    return{su,body:withVideo(p,`${hello}\n\nMerci pour notre échange, c'était un vrai plaisir. Je vous confirme notre ${noun} ${jourL} à ${h}.\n${pts?pts+'\n':''}${where}`).concat(`\n\nSi le planning change, répondez simplement à ce mail : on décale sans souci.\n\nÀ très vite,\n${sign}`)}}
   if(kind==='r24')return{su:`À demain${fn?' '+fn:''} !`,body:`${hello}\n\nUn petit mot pour notre ${noun} demain à ${h}. ${where}\n${pts?pts+'\n':''}\nVenez comme vous êtes, avec vos questions : on y verra clair ensemble. Si vous avez un empêchement, dites-le-moi simplement, on décale.\n\nÀ demain !\n${sign}`};
   if(kind==='r3')return{su:`Tout à l'heure à ${h}`,body:`${hello}\n\nJuste un coucou pour notre ${noun} de tout à l'heure, à ${h}. ${where}\n\nÀ très vite !\n${sign}`};
   return{su:"C'est bientôt !",body:`${hello}\n\nNotre ${noun} est dans une heure, à ${h}. ${where}\n\nSi vous êtes en chantier, pas de souci : prévenez-moi d'un mot.\n\nÀ tout de suite,\n${sign}`}}
@@ -608,7 +609,7 @@ function rdvMsg(p,kind){
   if(kind==='conf'){
     if(ty==='tel')return `${hi} Comme convenu, je vous appelle ${w}. ${ptsText(p)}Répondez « OK » pour confirmer ce créneau.`;
     if(ty==='physique')return `${hi} Comme convenu, on se retrouve ${w}${lieu}. ${ptsText(p)}Répondez « OK » pour confirmer.`;
-    return `${hi} Comme convenu, on se retrouve en visio ${w} : ${lien}. ${ptsText(p)}Répondez « OK » pour confirmer.`}
+    return withVideo(p,`${hi} Comme convenu, on se retrouve en visio ${w} : ${lien}. ${ptsText(p)}Répondez « OK » pour confirmer.`)}
   const jour=kind==='r24'?'demain':'aujourd\'hui',fin=jour==='demain'?'À demain !':'À tout à l\'heure !';
   if(ty==='physique')return `${hi} Petit rappel : notre rendez-vous ${jour} à ${h}${lieu}. ${fin}`;
   return `${hi} Petit rappel : notre visio ${jour} à ${h} : ${lien}. ${fin}`}
@@ -726,7 +727,7 @@ async function redateSave(){
 function rdvCardOne(p,first){
   const ty=p.rdvType||'visio';
   const ai=rdvAiText(p);
-  const msg=ai||rdvMsg(p,'conf');
+  const msg=ai?withVideo(p,ai):rdvMsg(p,'conf');
   const busy=S.msgBusy===p.id;
   const sid=first?'rdvbtns':'rdvbtns-'+p.id;
   const box=busy?'<p class="muted sm" style="margin:8px 0">⏳ Rédaction du message à partir de la conversation complète…</p>':`<div class="muted sm" style="margin-top:6px">${ai?'Rédigé à partir de la conversation. Relis et modifie si besoin :':'Message standard (aucune conversation enregistrée pour ce RDV). Tu peux le modifier :'}</div><textarea ${first?'id="rdvmsgbox" ':''}class="rdvmsgbox" data-id="${esc(p.id)}" rows="${first?8:5}" style="width:100%;margin:4px 0">${esc(msg)}</textarea>`;
